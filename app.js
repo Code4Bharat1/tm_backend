@@ -1,15 +1,35 @@
 // server.js or app.js
 import express from 'express';
 import connectDB from './src/init/dbConnection.js';
+import SignupRouter from './src/routes/signup.route.js';
+import LoginRouter from './src/routes/login.route.js';
+import ForgotPasswordRouter from './src/routes/forgotpassword.route.js';
+import dotenv from 'dotenv';
+import cors from 'cors';
 
+
+dotenv.config();
+const Port = process.env.PORT;
 const app = express();
 
-// Connect to MongoDB
+const router = express.Router();
+
 connectDB();
 
-// Your middleware and routes
+app.use(cors({
+    origin: 'http://localhost:3000', // Frontend origin
+    credentials: true
+}));
+
+
 app.use(express.json());
 
-app.listen(5000, () => {
-    console.log('Server running on http://localhost:5000');
+app.get('/', (req, res) => res.send('API is working'));
+
+app.use('/api/user', SignupRouter);
+app.use('/api/user', LoginRouter);
+app.use('/api/forgotpassword', ForgotPasswordRouter);
+
+app.listen(Port, () => {
+    console.log('Server running on http://localhost:4000');
 });

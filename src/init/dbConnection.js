@@ -1,15 +1,23 @@
+// db.js
 import mongoose from 'mongoose';
-import config from 'config';
+import dotenv from 'dotenv';
 
-const mongoConfig = config.get('mongodb');
+dotenv.config();
 
-const mongoURI = mongoConfig.uri || `mongodb://${mongoConfig.host}:${mongoConfig.port}/${mongoConfig.database}`;
+const mongoURI = process.env.MONGO_URI;
 
-mongoose.connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-})
-    .then(() => console.log('MongoDB connection established successfully'))
-    .catch((err) => console.error('Unable to connect to MongoDB:', err.message));
+const connectDB = async () => {
+    try {
+        await mongoose.connect(mongoURI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            dbName: 'tm', //database name
+        });
+        console.log('✅ MongoDB connected successfully');
+    } catch (error) {
+        console.error('❌ MongoDB connection error:', error.message);
+        process.exit(1);
+    }
+};
 
-export default mongoose;
+export default connectDB;
