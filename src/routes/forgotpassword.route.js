@@ -1,4 +1,4 @@
-import { generateOtp } from "../controller/forgotpassword.controller.js";
+import { generateOtp, verifyOtpAndChangePassword } from "../controller/forgotpassword.controller.js";
 import express from "express";
 
 const router = express.Router();
@@ -6,6 +6,6 @@ const router = express.Router();
 router.post("/generate-otp", generateOtp);
 
 // OTP verification route
-// router.post("/verify-otp", verifyOtp);
+router.post("/verify-otp", verifyOtpAndChangePassword);
 
 export default router;
