@@ -6,6 +6,7 @@ import LoginRouter from './src/routes/login.route.js';
 import ForgotPasswordRouter from './src/routes/forgotpassword.route.js';
 import TimesheetRouter from './src/routes/timesheet.route.js';
 import AttendanceRouter from './src/routes/attendance.route.js';
+import LeaveRouter from './src/routes/leave.route.js';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
@@ -33,6 +34,7 @@ app.use('/api/user', LoginRouter);
 app.use('/api/forgotpassword', ForgotPasswordRouter);
 app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
+app.use('/api/leave', LeaveRouter);
 
 app.listen(Port, () => {
     console.log('Server running on http://localhost:4000');
