@@ -2,6 +2,8 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
+
+
 const userSchema = new mongoose.Schema({
     userId: {
         type: String,
@@ -43,8 +45,30 @@ const userSchema = new mongoose.Schema({
     },
     expiresAt: {
         type: Date,
-    }
+    },
+    photoUrl:{
+        type: String,
+    },
+
+    // 👇 Bank Details Array
+    bankDetails: [{
+        accountHolderName: { type: String, required: true },
+        accountNumber: { type: String, required: true }, // encrypt in logic
+        ifscCode: { type: String, required: true },
+        bankName: { type: String }
+    }],
+
+    // 👇 Identity Documents Array
+    identityDocs: [{
+        aadhaarNumber: { type: String }, // encrypt
+        panNumber: { type: String },     // encrypt
+        aadhaarFrontUrl: { type: String },
+        panCardUrl: { type: String }
+    }]
+
 }, { timestamps: true });
+
+
 
 // Generate unique userId before saving
 userSchema.pre('validate', async function (next) {
