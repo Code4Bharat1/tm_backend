@@ -1,5 +1,5 @@
-import userModel from "../models/user.model.js";
-
+import User from '../models/user.model.js'; // Adjust the path as necessary
+import jwt from 'jsonwebtoken';
 
 const loginUser = async (req, res) => {
     const { identifier, password } = req.body; // 'identifier' can be email or phone
@@ -10,7 +10,7 @@ const loginUser = async (req, res) => {
 
     try {
         // Find by email OR phone number
-        const user = await userModel.findOne({
+        const user = await User.findOne({
             $or: [
                 { email: identifier },
                 { phoneNumber: identifier }
@@ -28,8 +28,22 @@ const loginUser = async (req, res) => {
             return res.status(401).json({ message: 'Invalid email/phone or password' });
         }
 
+        const token = jwt.sign(
+            { userId: user._id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRATION }
+        );
+
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "Strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
         res.status(200).json({
             message: 'Login successful',
+            token,
             user: {
                 userId: user.userId,
                 firstName: user.firstName,
