@@ -41,7 +41,7 @@ const createUser = async (req, res) => {
             phoneNumber,
             email,
             companyName,
-            password, 
+            password,
         });
 
         await newUser.save();
@@ -60,6 +60,10 @@ const createUser = async (req, res) => {
             }
         });
     } catch (error) {
+        if (error.code === 11000) {
+            const duplicateField = Object.keys(error.keyPattern)[0];
+            return res.status(409).json({ message: `Duplicate ${duplicateField}` });
+        }
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
