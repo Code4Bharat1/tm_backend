@@ -38,6 +38,18 @@ const userSchema = new mongoose.Schema({
     },
     position: {
         type: String,
+        default: "Empolyee"
+    },
+    Gender:{
+        type: String,
+        default: null
+    },
+    DateOfJoining:{
+        type: String,
+        default: null
+    },
+    Address:{
+        type: String,
         default: null
     },
     otp: {
