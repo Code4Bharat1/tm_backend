@@ -5,7 +5,7 @@ import User from '../models/user.model.js';
     try {
         const userId = req.user.userId; // from JWT
         console.log('User ID from token:', userId); // Debugging line
-        const user = await User.findOne({ _id: userId }).select('firstName lastName position phoneNumber email photoUrl');
+        const user = await User.findOne({ _id: userId }).select('firstName lastName position phoneNumber email photoUrl Gender Address DateOfJoining');
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });

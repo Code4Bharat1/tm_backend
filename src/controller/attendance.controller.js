@@ -8,11 +8,11 @@ const calculateHours = (start, end) => {
 
 export const punchOutController = async (req, res) => {
     try {
-        const { userId, punchOutTime, punchOutLocation, emergencyReason } = req.body;
-
+        const {  punchOutTime, punchOutLocation, emergencyReason } = req.body;
+        const userId = req.user.userId;
         const today = new Date().setHours(0, 0, 0, 0);
 
-        const attendance = await Attendance.findOne({ useId: userId, date: today });
+        const attendance = await Attendance.findOne({ userId: userId, date: today });
 
         if (!attendance) {
             return res.status(404).json({ message: "Punch-in record not found" });
@@ -61,11 +61,11 @@ export const punchOutController = async (req, res) => {
 
 export const punchInController = async (req, res) => {
     try {
-        const { userId, punchInTime, punchInLocation } = req.body;
-
+        const {  punchInTime, punchInLocation } = req.body;
+        const userId = req.user.userId;
         const today = new Date().setHours(0, 0, 0, 0);
 
-        let attendance = await Attendance.findOne({ useId: userId, date: today });
+        let attendance = await Attendance.findOne({ userId: userId, date: today });
 
         if (attendance && attendance.punchIn) {
             return res.status(400).json({ message: "Already punched in for today." });
@@ -73,7 +73,7 @@ export const punchInController = async (req, res) => {
 
         if (!attendance) {
             attendance = new Attendance({
-                useId: userId,
+                userId,
                 date: today,
             });
         }

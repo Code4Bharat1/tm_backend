@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const attendanceSchema = new mongoose.Schema({
-    useId: {
+    userId: {
         type: String,
         required: true,
     },
@@ -11,7 +11,7 @@ const attendanceSchema = new mongoose.Schema({
         default: () => new Date().setHours(0, 0, 0, 0), // normalized to start of day
     },
     punchIn: {
-        type: Date,
+        type: String,
         default: null,
     },
     punchInLocation: {
