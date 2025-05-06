@@ -2,6 +2,7 @@ import express from "express";
 import {
   punchOutController,
   punchInController,
+  getTodayAttendance,
 } from "../controller/attendance.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
 const router = express.Router();
@@ -15,6 +16,11 @@ router.post(
   "/punch-out",
   protect,
   punchOutController
+);
+router.get(
+  "/today",
+  protect,
+  getTodayAttendance
 );
 
 export default router;
