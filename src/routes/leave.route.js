@@ -5,6 +5,7 @@ import {
     getAllLeaves,
     updateLeaveStatus,
 } from "../controller/leave.controller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -18,8 +19,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Routes
-router.post("/apply", upload.single("attachment"), applyLeave);
-router.get("/all", getAllLeaves);
+router.post("/apply",protect, upload.single("attachment"), applyLeave);
+router.get("/userLeave",protect, getAllLeaves);
 router.put("/status/:leaveId", updateLeaveStatus);
 
 export default router;

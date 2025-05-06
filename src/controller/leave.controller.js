@@ -1,17 +1,17 @@
 import Leave from "../models/leave.model.js";
 
 // Apply for leave
-export const applyLeave = async (req, res) => {
+ const applyLeave = async (req, res) => {
     try {
         const {
-            userId,
+            
             fromDate,
             toDate,
             leaveType,
             managerId,
             reason,
         } = req.body;
-
+        const userId = req.user.userId; 
         const attachment = req.file ? req.file.filename : null;
 
         const leave = new Leave({
@@ -42,9 +42,10 @@ export const applyLeave = async (req, res) => {
 };
 
 // Get all leaves (admin/manager view)
-export const getAllLeaves = async (req, res) => {
+ const getAllLeaves = async (req, res) => {
     try {
-        const leaves = await Leave.find()
+        const userId = req.user.userId; // Get the user ID from the request
+        const leaves = await Leave.find({userId})
             .populate("userId", "name email")
             .sort({ createdAt: -1 });
 
@@ -63,7 +64,7 @@ export const getAllLeaves = async (req, res) => {
 };
 
 // Update leave status (approve or reject)
-export const updateLeaveStatus = async (req, res) => {
+ const updateLeaveStatus = async (req, res) => {
     try {
         const { leaveId } = req.params;
         const { status } = req.body;
@@ -102,3 +103,5 @@ export const updateLeaveStatus = async (req, res) => {
         });
     }
 };
+
+export { applyLeave, getAllLeaves, updateLeaveStatus };

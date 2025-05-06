@@ -15,14 +15,13 @@ const leaveSchema = new mongoose.Schema({
     },
     leaveType: {
         type: String,
-        enum: ["Sick", "Casual", "Earned", "Maternity", "Paternity", "Other"],
+        // enum: ["Sick", "Casual", "Earned", "Maternity", "Paternity", "Other"],
         required: true,
     },
     managerId: {
         type: String,
-        required: true,
+        // required: true,
         default: null,
-        
     },
     attachment: {
         type: String, // File name or file path
@@ -37,10 +36,25 @@ const leaveSchema = new mongoose.Schema({
         enum: ["Pending", "Approved", "Rejected"],
         default: "Pending",
     },
+    days: {
+        type: Number,
+        //required: true,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
     },
+});
+
+// Pre-save middleware to calculate the number of days between `fromDate` and `toDate`
+leaveSchema.pre('save', function(next) {
+    if (this.fromDate && this.toDate) {
+        // Calculate the difference in days
+        const diffTime = new Date(this.toDate) - new Date(this.fromDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24)); // Convert time difference to days
+        this.days = diffDays >= 0 ? diffDays : 0; // Ensure the number of days is non-negative
+    }
+    next();
 });
 
 const Leave = mongoose.model("Leave", leaveSchema);
