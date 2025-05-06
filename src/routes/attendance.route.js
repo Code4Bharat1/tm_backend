@@ -3,6 +3,7 @@ import {
   punchOutController,
   punchInController,
   getTodayAttendance,
+  getAllAttendance,
 } from "../controller/attendance.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
 const router = express.Router();
@@ -21,6 +22,11 @@ router.get(
   "/today",
   protect,
   getTodayAttendance
+);
+router.get(
+  "/punchHistory",
+  protect,
+  getAllAttendance
 );
 
 export default router;

@@ -30,24 +30,20 @@ export const punchOutController =
         });
 
       if (!attendance) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "Punch-in record not found",
-          });
+        return res.status(404).json({
+          message:
+            "Punch-in record not found",
+        });
       }
 
       if (!attendance.punchIn) {
         attendance.status = "Pending";
         await attendance.save();
-        return res
-          .status(200)
-          .json({
-            message:
-              "Punch-in missing. Status set to Pending.",
-            attendance,
-          });
+        return res.status(200).json({
+          message:
+            "Punch-in missing. Status set to Pending.",
+          attendance,
+        });
       }
 
       attendance.punchOut = punchOutTime
@@ -95,13 +91,11 @@ export const punchOutController =
         "Punch-out error:",
         error
       );
-      res
-        .status(500)
-        .json({
-          message:
-            "Server error during punch-out",
-          error,
-        });
+      res.status(500).json({
+        message:
+          "Server error during punch-out",
+        error,
+      });
     }
   };
 
@@ -132,12 +126,10 @@ export const punchInController = async (
       attendance &&
       attendance.punchIn
     ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Already punched in for today.",
-        });
+      return res.status(400).json({
+        message:
+          "Already punched in for today.",
+      });
     }
 
     if (!attendance) {
@@ -166,13 +158,11 @@ export const punchInController = async (
       "Punch-in error:",
       error
     );
-    res
-      .status(500)
-      .json({
-        message:
-          "Server error during punch-in",
-        error,
-      });
+    res.status(500).json({
+      message:
+        "Server error during punch-in",
+      error,
+    });
   }
 };
 
@@ -194,9 +184,10 @@ export const getTodayAttendance =
         });
 
       if (!attendance) {
-        return res
-          .status(200)
-          .json({ punchedIn: false });
+        return res.status(200).json({
+          punchedIn: false,
+          punchedOut: false,
+        });
       }
 
       res.status(200).json({
@@ -206,18 +197,45 @@ export const getTodayAttendance =
         punchInLocation:
           attendance.punchInLocation ||
           null,
+        punchedOut:
+          !!attendance.punchOut,
+        punchOutTime:
+          attendance.punchOut || null,
+        punchOutLocation:
+          attendance.punchOutLocation ||
+          null,
       });
     } catch (error) {
       console.error(
         "Error fetching attendance:",
         error
       );
-      res
-        .status(500)
-        .json({
-          message:
-            "Server error fetching attendance",
-          error,
-        });
+      res.status(500).json({
+        message:
+          "Server error fetching attendance",
+        error,
+      });
     }
   };
+
+export const getAllAttendance = async (
+  req,
+  res
+) => {
+  try {
+    const userId = req.user.userId;
+    const attendance = await Attendance.find({ userId });
+    if (!attendance) {
+      return res.status(404).json({
+        message: "No attendance records found",
+      });
+    }
+    res.status(200).json(attendance);
+  } catch (error) {
+    console.error("Error fetching attendance:", error);
+    res.status(500).json({
+      message: "Server error fetching attendance",
+      error,
+    });
+  }
+};

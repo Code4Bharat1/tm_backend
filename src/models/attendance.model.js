@@ -11,7 +11,7 @@ const attendanceSchema = new mongoose.Schema({
         default: () => new Date().setHours(0, 0, 0, 0), // normalized to start of day
     },
     punchIn: {
-        type: String,
+        type: Date,
         default: null,
     },
     punchInLocation: {
@@ -47,6 +47,11 @@ const attendanceSchema = new mongoose.Schema({
         type: Date,
         default: Date.now,
     },
+    remark: {
+        type: String,
+
+        default: "Absent",
+    }
 }, {
     timestamps: true // adds createdAt and updatedAt
 });
