@@ -1,4 +1,4 @@
-// server.js or app.js
+
 import express from 'express';
 import connectDB from './src/init/dbConnection.js';
 import SignupRouter from './src/routes/signup.route.js';
@@ -12,6 +12,7 @@ import AdminRouter from './src/routes/adminAuth.route.js'
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { logout } from './src/controller/logout.controller.js';
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -40,6 +41,7 @@ app.use('/api/attendance', AttendanceRouter);
 app.use('/api/leave', LeaveRouter);
 app.use('/api/profile', ProfileRouter); 
 app.use('/api/admin', AdminRouter )
+app.use('/api/logout', logout )
 app.listen(Port, () => {
     console.log('Server running on http://localhost:4000');
 });
