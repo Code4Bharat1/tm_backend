@@ -80,12 +80,9 @@ const getTimesheetsbyDate = async (
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res
-      .status(400)
-      .json({
-        message:
-          "User not authenticated",
-      });
+    return res.status(400).json({
+      message: "User not authenticated",
+    });
   }
 
   // Convert the date to the expected format if it's a Date object or a string
@@ -98,12 +95,10 @@ const getTimesheetsbyDate = async (
     : null;
 
   if (!formattedDate) {
-    return res
-      .status(400)
-      .json({
-        message:
-          "Invalid date format. Expected YYYY-MM-DD.",
-      });
+    return res.status(400).json({
+      message:
+        "Invalid date format. Expected YYYY-MM-DD.",
+    });
   }
 
   console.log(
@@ -121,32 +116,124 @@ const getTimesheetsbyDate = async (
     if (timesheet) {
       return res.status(200).json({
         message: "Timesheet found",
-        boolean: true, // Fixed typo from "boolen" to "boolean"
-        timesheet, // Returning the actual timesheet data here
+        boolean: true,
+        timesheet,
       });
     } else {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Timesheet not found for this date",
-        });
+      return res.status(404).json({
+        message:
+          "Timesheet not found for this date",
+      });
     }
   } catch (err) {
     console.error(
       "Error fetching timesheet:",
       err
     );
-    res
-      .status(500)
-      .json({
-        message: "Server Error",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Server Error",
+      error: err.message,
+    });
   }
 };
 
+// Update Timesheet Controller
+const updateTimesheet = async (
+  req,
+  res
+) => {
+  try {
+    const { date } = req.params;
+    const {
+      projectName,
+      items = [],
+      notifiedManagers = [],
+    } = req.body;
+    const userId = req.user.userId;
+
+    // Validate date format
+    const formattedDate = moment(
+      date,
+      "YYYY-MM-DD",
+      true
+    ).isValid()
+      ? moment(date).format(
+          "YYYY-MM-DD"
+        )
+      : null;
+
+    if (!formattedDate) {
+      return res.status(400).json({
+        message:
+          "Invalid date format. Use YYYY-MM-DD.",
+      });
+    }
+
+    // Calculate total work hours
+    const totalMinutes = items.reduce(
+      (sum, task) => {
+        const [hours, minutes] =
+          task.duration
+            .split(":")
+            .map(Number);
+        return (
+          sum + (hours * 60 + minutes)
+        );
+      },
+      0
+    );
+
+    const totalHours = `${String(
+      Math.floor(totalMinutes / 60)
+    ).padStart(2, "0")}:${String(
+      totalMinutes % 60
+    ).padStart(2, "0")}`;
+
+    if (totalMinutes < 480) {
+      return res.status(400).json({
+        message:
+          "Total work hours must be at least 8 hours.",
+      });
+    }
+
+    // Find and update the existing timesheet
+    const updated =
+      await Timesheet.findOneAndUpdate(
+        { userId, date: formattedDate },
+        {
+          projectName,
+          items,
+          notifiedManagers,
+          totalWorkHours: totalHours,
+        },
+        { new: true }
+      );
+
+    if (!updated) {
+      return res.status(404).json({
+        message:
+          "Timesheet not found for this date.",
+      });
+    }
+
+    return res.status(200).json({
+      message:
+        "Timesheet updated successfully",
+      timesheet: updated,
+    });
+  } catch (error) {
+    console.error(
+      "Error updating timesheet:",
+      error
+    );
+    return res.status(500).json({
+      message:
+        "Server error while updating timesheet.",
+    });
+  }
+};
 export {
   storeTimesheet,
   getTimesheetsbyDate,
+  updateTimesheet,
 };

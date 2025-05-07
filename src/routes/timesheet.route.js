@@ -1,12 +1,29 @@
-import express from 'express';
-import { storeTimesheet, getTimesheetsbyDate } from '../controller/timesheet.controller.js';
-import { protect } from '../middleware/authMiddleware.js';
+import express from "express";
+import {
+  storeTimesheet,
+  getTimesheetsbyDate,
+  updateTimesheet,
+} from "../controller/timesheet.controller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 // Route to store timesheet
-router.post('/store',protect , storeTimesheet);
+router.post(
+  "/store",
+  protect,
+  storeTimesheet
+);
 // Example endpoint in the backend to fetch timesheet by date
-router.get("/:date", protect, getTimesheetsbyDate);
+router.get(
+  "/:date",
+  protect,
+  getTimesheetsbyDate
+);
+router.put(
+  "/:date",
+  protect,
+  updateTimesheet
+);
 
 // Route to get timesheet
 // router.get('/get', (req, res) => {
