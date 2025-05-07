@@ -1,7 +1,7 @@
-import User from '../models/user.model.js';
+import Admin from '../../models/admin.model.js';
 import jwt from 'jsonwebtoken';
 
-const loginUser = async (req, res) => {
+export const loginAdmin = async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
@@ -10,22 +10,22 @@ const loginUser = async (req, res) => {
 
   try {
     // Find by email OR phone number
-    const user = await User.findOne({
-      $or: [{ email: identifier }, { phoneNumber: identifier }],
-    });
+    const admin = await Admin.findOne({
+      $or: [{ email: identifier }, { phone: identifier }],
+    }).select('+password');
 
-    if (!user) {
+    if (!admin) {
       return res.status(401).json({ message: 'Invalid email/phone or password' });
     }
 
     // Compare password (if using comparePassword method in model)
-    const isMatch = await user.matchPassword(password); // OR use bcrypt.compare(password, user.password) if not in schema
+    const isMatch = await admin.matchPassword(password); // OR use bcrypt.compare(password, admin.password) if not in schema
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email/phone or password' });
     }
 
-    const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ adminId: admin._id, email: admin.email }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRATION,
     });
 
@@ -39,14 +39,12 @@ const loginUser = async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
-      user: {
-        userId: user.userId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phoneNumber: user.phoneNumber,
-        email: user.email,
-        companyName: user.companyName,
-        position: user.position,
+      admin: {
+        adminId: admin.adminId,
+        fName: admin.fName,
+        lName: admin.lName,
+        phone: admin.phone,
+        email: admin.email,
       },
     });
   } catch (error) {
@@ -54,5 +52,3 @@ const loginUser = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
-
-export { loginUser };

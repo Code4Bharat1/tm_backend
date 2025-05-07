@@ -8,6 +8,7 @@ import TimesheetRouter from './src/routes/timesheet.route.js';
 import AttendanceRouter from './src/routes/attendance.route.js';
 import LeaveRouter from './src/routes/leave.route.js';
 import ProfileRouter from './src/routes/profile.route.js';
+import AdminRouter from './src/routes/adminAuth.route.js'
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -38,7 +39,7 @@ app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
 app.use('/api/leave', LeaveRouter);
 app.use('/api/profile', ProfileRouter); 
-
+app.use('/api/admin', AdminRouter )
 app.listen(Port, () => {
     console.log('Server running on http://localhost:4000');
 });
