@@ -144,6 +144,25 @@ export const punchInController = async (
       : new Date();
     attendance.punchInLocation =
       punchInLocation || null;
+
+    // Determine remark based on punch-in time
+    const punchInDate =
+      attendance.punchIn;
+    const punchInHour =
+      punchInDate.getHours();
+    const punchInMinute =
+      punchInDate.getMinutes();
+
+    if (
+      punchInHour < 9 ||
+      (punchInHour === 9 &&
+        punchInMinute === 0)
+    ) {
+      attendance.remark = "Present";
+    } else {
+      attendance.remark = "Late";
+    }
+
     attendance.status = "Pending"; // initially pending until punch out
 
     await attendance.save();
@@ -224,17 +243,23 @@ export const getAllAttendance = async (
 ) => {
   try {
     const userId = req.user.userId;
-    const attendance = await Attendance.find({ userId });
+    const attendance =
+      await Attendance.find({ userId });
     if (!attendance) {
       return res.status(404).json({
-        message: "No attendance records found",
+        message:
+          "No attendance records found",
       });
     }
     res.status(200).json(attendance);
   } catch (error) {
-    console.error("Error fetching attendance:", error);
+    console.error(
+      "Error fetching attendance:",
+      error
+    );
     res.status(500).json({
-      message: "Server error fetching attendance",
+      message:
+        "Server error fetching attendance",
       error,
     });
   }

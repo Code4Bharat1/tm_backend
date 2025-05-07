@@ -1,74 +1,60 @@
 import mongoose from "mongoose";
 
-
-const MAX_TASK_HOURS = 1.5;
-const MIN_TOTAL_HOURS = 8;
-
+// Define the schema for tasks
 const taskSchema = new mongoose.Schema({
-    task: {
+  timeRange: {
+    type: String,
+    required: true,
+  }, // Time range of the task
+  task: { type: String, default: "" }, // Task description
+  type: {
+    type: String,
+    enum: ["Meeting", "Miscellaneous"],
+    required: true,
+  }, // Type of task
+  duration: {
+    type: String,
+    default: "01:00",
+  }, // Duration in format HH:MM
+  bucket: {
+    type: String,
+    default: "Miscellaneous",
+  }, // Category of task (Meeting or Miscellaneous)
+});
+
+// Define the schema for the timesheet
+const timesheetSchema =
+  new mongoose.Schema(
+    {
+      userId: {
         type: String,
         required: true,
-        trim: true
-    },
-    totalHours: {
-        type: Number,
-        required: true,
-        validate: {
-            validator: (v) => v <= MAX_TASK_HOURS,
-            message: `Total hours for a task cannot exceed ${MAX_TASK_HOURS} hours`
-        }
-    },
-    hoursToday: {
-        type: Number,
-        required: true,
-        validate: {
-            validator: (v) => v <= MAX_TASK_HOURS,
-            message: `Today's hours for a task cannot exceed ${MAX_TASK_HOURS} hours`
-        }
-    }
-});
-
-const timesheetSchema = new mongoose.Schema({
-    userId: {
+      },
+      date: {
         type: String,
-        required: true
+        required: true,
+      }, // The date of the timesheet (format: "YYYY-MM-DD")
+      projectName: {
+        type: String,
+        required: true,
+      }, // The project name
+      items: [taskSchema], // Array of tasks in the timesheet
+      notifiedManagers: {
+        type: [String],
+        default: [],
+      }, // List of notified managers
+      totalWorkHours: {
+        type: String,
+        default: "00:00",
+      }, // Total work hours calculated
     },
-    date: {
-        type: Date,
-        required: true
-    },
-    description: {
-        type: String
-    },
-    meetings: [taskSchema],
-    miscellaneous: [taskSchema],
-    notifiedManagers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
-    }],
-    totalWorkHours: {
-        type: Number,
-        default: 0
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    }
-});
+    { timestamps: true }
+  ); // Optionally, track creation and modification times
 
-// Validate min total hours across meetings + miscellaneous
-timesheetSchema.pre("validate", function (next) {
-    const totalHours =
-        this.meetings.reduce((sum, t) => sum + t.totalHours, 0) +
-        this.miscellaneous.reduce((sum, t) => sum + t.totalHours, 0);
+// Create the Timesheet model from the schema
+const Timesheet = mongoose.model(
+  "Timesheet",
+  timesheetSchema
+);
 
-    if (totalHours < MIN_TOTAL_HOURS) {
-        return next(
-            new Error(`Total hours (meetings + miscellaneous) must be at least ${MIN_TOTAL_HOURS}`)
-        );
-    }
-
-    next();
-});
-
-export default mongoose.model("Timesheet", timesheetSchema);
+export default Timesheet;

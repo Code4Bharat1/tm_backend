@@ -1,37 +1,29 @@
 import Timesheet from "../models/timesheet.model.js";
+import moment from "moment";
 
 // Store Timesheet Controller
 const storeTimesheet = async (req, res) => {
     try {
         const {
-            userId,
             date,
-            description,
-            meetings = [],
-            miscellaneous = [],
-            notifiedManagers = []
+            projectName,
+            items = [],
+            notifiedManagers = [],
         } = req.body;
+const userId = req.user.userId;
+        // Calculate total work hours from tasks
+        const totalWorkHours = items.reduce((sum, task) => {
+            const [hours, minutes] = task.duration.split(":").map(Number);
+            return sum + (hours * 60 + minutes);
+        }, 0);
 
-        // Validate that no individual task exceeds 1.5 hours
-        const exceedsTaskLimit = [...meetings, ...miscellaneous].some(
-            (task) => task.totalHours > 1.5 || task.hoursToday > 1.5
-        );
-        if (exceedsTaskLimit) {
+        // Convert total work hours back to HH:MM format
+        const totalHours = `${String(Math.floor(totalWorkHours / 60)).padStart(2, "0")}:${String(totalWorkHours % 60).padStart(2, "0")}`;
+
+        // Ensure total work hours are at least 8 hours
+        if (totalWorkHours < 480) {
             return res.status(400).json({
-                message: "Each task must not exceed 1.5 hours for both totalHours and hoursToday."
-            });
-        }
-
-        // Calculate total work hours
-        const totalWorkHours = [...meetings, ...miscellaneous].reduce(
-            (sum, task) => sum + task.totalHours,
-            0
-        );
-
-        // Ensure total hours ≥ 8
-        if (totalWorkHours < 8) {
-            return res.status(400).json({
-                message: "Total work hours (meetings + miscellaneous) must be at least 8."
+                message: "Total work hours must be at least 8 hours.",
             });
         }
 
@@ -39,26 +31,63 @@ const storeTimesheet = async (req, res) => {
         const timesheet = new Timesheet({
             userId,
             date,
-            description,
-            meetings,
-            miscellaneous,
+            projectName,
+            items,
             notifiedManagers,
-            totalWorkHours
+            totalWorkHours: totalHours,
         });
 
         await timesheet.save();
 
         return res.status(201).json({
             message: "Timesheet submitted successfully.",
-            timesheet
+            timesheet,
         });
-
     } catch (error) {
         console.error("Error saving timesheet:", error);
         return res.status(500).json({
-            message: "Server error while saving timesheet."
+            message: "Server error while saving timesheet.",
         });
+    }
+}; // Import Moment.js to format dates
+
+const getTimesheetsbyDate = async (req, res) => {
+    const { date } = req.params; // Date passed as a string
+    const userId = req.user?.userId;
+
+    if (!userId) {
+        return res.status(400).json({ message: "User not authenticated" });
+    }
+
+    // Convert the date to the expected format if it's a Date object or a string
+    const formattedDate = moment(date, 'YYYY-MM-DD', true).isValid() 
+        ? moment(date).format('YYYY-MM-DD')  // Ensure it matches YYYY-MM-DD format
+        : null;
+
+    if (!formattedDate) {
+        return res.status(400).json({ message: "Invalid date format. Expected YYYY-MM-DD." });
+    }
+
+    console.log(`Fetching timesheet for User ID: ${userId}, Date: ${formattedDate}`);
+
+    try {
+        // Fetch the timesheet based on userId and formatted date
+        const timesheet = await Timesheet.findOne({ userId, date: formattedDate });
+
+        if (timesheet) {
+            return res.status(200).json({
+                message: "Timesheet found",
+                boolean: true, // Fixed typo from "boolen" to "boolean"
+                timesheet, // Returning the actual timesheet data here
+            });
+        } else {
+            return res.status(404).json({ message: "Timesheet not found for this date" });
+        }
+    } catch (err) {
+        console.error("Error fetching timesheet:", err);
+        res.status(500).json({ message: "Server Error", error: err.message });
     }
 };
 
-export { storeTimesheet };
+
+export { storeTimesheet, getTimesheetsbyDate };
