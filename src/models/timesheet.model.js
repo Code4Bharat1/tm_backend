@@ -9,7 +9,7 @@ const taskSchema = new mongoose.Schema({
   task: { type: String, default: "" }, // Task description
   type: {
     type: String,
-    enum: ["Meeting", "Miscellaneous"],
+    enum: ["Meeting", "Miscellaneous", "Work"],
     required: true,
   }, // Type of task
   duration: {
