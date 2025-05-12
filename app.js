@@ -1,4 +1,3 @@
-
 import express from 'express';
 import connectDB from './src/init/dbConnection.js';
 import SignupRouter from './src/routes/signup.route.js';
@@ -24,7 +23,7 @@ const router = express.Router();
 connectDB();
 
 app.use(cors({
-    origin: ['http://localhost:3000','http://localhost:3001','http://localhost:3002', 'https://task-tracker.code4bharat.com/' , 'https://task-tracker-admin.code4bharat.com/'], // Frontend origin
+    origin: ['http://localhost:3000','http://localhost:3001','http://localhost:3002', 'https://task-tracker.code4bharat.com' , 'https://task-tracker-admin.code4bharat.com', 'https://www.task-tracker.code4bharat.com' , 'https://www.task-tracker-admin.code4bharat.com'], // Frontend origin
     credentials: true,
 }));
 
@@ -40,12 +39,12 @@ app.use('/api/forgotpassword', ForgotPasswordRouter);
 app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
 app.use('/api/leave', LeaveRouter);
-app.use('/api/profile', ProfileRouter); 
+app.use('/api/profile', ProfileRouter);
 app.use('/api/admin', AdminRouter )
 app.use('/api/logout', logout )
 
 //Routes for super admin
 app.use('/api/superadmin', SuperAdminRouter);
 app.listen(Port, () => {
-    console.log('Server running on http://localhost:4000');
+    console.log(`Server running on http://localhost:${Port}`);
 });
