@@ -8,7 +8,8 @@ import TimesheetRouter from './src/routes/timesheet.route.js';
 import AttendanceRouter from './src/routes/attendance.route.js';
 import LeaveRouter from './src/routes/leave.route.js';
 import ProfileRouter from './src/routes/profile.route.js';
-import AdminRouter from './src/routes/adminAuth.route.js'
+import AdminRouter from './src/routes/adminAuth.route.js';
+import SuperAdminRouter from './src/routes/superAdminAuth.route.js';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -23,7 +24,7 @@ const router = express.Router();
 connectDB();
 
 app.use(cors({
-    origin: 'http://localhost:3000', // Frontend origin
+    origin: ['http://localhost:3000','http://localhost:3001','http://localhost:3002', 'https://task-tracker.code4bharat.com/' , 'https://task-tracker-admin.code4bharat.com/'], // Frontend origin
     credentials: true,
 }));
 
@@ -42,6 +43,9 @@ app.use('/api/leave', LeaveRouter);
 app.use('/api/profile', ProfileRouter); 
 app.use('/api/admin', AdminRouter )
 app.use('/api/logout', logout )
+
+//Routes for super admin
+app.use('/api/superadmin', SuperAdminRouter);
 app.listen(Port, () => {
     console.log('Server running on http://localhost:4000');
 });
