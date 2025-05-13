@@ -9,6 +9,7 @@ import LeaveRouter from './src/routes/leave.route.js';
 import ProfileRouter from './src/routes/profile.route.js';
 import AdminRouter from './src/routes/adminAuth.route.js';
 import SuperAdminRouter from './src/routes/superAdminAuth.route.js';
+import companyRegister from './src/routes/companyRegister.route.js'
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -42,9 +43,10 @@ app.use('/api/leave', LeaveRouter);
 app.use('/api/profile', ProfileRouter);
 app.use('/api/admin', AdminRouter )
 app.use('/api/logout', logout )
-
-//Routes for super admin
 app.use('/api/superadmin', SuperAdminRouter);
+app.use('/api/compnayRegister', companyRegister)
+
+
 app.listen(Port, () => {
     console.log(`Server running on http://localhost:${Port}`);
 });
