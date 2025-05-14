@@ -10,7 +10,8 @@ export const registerCompany = async (req, res) => {
       companyInfo,
       adminInfo,
       planPreferences,
-      termsAccepted
+      termsAccepted,
+      status
     } = req.body;
 
     if (!termsAccepted) {
@@ -27,7 +28,8 @@ export const registerCompany = async (req, res) => {
       companyInfo,
       adminInfo,
       planPreferences,
-      termsAccepted
+      termsAccepted,
+      status
     });
 
     await newCompany.save();
@@ -75,12 +77,18 @@ export const loginCompanyAdmin = async (req, res) => {
 export const getAllCompanies = async (req, res) => {
   try {
     const companies = await CompanyRegistration.find().sort({ createdAt: -1 });
-    res.status(200).json(companies);
+    const totalCompanies = await CompanyRegistration.countDocuments();
+
+    res.status(200).json({
+      total: totalCompanies,
+      companies
+    });
   } catch (err) {
     console.error('Get Companies Error:', err);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
 
 // Delete a company by ID
 export const deleteCompany = async (req, res) => {

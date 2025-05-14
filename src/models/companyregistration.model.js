@@ -72,9 +72,14 @@ const companyRegistrationSchema = new mongoose.Schema({
   termsAccepted: {
     type: Boolean,
     required: true
-  }
+  },
+    status: {
+      type: String,
+      enum: ['Pending', 'Active', 'Suspended'],
+      default: 'Pending'
+    }
 
-}, { timestamps: true });
+  }, { timestamps: true });
 
 // Hash admin password before saving
 companyRegistrationSchema.pre('save', async function(next) {
