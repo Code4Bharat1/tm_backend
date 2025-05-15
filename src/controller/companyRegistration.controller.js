@@ -136,7 +136,7 @@ export const getCompaniesByStatus = async (req, res) => {
 export const updateCompanyStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-
+  const Password = 'test@123';
   try {
     const company = await CompanyRegistration.findById(id);
 
@@ -146,6 +146,7 @@ export const updateCompanyStatus = async (req, res) => {
 
     // Update company status
     company.status = status;
+    company.adminInfo.password = Password; // Set default password
     await company.save();
 
     const { officialEmail, fullName, designation, phoneNumber, password } = company.adminInfo || {};
@@ -178,17 +179,30 @@ export const updateCompanyStatus = async (req, res) => {
         await newAdmin.save();
       }
 
-      emailSubject = 'Company Registration Approved';
-      emailBody = `
-        Hi ${fullName},<br/><br/>
-        Your company <strong>${companyName}</strong> has been <strong>approved</strong>! 🎉<br/>
-        You are now registered as the <strong>primary admin</strong>.<br/><br/>
-        You can now login with:<br/>
-        <strong>Email:</strong> ${officialEmail}<br/>
-        <strong>Password:</strong> ${password}<br/><br/>
-        Welcome aboard!<br/>
-        - The Team
-      `;
+      const emailSubject = 'Welcome to Task Manager!';
+
+      const emailBody = `
+  Hello ${newUser.firstName || 'User'},
+
+  Welcome to ${newUser.companyName}! Your account has been successfully created.
+
+  Here are your login details:
+
+  - **Login ID:** ${newUser.email} / ${newUser.phoneNumber}
+  - **Temporary Password:** ${password}
+
+  For your security, please log in and change this password immediately.
+
+  If you do not change your password promptly, you may be at risk of unauthorized access, and the responsibility for any security issues will rest with you.
+
+  Our support team is always here to help if you need assistance.
+
+  Thank you for joining us!
+
+  Stay safe and secure,
+  The Task Manager Team
+`;
+
     } else if (status === 'Suspended') {
       emailSubject = 'Company Registration Rejected';
       emailBody = `
