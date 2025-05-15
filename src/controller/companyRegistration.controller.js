@@ -146,13 +146,13 @@ export const updateCompanyStatus = async (req, res) => {
 
     // Update company status
     company.status = status;
-    company.adminInfo.password = Password; // Set default password
+
     await company.save();
 
-    const { officialEmail, fullName, designation, phoneNumber, password } = company.adminInfo || {};
+    const { officialEmail, fullName, designation, phoneNumber } = company.adminInfo || {};
     const { companyName } = company.companyInfo || {};
 
-    if (!officialEmail || !password) {
+    if (!officialEmail || !Password) {
       return res.status(400).json({ success: false, message: 'Missing admin info' });
     }
 
@@ -169,7 +169,7 @@ export const updateCompanyStatus = async (req, res) => {
           companyName,
           fullName,
           email: officialEmail,
-          password,
+          password: Password,
           position: designation,
           phone: phoneNumber,
           // userId: company._id // Uncomment if userId is needed
@@ -177,19 +177,18 @@ export const updateCompanyStatus = async (req, res) => {
 
         const newAdmin = new Admin(adminData);
         await newAdmin.save();
-      }
 
-       emailSubject = 'Welcome to Task Manager!';
+        emailSubject = 'Welcome to Task Manager!';
 
-       emailBody = `
-  Hello ${newUser.firstName || 'User'},
+        emailBody = `
+  Hello ${adminData.firstName || 'User'},
 
-  Welcome to ${newUser.companyName}! Your account has been successfully created.
+  Welcome to Task Manager! Your account has been successfully created.
 
   Here are your login details:
 
-  - **Login ID:** ${newUser.email} / ${newUser.phoneNumber}
-  - **Temporary Password:** ${password}
+  - **Login ID:** ${adminData.email} / ${adminData.phoneNumber}
+  - **Temporary Password:** ${Password}
 
   For your security, please log in and change this password immediately.
 
@@ -202,6 +201,9 @@ export const updateCompanyStatus = async (req, res) => {
   Stay safe and secure,
   The Task Manager Team
 `;
+      }
+
+
 
     } else if (status === 'Suspended') {
       emailSubject = 'Company Registration Rejected';
