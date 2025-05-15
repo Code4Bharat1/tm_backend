@@ -44,7 +44,7 @@ app.use('/api/profile', ProfileRouter);
 app.use('/api/admin', AdminRouter )
 app.use('/api/logout', logout )
 app.use('/api/superadmin', SuperAdminRouter);
-app.use('/api/compnayRegister', companyRegister)
+app.use('/api/companyRegister', companyRegister)
 
 
 app.listen(Port, () => {
