@@ -1,29 +1,25 @@
 import { CompanyRegistration } from '../models/companyregistration.model.js';
 import Admin from '../models/admin.model.js';
 import jwt from 'jsonwebtoken';
-import { sendMail } from "../service/nodemailerConfig.js";
+import { sendMail } from '../service/nodemailerConfig.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Register a new company
 export const registerCompany = async (req, res) => {
   try {
-    const {
-      companyInfo,
-      adminInfo,
-      planPreferences,
-      termsAccepted,
-      status
-    } = req.body;
+    const { companyInfo, adminInfo, planPreferences, termsAccepted, status } = req.body;
 
     if (!termsAccepted) {
-      return res.status(400).json({ message: "You must accept the terms and conditions." });
+      return res.status(400).json({ message: 'You must accept the terms and conditions.' });
     }
 
     // Check if admin email already exists
-    const existing = await CompanyRegistration.findOne({ 'adminInfo.officialEmail': adminInfo.officialEmail });
+    const existing = await CompanyRegistration.findOne({
+      'adminInfo.officialEmail': adminInfo.officialEmail,
+    });
     if (existing) {
-      return res.status(400).json({ message: "Admin email already registered." });
+      return res.status(400).json({ message: 'Admin email already registered.' });
     }
 
     const newCompany = new CompanyRegistration({
@@ -31,10 +27,29 @@ export const registerCompany = async (req, res) => {
       adminInfo,
       planPreferences,
       termsAccepted,
-      status
+      status,
     });
 
     await newCompany.save();
+    sendMail(
+      adminInfo.officialEmail,
+      'Task Manager Credentials',
+      `
+      Dear Admin,
+
+      Your Task Manager login credentials are as follows:
+
+      Login ID: ${adminInfo.officialEmail}
+      Password: test@123
+
+      **Important:** Please log in and change your password immediately for security purposes.
+
+      If you did not request these credentials or have any concerns, contact IT support immediately.
+
+      Best regards,
+      Task Manager Support Team
+      `,
+    );
 
     res.status(201).json({ message: 'Company registered successfully', companyId: newCompany._id });
   } catch (err) {
@@ -61,13 +76,13 @@ export const loginCompanyAdmin = async (req, res) => {
     const token = jwt.sign(
       { id: company._id, email: company.adminInfo.officialEmail },
       JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: '1d' },
     );
 
     res.status(200).json({
       message: 'Login successful',
       token,
-      companyId: company._id
+      companyId: company._id,
     });
   } catch (err) {
     console.error('Login Error:', err);
@@ -83,14 +98,13 @@ export const getAllCompanies = async (req, res) => {
 
     res.status(200).json({
       total: totalCompanies,
-      companies
+      companies,
     });
   } catch (err) {
     console.error('Get Companies Error:', err);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
-
 
 // Delete a company by ID
 export const deleteCompany = async (req, res) => {
@@ -127,7 +141,7 @@ export const updateCompanyStatus = async (req, res) => {
     const company = await CompanyRegistration.findById(id);
 
     if (!company) {
-      return res.status(404).json({ success: false, message: "Company not found" });
+      return res.status(404).json({ success: false, message: 'Company not found' });
     }
 
     // Update company status
@@ -138,15 +152,15 @@ export const updateCompanyStatus = async (req, res) => {
     const { companyName } = company.companyInfo || {};
 
     if (!officialEmail || !password) {
-      return res.status(400).json({ success: false, message: "Missing admin info" });
+      return res.status(400).json({ success: false, message: 'Missing admin info' });
     }
 
-    let emailSubject = "";
-    let emailBody = "";
+    let emailSubject = '';
+    let emailBody = '';
 
-    if (status === "Active") {
+    if (status === 'Active') {
       const existingAdmin = await Admin.findOne({
-        $or: [{ email: officialEmail }, { phone: phoneNumber }]
+        $or: [{ email: officialEmail }, { phone: phoneNumber }],
       });
 
       if (!existingAdmin) {
@@ -164,7 +178,7 @@ export const updateCompanyStatus = async (req, res) => {
         await newAdmin.save();
       }
 
-      emailSubject = "Company Registration Approved";
+      emailSubject = 'Company Registration Approved';
       emailBody = `
         Hi ${fullName},<br/><br/>
         Your company <strong>${companyName}</strong> has been <strong>approved</strong>! 🎉<br/>
@@ -175,8 +189,8 @@ export const updateCompanyStatus = async (req, res) => {
         Welcome aboard!<br/>
         - The Team
       `;
-    } else if (status === "Suspended") {
-      emailSubject = "Company Registration Rejected";
+    } else if (status === 'Suspended') {
+      emailSubject = 'Company Registration Rejected';
       emailBody = `
         Hi ${fullName},<br/><br/>
         We're sorry to inform you that your company <strong>${companyName}</strong> has been <strong>rejected</strong>.<br/>
@@ -191,10 +205,8 @@ export const updateCompanyStatus = async (req, res) => {
     }
 
     res.json({ success: true, company });
-
   } catch (err) {
-    console.error("Error updating company status:", err);
-    res.status(500).json({ success: false, message: "Failed to update status" });
+    console.error('Error updating company status:', err);
+    res.status(500).json({ success: false, message: 'Failed to update status' });
   }
 };
-
