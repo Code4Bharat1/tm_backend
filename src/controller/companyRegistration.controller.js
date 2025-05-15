@@ -134,15 +134,17 @@ export const updateCompanyStatus = async (req, res) => {
     company.status = status;
     await company.save();
 
-    const { officialEmail, fullName, designation, phoneNumber, password } = company.adminInfo;
-    const { companyName } = company.companyInfo;
+    const { officialEmail, fullName, designation, phoneNumber, password } = company.adminInfo || {};
+    const { companyName } = company.companyInfo || {};
 
-    // Send email variables
+    if (!officialEmail || !password) {
+      return res.status(400).json({ success: false, message: "Missing admin info" });
+    }
+
     let emailSubject = "";
     let emailBody = "";
 
     if (status === "Active") {
-      // Prevent duplicate admins
       const existingAdmin = await Admin.findOne({
         $or: [{ email: officialEmail }, { phone: phoneNumber }]
       });
@@ -155,6 +157,7 @@ export const updateCompanyStatus = async (req, res) => {
           password,
           position: designation,
           phone: phoneNumber,
+          // userId: company._id // Uncomment if userId is needed
         };
 
         const newAdmin = new Admin(adminData);
@@ -168,7 +171,7 @@ export const updateCompanyStatus = async (req, res) => {
         You are now registered as the <strong>primary admin</strong>.<br/><br/>
         You can now login with:<br/>
         <strong>Email:</strong> ${officialEmail}<br/>
-        <strong>Password:</strong> [Your chosen password]<br/><br/>
+        <strong>Password:</strong> ${password}<br/><br/>
         Welcome aboard!<br/>
         - The Team
       `;
@@ -176,14 +179,13 @@ export const updateCompanyStatus = async (req, res) => {
       emailSubject = "Company Registration Rejected";
       emailBody = `
         Hi ${fullName},<br/><br/>
-        We're sorry to inform you that your company <strong>${companyName}</strong> has been <strong>rejected</strong> for now.<br/>
+        We're sorry to inform you that your company <strong>${companyName}</strong> has been <strong>rejected</strong>.<br/>
         For more information, please contact our support team.<br/><br/>
         Regards,<br/>
         - The Team
       `;
     }
 
-    // Send email notification if email is defined
     if (officialEmail) {
       await sendMail(officialEmail, emailSubject, emailBody);
     }
@@ -195,3 +197,4 @@ export const updateCompanyStatus = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to update status" });
   }
 };
+
