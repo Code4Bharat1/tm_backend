@@ -179,9 +179,9 @@ export const updateCompanyStatus = async (req, res) => {
         await newAdmin.save();
       }
 
-      const emailSubject = 'Welcome to Task Manager!';
+       emailSubject = 'Welcome to Task Manager!';
 
-      const emailBody = `
+       emailBody = `
   Hello ${newUser.firstName || 'User'},
 
   Welcome to ${newUser.companyName}! Your account has been successfully created.
