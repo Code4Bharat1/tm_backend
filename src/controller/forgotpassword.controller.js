@@ -1,4 +1,5 @@
 import userModel from "../models/user.model.js";
+import Admin from "../models/admin.model.js";
 import { sendMail } from "../service/nodemailerConfig.js";
 const generateOtp = async (req, res) => {
     const { email } = req.body;
@@ -109,24 +110,24 @@ const generateOtpAdmin = async (req, res) => {
     }
 
     try {
-        const user = await userModel.findOne({ email });
+        const admin = await Admin.findOne({ email });
 
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
+        if (!admin) {
+            return res.status(404).json({ message: "Admin not found" });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // expires in 5 minutes
 
-        user.otp = otp;
-        user.expiresAt = expiresAt;
+        admin.otp = otp;
+        admin.expiresAt = expiresAt;
 
-        await user.save();
+        await admin.save();
 
         //Send OTP via email here
         await sendMail(email, 'Your OTP Code for Password Reset',
             `
-    Hello ${user.firstName || 'User'},\n
+    Hello ${admin.fullName || 'Admin'},\n
     \n
     Your One-Time Password (OTP) for resetting your password is: ${otp}\n
     This OTP is valid for the next 5 minutes. Please do not share it.\n
@@ -158,35 +159,35 @@ const verifyOtpAndChangePasswordAdmin = async (req, res) => {
         }
 
         // Find user by email
-        const user = await userModel.findOne({ email });
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+        const admin = await Admin.findOne({ email });
+        if (!admin) {
+            return res.status(404).json({ message: 'Admin not found' });
         }
 
         // Check if OTP matches and is not expired
-        if (user.otp !== otp) {
+        if (admin.otp !== otp) {
             return res.status(400).json({ message: 'Invalid OTP' });
         }
 
         const currentTime = new Date();
-        if (currentTime > user.expiresAt) {
+        if (currentTime > admin.expiresAt) {
             return res.status(400).json({ message: 'OTP has expired' });
         }
 
         // Update the user's password and clear OTP fields (no hashing here)
-        user.password = newPassword;  // Store the password directly
-        user.otp = null;
-        user.expiresAt = null;
+        admin.password = newPassword;  // Store the password directly
+        admin.otp = null;
+        admin.expiresAt = null;
 
         // Save the user with the updated password
-        await user.save();
+        await admin.save();
 
         // Send confirmation email (you can customize this part as needed)
         await sendMail(
             email,
             'Password Reset Successful',
             `
-            Hello ${user.firstName || 'User'},\n
+            Hello ${admin.firstName || 'Admin'},\n
             \n
             Your password has been successfully changed. If you did not initiate this change, please contact support immediately.\n
             \n
@@ -202,4 +203,4 @@ const verifyOtpAndChangePasswordAdmin = async (req, res) => {
     }
 };
 
-export { generateOtp, verifyOtpAndChangePassword };
+export { generateOtp, verifyOtpAndChangePassword, generateOtpAdmin, verifyOtpAndChangePasswordAdmin };

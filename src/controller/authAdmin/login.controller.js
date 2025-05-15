@@ -41,8 +41,7 @@ export const loginAdmin = async (req, res) => {
       token,
       admin: {
         adminId: admin.adminId,
-        fName: admin.fName,
-        lName: admin.lName,
+        fullName: admin.fullName,
         phone: admin.phone,
         email: admin.email,
       },

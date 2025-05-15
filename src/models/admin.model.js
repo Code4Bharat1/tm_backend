@@ -28,6 +28,18 @@ const adminSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    gender:{
+        type: String,
+        default: null
+    }, 
+    dateOfJoining:{
+        type: String,
+        default: null
+    },
+    address:{
+        type: String,
+        default: null
+    },
     password: {
       type: String,
       required: true,
@@ -43,6 +55,32 @@ const adminSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    otp: {
+        type: String,
+    },
+    expiresAt: {
+        type: Date,
+    },
+    photoUrl:{
+        type: String,
+        default: null
+    },
+
+    // 👇 Bank Details Array
+    bankDetails: [{
+        accountHolderName: { type: String, required: true },
+        accountNumber: { type: String, required: true }, // encrypt in logic
+        ifscCode: { type: String, required: true },
+        bankName: { type: String }
+    }],
+
+    // 👇 Identity Documents Array
+    identityDocs: [{
+        aadhaarNumber: { type: String }, // encrypt
+        panNumber: { type: String },     // encrypt
+        aadhaarFrontUrl: { type: String },
+        panCardUrl: { type: String }
+    }]
   }
 );
 
