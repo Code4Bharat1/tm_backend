@@ -1,5 +1,7 @@
 import { CompanyRegistration } from '../models/companyregistration.model.js';
+import Admin from '../models/admin.model.js';
 import jwt from 'jsonwebtoken';
+import { sendMail } from "../service/nodemailerConfig.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -99,5 +101,97 @@ export const deleteCompany = async (req, res) => {
   } catch (err) {
     console.error('Delete Error:', err);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getCompaniesByStatus = async (req, res) => {
+  try {
+    const { status } = req.query; // e.g. ?status=Pending
+    if (!['Pending', 'Active', 'Suspended'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const companies = await CompanyRegistration.find({ status });
+    res.status(200).json({ success: true, companies });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /compnayRegister/:id
+export const updateCompanyStatus = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    const company = await CompanyRegistration.findById(id);
+
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+
+    // Update company status
+    company.status = status;
+    await company.save();
+
+    const { officialEmail, fullName, designation, phoneNumber, password } = company.adminInfo;
+    const { companyName } = company.companyInfo;
+
+    // Send email variables
+    let emailSubject = "";
+    let emailBody = "";
+
+    if (status === "Active") {
+      // Prevent duplicate admins
+      const existingAdmin = await Admin.findOne({
+        $or: [{ email: officialEmail }, { phone: phoneNumber }]
+      });
+
+      if (!existingAdmin) {
+        const adminData = {
+          companyName,
+          fullName,
+          email: officialEmail,
+          password,
+          position: designation,
+          phone: phoneNumber,
+        };
+
+        const newAdmin = new Admin(adminData);
+        await newAdmin.save();
+      }
+
+      emailSubject = "Company Registration Approved";
+      emailBody = `
+        Hi ${fullName},<br/><br/>
+        Your company <strong>${companyName}</strong> has been <strong>approved</strong>! 🎉<br/>
+        You are now registered as the <strong>primary admin</strong>.<br/><br/>
+        You can now login with:<br/>
+        <strong>Email:</strong> ${officialEmail}<br/>
+        <strong>Password:</strong> [Your chosen password]<br/><br/>
+        Welcome aboard!<br/>
+        - The Team
+      `;
+    } else if (status === "Suspended") {
+      emailSubject = "Company Registration Rejected";
+      emailBody = `
+        Hi ${fullName},<br/><br/>
+        We're sorry to inform you that your company <strong>${companyName}</strong> has been <strong>rejected</strong> for now.<br/>
+        For more information, please contact our support team.<br/><br/>
+        Regards,<br/>
+        - The Team
+      `;
+    }
+
+    // Send email notification if email is defined
+    if (officialEmail) {
+      await sendMail(officialEmail, emailSubject, emailBody);
+    }
+
+    res.json({ success: true, company });
+
+  } catch (err) {
+    console.error("Error updating company status:", err);
+    res.status(500).json({ success: false, message: "Failed to update status" });
   }
 };

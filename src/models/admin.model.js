@@ -3,13 +3,25 @@ import bcrypt from "bcrypt";
 
 const adminSchema = new mongoose.Schema(
   {
-    fName: {
+
+    //data is coming from company registreation when superadmin accepts 
+    //request than that particular data of dmin gets store here in that model full name is given
+    //  fName: { 
+    //   type: String,
+    //   required: true,
+    // },
+    // lName: {
+    //   type: String,
+    //   required: true,
+    // },
+    companyName: {
       type: String,
       required: true,
+      trim: true
     },
-    lName: {
+    fullName: {
       type: String,
-      required: true,
+      trim: true
     },
     email: {
       type: String,
@@ -21,6 +33,10 @@ const adminSchema = new mongoose.Schema(
       required: true,
       minlength: 8,
       select: false,
+    },
+    position: {
+      type: String,
+      trim: true
     },
     phone: {
       type: String,
