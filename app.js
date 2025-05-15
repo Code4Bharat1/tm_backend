@@ -24,7 +24,15 @@ const router = express.Router();
 connectDB();
 
 app.use(cors({
-    origin: ['http://localhost:3000','http://localhost:3001','http://localhost:3002', 'https://task-tracker.code4bharat.com' , 'https://task-tracker-admin.code4bharat.com', 'https://www.task-tracker.code4bharat.com' , 'https://www.task-tracker-admin.code4bharat.com'], // Frontend origin
+    origin: ['http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'https://task-tracker.code4bharat.com',
+        'https://task-tracker-admin.code4bharat.com',
+        'https://task-tracker-superadmin.code4bharat.com',
+        'https://www.task-tracker.code4bharat.com',
+        'https://www.task-tracker-admin.code4bharat.com',
+        'https://www.task-tracker-superadmin.code4bharat.com'], // Frontend origin
     credentials: true,
 }));
 
@@ -41,8 +49,8 @@ app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
 app.use('/api/leave', LeaveRouter);
 app.use('/api/profile', ProfileRouter);
-app.use('/api/admin', AdminRouter )
-app.use('/api/logout', logout )
+app.use('/api/admin', AdminRouter)
+app.use('/api/logout', logout)
 app.use('/api/superadmin', SuperAdminRouter);
 app.use('/api/companyRegister', companyRegister)
 
