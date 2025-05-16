@@ -5,6 +5,11 @@ const leaveSchema = new mongoose.Schema({
         type: String, // adjust based on your user model
         required: true,
     },
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CompanyRegistration",
+        required: true,
+    },
     fromDate: {
         type: Date,
         required: true,
@@ -47,7 +52,7 @@ const leaveSchema = new mongoose.Schema({
 });
 
 // Pre-save middleware to calculate the number of days between `fromDate` and `toDate`
-leaveSchema.pre('save', function(next) {
+leaveSchema.pre('save', function (next) {
     if (this.fromDate && this.toDate) {
         // Calculate the difference in days
         const diffTime = new Date(this.toDate) - new Date(this.fromDate);

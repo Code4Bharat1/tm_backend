@@ -31,25 +31,24 @@ export const registerCompany = async (req, res) => {
     });
 
     await newCompany.save();
+
     sendMail(
       adminInfo.officialEmail,
-      'Task Manager Credentials',
+      'Task Manager Registration Received',
       `
-      Dear Admin,
+  Dear ${adminInfo.fullName || 'Admin'},
 
-      Your Task Manager login credentials are as follows:
+  Thank you for registering your company on the Task Manager platform. We have received your application and it is currently under review by our Super Admin team.
 
-      Login ID: ${adminInfo.officialEmail}
-      Password: test@123
+  Once your registration is approved, you will receive your login credentials via email.
 
-      **Important:** Please log in and change your password immediately for security purposes.
+  If you have any questions or need assistance in the meantime, feel free to contact our support team.
 
-      If you did not request these credentials or have any concerns, contact IT support immediately.
-
-      Best regards,
-      Task Manager Support Team
-      `,
+  Best regards,  
+  Task Manager Support Team
+  `
     );
+
 
     res.status(201).json({ message: 'Company registered successfully', companyId: newCompany._id });
   } catch (err) {
@@ -172,7 +171,7 @@ export const updateCompanyStatus = async (req, res) => {
           password: Password,
           position: designation,
           phone: phoneNumber,
-          // userId: company._id // Uncomment if userId is needed
+          companyId: company._id
         };
 
         const newAdmin = new Admin(adminData);
@@ -187,7 +186,7 @@ export const updateCompanyStatus = async (req, res) => {
 
   Here are your login details:
 
-  - **Login ID:** ${adminData.email} / ${adminData.phoneNumber}
+  - **Login ID:** ${adminData.email} / ${adminData.phone}
   - **Temporary Password:** ${Password}
 
   For your security, please log in and change this password immediately.

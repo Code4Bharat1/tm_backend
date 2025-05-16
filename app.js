@@ -45,6 +45,7 @@ app.get('/', (req, res) => res.send('API is working'));
 
 app.use('/api/user', SignupRouter);
 app.use('/api/user', LoginRouter);
+app.use('/api/user', CalendarRouter);
 app.use('/api/forgotpassword', ForgotPasswordRouter);
 app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
@@ -54,7 +55,7 @@ app.use('/api/admin', AdminRouter)
 app.use('/api/logout', logout)
 app.use('/api/superadmin', SuperAdminRouter);
 app.use('/api/companyRegister', companyRegister)
-app.use('/api/user', CalendarRouter);
+
 
 
 app.listen(Port, () => {
