@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 
 const leaveSchema = new mongoose.Schema({
     userId: {
-        type: String, // adjust based on your user model
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User', 
         required: true,
     },
     companyId: {
@@ -24,8 +25,8 @@ const leaveSchema = new mongoose.Schema({
         required: true,
     },
     managerId: {
-        type: String,
-        // required: true,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User" || "Admin",
         default: null,
     },
     attachment: {
