@@ -10,6 +10,7 @@ import ProfileRouter from './src/routes/profile.route.js';
 import AdminRouter from './src/routes/adminAuth.route.js';
 import SuperAdminRouter from './src/routes/superAdminAuth.route.js';
 import companyRegister from './src/routes/companyRegister.route.js'
+import Task from './src/routes/task.route.js'
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -55,7 +56,7 @@ app.use('/api/admin', AdminRouter)
 app.use('/api/logout', logout)
 app.use('/api/superadmin', SuperAdminRouter);
 app.use('/api/companyRegister', companyRegister)
-
+app.use('/api/tasks', Task)
 
 
 app.listen(Port, () => {
