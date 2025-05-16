@@ -14,6 +14,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { logout } from './src/controller/logout.controller.js';
+import CalendarRouter from './src/routes/calendaruser.route.js';
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -53,6 +54,7 @@ app.use('/api/admin', AdminRouter)
 app.use('/api/logout', logout)
 app.use('/api/superadmin', SuperAdminRouter);
 app.use('/api/companyRegister', companyRegister)
+app.use('/api/user', CalendarRouter);
 
 
 app.listen(Port, () => {
