@@ -9,6 +9,10 @@ const userSchema = new mongoose.Schema({
         type: String,
         unique: true,
         required: true
+    }, companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CompanyRegistration',
+        required: true,
     },
     companyName: {
         type: String,
@@ -40,15 +44,15 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: "Empolyee"
     },
-    Gender:{
+    Gender: {
         type: String,
         default: null
     },
-    DateOfJoining:{
+    DateOfJoining: {
         type: String,
         default: null
     },
-    Address:{
+    Address: {
         type: String,
         default: null
     },
@@ -58,7 +62,7 @@ const userSchema = new mongoose.Schema({
     expiresAt: {
         type: Date,
     },
-    photoUrl:{
+    photoUrl: {
         type: String,
     },
 

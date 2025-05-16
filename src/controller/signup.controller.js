@@ -64,6 +64,7 @@ const createUser = async (req, res) => {
       position,
       Gender: gender,
       DateOfJoining: dateOfJoining,
+      companyId: admin.companyId,
     });
 
     await newUser.save();
@@ -108,6 +109,7 @@ The Task Manager Team
         position: newUser.position,
         gender: newUser.Gender,
         dateOfJoining: newUser.DateOfJoining,
+        companyId: newUser.companyId,
       },
     });
   } catch (error) {
@@ -155,6 +157,7 @@ const bulkCreateUsers = async (req, res) => {
         position,
         Gender: gender,
         DateOfJoining: dateOfJoining,
+        companyId: admin.companyId,
       });
 
       await newUser.save();
