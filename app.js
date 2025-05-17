@@ -16,7 +16,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { logout } from './src/controller/logout.controller.js';
 import CalendarRouter from './src/routes/calendaruser.route.js';
-
+import CalendarAdminRouter from './src/routes/calendaradmin.route.js';
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -56,6 +56,7 @@ app.use('/api/admin', AdminRouter)
 app.use('/api/logout', logout)
 app.use('/api/superadmin', SuperAdminRouter);
 app.use('/api/companyRegister', companyRegister)
+app.use('/api/admin', CalendarAdminRouter);
 app.use('/api/tasks', Task)
 
 
