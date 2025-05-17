@@ -1,5 +1,5 @@
 import Attendance from '../models/attendance.model.js';
-
+import mongoose from 'mongoose';
 // Utility function to calculate duration in hours
 const calculateHours = (start, end) => {
   const ms = new Date(end) - new Date(start);
@@ -16,13 +16,62 @@ const getStartOfDayUTC = () => {
 export const punchInController = async (req, res) => {
   try {
     const { punchInTime, punchInLocation } = req.body;
-    const userId = req.user.userId;
-    const today = getStartOfDayUTC();
+    const { userId, companyId } = req.user;
 
-    // Check for existing attendance record
+    // Get start of today (midnight) in UTC
+    const todayStart = getStartOfDayUTC();
+
+    // Get todayEnd = 11:59:59.999 PM (end of the day)
+    const todayEnd = new Date(todayStart);
+    todayEnd.setUTCHours(23, 59, 59, 999);
+
+    // Get start of tomorrow (midnight next day)
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
+
+    // Determine punch-in datetime (provided or now)
+    const now = new Date();
+    const punchInDateTime = punchInTime ? new Date(punchInTime) : now;
+
+    // Check if punch-in is after or equal to 11:59 PM today but before tomorrow midnight
+    if (punchInDateTime >= todayEnd && punchInDateTime < tomorrowStart) {
+      // Mark absent for today
+      let attendance = await Attendance.findOne({
+        userId,
+        companyId,
+        date: todayStart,
+      });
+
+      if (!attendance) {
+        attendance = new Attendance({
+          userId,
+          companyId,
+          date: todayStart,
+        });
+      }
+
+      attendance.status = 'Absent';
+      attendance.remark = 'Absent due to late punch-in (after 11:59 PM)';
+      await attendance.save();
+
+      return res.status(400).json({
+        message: 'Cannot punch in after 11:59 PM. Marked absent for today.',
+        attendance,
+      });
+    }
+
+    // Normal punch-in window check (optional: punch-in before start of today disallowed)
+    if (punchInDateTime < todayStart) {
+      return res.status(400).json({
+        message: 'Invalid punch-in time: before start of today.',
+      });
+    }
+
+    // Find existing attendance record for today
     let attendance = await Attendance.findOne({
-      userId: userId,
-      date: today,
+      userId,
+      companyId,
+      date: todayStart,
     });
 
     if (attendance && attendance.punchIn) {
@@ -34,18 +83,18 @@ export const punchInController = async (req, res) => {
     if (!attendance) {
       attendance = new Attendance({
         userId,
-        date: today,
+        companyId,
+        date: todayStart,
       });
     }
 
-    // Set punch in time (either provided or current time)
-    const now = new Date();
-    attendance.punchIn = punchInTime ? new Date(punchInTime) : now;
+    // Set punch in time and location
+    attendance.punchIn = punchInDateTime;
     attendance.punchInLocation = punchInLocation || null;
 
-    // Determine remark based on punch-in time (consider 9:30 AM as late)
-    const punchInHour = attendance.punchIn.getUTCHours();
-    const punchInMinute = attendance.punchIn.getUTCMinutes();
+    // Determine remark based on punch-in time (9:30 AM cutoff)
+    const punchInHour = punchInDateTime.getUTCHours();
+    const punchInMinute = punchInDateTime.getUTCMinutes();
 
     if (punchInHour < 9 || (punchInHour === 9 && punchInMinute <= 30)) {
       attendance.remark = 'On Time';
@@ -53,7 +102,7 @@ export const punchInController = async (req, res) => {
       attendance.remark = 'Late';
     }
 
-    attendance.status = 'Pending'; // initially pending until punch out
+    attendance.status = 'Pending'; // until punch out
 
     await attendance.save();
 
@@ -72,14 +121,16 @@ export const punchInController = async (req, res) => {
   }
 };
 
+
 export const punchOutController = async (req, res) => {
   try {
     const { punchOutTime, punchOutLocation, emergencyReason } = req.body;
-    const userId = req.user.userId;
+    const {userId, companyId} = req.user;
     const today = getStartOfDayUTC();
 
     const attendance = await Attendance.findOne({
       userId: userId,
+      companyId: companyId,
       date: today,
     });
 
@@ -146,11 +197,12 @@ export const punchOutController = async (req, res) => {
 
 export const getTodayAttendance = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const {userId, companyId} = req.user;
     const today = getStartOfDayUTC();
 
     const attendance = await Attendance.findOne({
       userId: userId,
+      companyId: companyId,
       date: today,
     });
 
@@ -185,8 +237,8 @@ export const getTodayAttendance = async (req, res) => {
 
 export const getParticularUserAttendance = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const attendance = await Attendance.find({ userId }).sort({ date: -1 }); // Sort by date descending
+    const {userId, companyId} = req.user;
+    const attendance = await Attendance.find({ userId, companyId }).sort({ date: -1 }); // Sort by date descending
 
     if (!attendance || attendance.length === 0) {
       return res.status(404).json({
@@ -206,53 +258,60 @@ export const getParticularUserAttendance = async (req, res) => {
 
 export const getAllAttendance = async (req, res) => {
   try {
-    const attendance = await Attendance.aggregate([
+    const companyId = req.user.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({ message: "Missing company ID in cookie" });
+    }
+
+    const attendanceRecords = await Attendance.aggregate([
       {
-        $addFields: {
-          userObjectId: { $toObjectId: '$userId' },
+        $match: {
+          companyId: new mongoose.Types.ObjectId(companyId),
         },
       },
       {
         $lookup: {
-          from: 'users',
-          localField: 'userObjectId',
-          foreignField: '_id',
-          as: 'userInfo',
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userInfo",
         },
       },
       {
-        $unwind: {
-          path: '$userInfo',
-          preserveNullAndEmptyArrays: true,
-        },
+        $unwind: "$userInfo",
       },
       {
         $project: {
-          firstName: '$userInfo.firstName',
-          lastName: '$userInfo.lastName',
-          email: '$userInfo.email',
-          punchIn: 1,
-          punchOut: 1,
           userId: 1,
           date: 1,
-          remark: 1,
-          status: 1,
+          punchIn: 1,
+          punchInLocation: 1,
+          punchOut: 1,
           totalWorkedHours: 1,
           overtime: 1,
+          status: 1,
+          remark: 1,
+          "userInfo.firstName": 1,
+          "userInfo.lastName": 1,
+          "userInfo.email": 1,
+          "userInfo.position": 1,
         },
       },
-      { $sort: { date: -1 } }, // Sort by date descending
+      {
+        $sort: { date: -1 }, // Most recent records first
+      },
     ]);
 
-    if (!attendance || attendance.length === 0) {
-      return res.status(404).json({ message: 'No attendance records found' });
+    if (!attendanceRecords.length) {
+      return res.status(404).json({ message: "No attendance records found." });
     }
 
-    res.status(200).json(attendance);
+    res.status(200).json(attendanceRecords);
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    console.error("Error fetching attendance records:", error);
     res.status(500).json({
-      message: 'Server error fetching attendance',
+      message: "Server error fetching attendance records",
       error: error.message,
     });
   }

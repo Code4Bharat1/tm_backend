@@ -4,6 +4,7 @@ import {
   getTimesheetsbyDate,
   updateTimesheet,
   getUserTimesheetsByCompany,
+  getApprovers,
 } from "../controller/timesheet.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -27,6 +28,7 @@ router.put(
 );
 
 router.get('/admin/timesheets', protect, getUserTimesheetsByCompany);
+router.get('/approvers', protect, getApprovers);
 // Route to get timesheet
 // router.get('/get', (req, res) => {
 //     // Logic to get timesheet

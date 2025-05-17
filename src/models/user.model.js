@@ -71,7 +71,9 @@ const userSchema = new mongoose.Schema({
         accountHolderName: { type: String, required: true },
         accountNumber: { type: String, required: true }, // encrypt in logic
         ifscCode: { type: String, required: true },
-        bankName: { type: String }
+        // bankName: { type: String, required: true },
+        // branchName: {type: String, required: true},
+
     }],
 
     // 👇 Identity Documents Array
