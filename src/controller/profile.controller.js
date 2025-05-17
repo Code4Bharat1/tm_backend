@@ -122,5 +122,26 @@ import Admin from '../models/admin.model.js';
     }
 };
 
+const getAllUsersByCompany = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
 
-export { getUserProfile, updateProfile, getUserProfileAdmin, updateProfileAdmin };
+    if (!companyId) {
+      return res.status(400).json({ message: 'Company ID not found in token' });
+    }
+
+    const users = await User.find({ companyId }).select(
+      'userId firstName lastName email phoneNumber position photoUrl'
+    );
+
+    res.status(200).json({
+      count: users.length,
+      users,
+    });
+  } catch (error) {
+    console.error('Error fetching users by company:', error);
+    res.status(500).json({ message: 'Server error while fetching users' });
+  }
+};
+
+export { getUserProfile, updateProfile, getUserProfileAdmin, updateProfileAdmin, getAllUsersByCompany };

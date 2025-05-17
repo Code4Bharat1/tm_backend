@@ -1,16 +1,11 @@
 import TaskAssignment from '../models/taskAssignment.model.js';
 import User from '../models/user.model.js';
-import mongoose from 'mongoose';
 
-// @desc    Create a new task assignment
-// @route   POST /api/task-assignments
-// @access  Private
 export const createTaskAssignment = async (req, res) => {
   try {
     const {
       bucketName,
       assignedTo,
-      assignedBy,
       assignDate,
       deadline,
       dueTime,
@@ -23,49 +18,65 @@ export const createTaskAssignment = async (req, res) => {
       remark,
     } = req.body;
 
-    // Basic validation
-    if (!bucketName || !assignedTo || !assignedBy || !assignDate || !deadline || !taskDescription) {
+    const companyId = req.user.companyId; // from JWT
+    const assignedBy = req.user._id; // get admin id from JWT here
+
+    if (
+      !bucketName ||
+      !assignedTo ||
+      !assignedBy ||
+      !assignDate ||
+      !deadline ||
+      !taskDescription
+    ) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
     const newTaskAssignment = new TaskAssignment({
+      companyId,
       bucketName,
       assignedTo,
-      assignedBy,
+      assignedBy, // use id from JWT here
       assignDate: new Date(assignDate),
       deadline: new Date(deadline),
-      dueTime: dueTime || undefined,
-      priority: priority || 'Medium',
-      status: status || 'Open',
-      tagMember: tagMember || undefined,
-      attachmentRequired: attachmentRequired || false,
-      recurring: recurring || false,
+      dueTime,
+      priority,
+      status,
+      tagMember,
+      attachmentRequired,
+      recurring,
       taskDescription,
-      remark: remark || undefined,
+      remark,
     });
 
-    const savedTaskAssignment = await newTaskAssignment.save();
+    const savedTask = await newTaskAssignment.save();
 
     res.status(201).json({
       message: 'Task assignment created successfully',
-      data: savedTaskAssignment,
+      data: savedTask,
     });
   } catch (error) {
     console.error('Error creating task assignment:', error);
-    if (error instanceof mongoose.Error.ValidationError) {
-      return res.status(400).json({ message: error.message });
-    }
-    res.status(500).json({ message: 'Server error while creating task assignment' });
+    res.status(500).json({
+      message: 'Server error while creating task assignment',
+    });
   }
 };
 
-// @desc    Get all task assignments
-// @route   GET /api/task-assignments
-// @access  Private
-export const getTaskAssignments = async (req, res) => {
+
+
+export const getTaskAssignments = async (
+  req,
+  res,
+) => {
   try {
     // Optional query parameters for filtering
-    const { status, assignedTo, fromDate, toDate } = req.query;
+    const {
+      status,
+      assignedTo,
+      fromDate,
+      toDate,
+    } = req.query;
 
     let query = {};
 
@@ -79,28 +90,49 @@ export const getTaskAssignments = async (req, res) => {
 
     if (fromDate || toDate) {
       query.assignDate = {};
-      if (fromDate) query.assignDate.$gte = new Date(fromDate);
-      if (toDate) query.assignDate.$lte = new Date(toDate);
+      if (fromDate)
+        query.assignDate.$gte = new Date(
+          fromDate,
+        );
+      if (toDate)
+        query.assignDate.$lte = new Date(toDate);
     }
 
-    const taskAssignments = await TaskAssignment.find(query).sort({ assignDate: -1 }).lean();
+    const taskAssignments =
+      await TaskAssignment.find(query)
+        .sort({ assignDate: -1 })
+        .lean();
 
     res.status(200).json({
       count: taskAssignments.length,
       data: taskAssignments,
     });
   } catch (error) {
-    console.error('Error fetching task assignments:', error);
-    res.status(500).json({ message: 'Server error while fetching task assignments' });
+    console.error(
+      'Error fetching task assignments:',
+      error,
+    );
+    res.status(500).json({
+      message:
+        'Server error while fetching task assignments',
+    });
   }
 };
 
-export const getAllUserEmails = async (req, res) => {
+export const getAllUserEmails = async (
+  req,
+  res,
+) => {
   try {
-    const emails = await User.find({}, "email"); // Fetch only the `email` field
+    const emails = await User.find({}, 'email'); // Fetch only the `email` field
     res.status(200).json(emails);
   } catch (error) {
-    console.error("Error fetching user emails:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error(
+      'Error fetching user emails:',
+      error,
+    );
+    res
+      .status(500)
+      .json({ message: 'Internal Server Error' });
   }
 };
