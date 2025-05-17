@@ -3,6 +3,7 @@ import {
   storeTimesheet,
   getTimesheetsbyDate,
   updateTimesheet,
+  getUserTimesheetsByCompany,
 } from "../controller/timesheet.controller.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -25,6 +26,7 @@ router.put(
   updateTimesheet
 );
 
+router.get('/admin/timesheets', protect, getUserTimesheetsByCompany);
 // Route to get timesheet
 // router.get('/get', (req, res) => {
 //     // Logic to get timesheet

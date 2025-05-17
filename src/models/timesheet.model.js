@@ -9,7 +9,7 @@ const taskSchema = new mongoose.Schema({
   task: { type: String, default: "" }, // Task description
   type: {
     type: String,
-    enum: ["Meeting", "Miscellaneous", "Work" ,"Project"],
+    enum: ["Meeting", "Miscellaneous", "Work", "Project"],
     required: true,
   }, // Type of task
   duration: {
@@ -27,7 +27,13 @@ const timesheetSchema =
   new mongoose.Schema(
     {
       userId: {
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CompanyRegistration",
         required: true,
       },
       date: {

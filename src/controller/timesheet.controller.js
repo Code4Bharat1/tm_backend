@@ -14,6 +14,7 @@ const storeTimesheet = async (
       notifiedManagers = [],
     } = req.body;
     const userId = req.user.userId;
+    const companyId = req.user.companyId;
     // Calculate total work hours from tasks
     const totalWorkHours = items.reduce(
       (sum, task) => {
@@ -46,6 +47,7 @@ const storeTimesheet = async (
     // Create and save the timesheet
     const timesheet = new Timesheet({
       userId,
+      companyId,
       date,
       projectName,
       items,
@@ -78,6 +80,7 @@ const getTimesheetsbyDate = async (
 ) => {
   const { date } = req.params; // Date passed as a string
   const userId = req.user?.userId;
+  const companyId = req.user.companyId;
 
   if (!userId) {
     return res.status(400).json({
@@ -110,6 +113,7 @@ const getTimesheetsbyDate = async (
     const timesheet =
       await Timesheet.findOne({
         userId,
+        companyId,
         date: formattedDate,
       });
 
@@ -150,6 +154,7 @@ const updateTimesheet = async (
       notifiedManagers = [],
     } = req.body;
     const userId = req.user.userId;
+    const companyId = req.user.companyId;
 
     // Validate date format
     const formattedDate = moment(
@@ -199,7 +204,7 @@ const updateTimesheet = async (
     // Find and update the existing timesheet
     const updated =
       await Timesheet.findOneAndUpdate(
-        { userId, date: formattedDate },
+        { userId,companyId, date: formattedDate },
         {
           projectName,
           items,
@@ -232,8 +237,33 @@ const updateTimesheet = async (
     });
   }
 };
+
+const getUserTimesheetsByCompany = async (req, res) => {
+  const { companyId } = req.user;
+
+  try {
+    const timesheets = await Timesheet.find({ companyId })
+      .populate("userId", "firstName lastName email position") // Pick fields to show
+      .exec();
+
+    if (!timesheets || timesheets.length === 0) {
+      return res.status(404).json({ success: false, message: "No timesheets found." });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: timesheets.length,
+      data: timesheets,
+    });
+  } catch (error) {
+    console.error("Error fetching timesheets:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 export {
   storeTimesheet,
   getTimesheetsbyDate,
   updateTimesheet,
+  getUserTimesheetsByCompany,
 };
