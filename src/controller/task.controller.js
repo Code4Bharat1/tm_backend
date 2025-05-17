@@ -1,6 +1,11 @@
+// controllers/taskController.js
 import TaskAssignment from '../models/taskAssignment.model.js';
 import User from '../models/user.model.js';
+import mongoose from 'mongoose';
 
+// @desc    Create a new task assignment
+// @route   POST /api/task-assignments
+// @access  Private
 export const createTaskAssignment = async (req, res) => {
   try {
     const {
@@ -11,74 +16,66 @@ export const createTaskAssignment = async (req, res) => {
       dueTime,
       priority,
       status,
-      tagMember,
+      tagMembers,
       attachmentRequired,
       recurring,
       taskDescription,
       remark,
     } = req.body;
 
-    const companyId = req.user.companyId; // from JWT
-    const assignedBy = req.user._id; // get admin id from JWT here
+    // Get companyId and adminId from the JWT token
+    const { companyId, adminId } = req.user;
 
-    if (
-      !bucketName ||
-      !assignedTo ||
-      !assignedBy ||
-      !assignDate ||
-      !deadline ||
-      !taskDescription
-    ) {
+    // Basic validation
+    if (!bucketName || !assignedTo || !assignDate || !deadline || !taskDescription) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
     const newTaskAssignment = new TaskAssignment({
-      companyId,
       bucketName,
       assignedTo,
-      assignedBy, // use id from JWT here
+      assignedBy: adminId, // Use the adminId from JWT token
+      companyId, // Use the companyId from JWT token
       assignDate: new Date(assignDate),
       deadline: new Date(deadline),
-      dueTime,
-      priority,
-      status,
-      tagMember,
-      attachmentRequired,
-      recurring,
+      dueTime: dueTime || undefined,
+      priority: priority || 'Medium',
+      status: status || 'Open',
+      tagMembers: tagMembers || [], // Store as array of user IDs
+      attachmentRequired: attachmentRequired || false,
+      recurring: recurring || false,
       taskDescription,
-      remark,
+      remark: remark || undefined,
     });
 
-    const savedTask = await newTaskAssignment.save();
+    const savedTaskAssignment = await newTaskAssignment.save();
 
     res.status(201).json({
       message: 'Task assignment created successfully',
-      data: savedTask,
+      data: savedTaskAssignment,
     });
   } catch (error) {
     console.error('Error creating task assignment:', error);
-    res.status(500).json({
-      message: 'Server error while creating task assignment',
-    });
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: 'Server error while creating task assignment' });
   }
 };
 
-
-
-export const getTaskAssignments = async (
-  req,
-  res,
-) => {
+// @desc    Get all task assignments for a company
+// @route   GET /api/task-assignments
+// @access  Private
+export const getTaskAssignments = async (req, res) => {
   try {
+    // Get companyId from the JWT token
+    const { companyId } = req.user;
+    
     // Optional query parameters for filtering
-    const {
-      status,
-      assignedTo,
-      fromDate,
-      toDate,
-    } = req.query;
+    const { status, assignedTo, fromDate, toDate } = req.query;
 
-    let query = {};
+    // Always filter by company ID for data isolation
+    let query = { companyId };
 
     if (status) {
       query.status = status;
@@ -90,49 +87,40 @@ export const getTaskAssignments = async (
 
     if (fromDate || toDate) {
       query.assignDate = {};
-      if (fromDate)
-        query.assignDate.$gte = new Date(
-          fromDate,
-        );
-      if (toDate)
-        query.assignDate.$lte = new Date(toDate);
+      if (fromDate) query.assignDate.$gte = new Date(fromDate);
+      if (toDate) query.assignDate.$lte = new Date(toDate);
     }
 
-    const taskAssignments =
-      await TaskAssignment.find(query)
-        .sort({ assignDate: -1 })
-        .lean();
+    const taskAssignments = await TaskAssignment.find(query)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('assignedBy', 'fullName email')
+      .populate('tagMembers', 'firstName lastName email')
+      .sort({ assignDate: -1 })
+      .lean();
 
     res.status(200).json({
       count: taskAssignments.length,
       data: taskAssignments,
     });
   } catch (error) {
-    console.error(
-      'Error fetching task assignments:',
-      error,
-    );
-    res.status(500).json({
-      message:
-        'Server error while fetching task assignments',
-    });
+    console.error('Error fetching task assignments:', error);
+    res.status(500).json({ message: 'Server error while fetching task assignments' });
   }
 };
 
-export const getAllUserEmails = async (
-  req,
-  res,
-) => {
+// @desc    Get all user emails for a company
+// @route   GET /api/tasks/getAllUserEmails
+// @access  Private
+export const getAllUserEmails = async (req, res) => {
   try {
-    const emails = await User.find({}, 'email'); // Fetch only the `email` field
-    res.status(200).json(emails);
+    const { companyId } = req.user;
+    
+    // Find all users in the company and return their ID, name and email
+    const users = await User.find({ companyId }, "firstName lastName email _id");
+    
+    res.status(200).json(users);
   } catch (error) {
-    console.error(
-      'Error fetching user emails:',
-      error,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal Server Error' });
+    console.error("Error fetching user emails:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
