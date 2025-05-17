@@ -8,11 +8,9 @@ const calendarEntrySchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ["Event", "Task", "Meeting"],
+        enum: ["Event", "Task", "Meeting", "Deadline"],
         required: true,
     },
-
-    // Common Fields
     title: {
         type: String,
         default: null,
@@ -29,11 +27,9 @@ const calendarEntrySchema = new mongoose.Schema({
         type: String,
         default: null,
     },
-
-    // Event-specific
     category: {
         type: String,
-        enum: ["Meeting", "Leave", "Daily Task", "Reminder", "Deadlines"],
+        enum: ["Meeting", "Leave", "Daily Task", "Reminder", "Deadline"],
         default: null,
     },
     reminder: {
@@ -41,11 +37,9 @@ const calendarEntrySchema = new mongoose.Schema({
         default: false,
     },
     remindBefore: {
-        type: Number, // in minutes
+        type: Number,
         default: 15,
     },
-
-    // Meeting-specific
     startTime: {
         type: String,
         default: null,
@@ -58,13 +52,31 @@ const calendarEntrySchema = new mongoose.Schema({
         type: [String],
         default: [],
     },
-
     createdAt: {
         type: Date,
         default: Date.now,
-    },
+    }
+});
+
+// Add validation for required fields based on type
+calendarEntrySchema.pre('validate', function(next) {
+    if (this.type === 'Meeting') {
+        if (!this.startTime) this.invalidate('startTime', 'Start time required for meetings');
+        if (!this.endTime) this.invalidate('endTime', 'End time required for meetings');
+        if (this.participants.length === 0) this.invalidate('participants', 'At least one participant required for meetings');
+    }
+    
+    if (this.type === 'Deadline') {
+        if (!this.title) this.invalidate('title', 'Title required for deadlines');
+        if (!this.time) this.invalidate('time', 'Time required for deadlines');
+    }
+
+    if (this.type === 'Event' && !this.category) {
+        this.invalidate('category', 'Category required for events');
+    }
+
+    next();
 });
 
 const CalendarEntry = mongoose.model("CalendarEntry", calendarEntrySchema);
-
 export default CalendarEntry;
