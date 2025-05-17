@@ -10,6 +10,7 @@ import ProfileRouter from './src/routes/profile.route.js';
 import AdminRouter from './src/routes/adminAuth.route.js';
 import SuperAdminRouter from './src/routes/superAdminAuth.route.js';
 import companyRegister from './src/routes/companyRegister.route.js'
+import BankDetailsRouter from './src/routes/bankDetails.route.js';
 import Task from './src/routes/task.route.js'
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -48,6 +49,7 @@ app.get('/', (req, res) => res.send('API is working'));
 app.use('/api/user', SignupRouter);
 app.use('/api/user', LoginRouter);
 app.use('/api/user', CalendarRouter);
+app.use('/api/user', BankDetailsRouter);
 app.use('/api/forgotpassword', ForgotPasswordRouter);
 app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);

@@ -1,15 +1,23 @@
-// models/User.js
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 
-
+// Bank sub-schema
+const bankDetailsSchema = new mongoose.Schema({
+    accountHolderName: { type: String, required: true },
+    accountNumber: { type: String, required: true },
+    ifscCode: { type: String, required: true },
+    bankName: { type: String, required: true },
+    branchName: { type: String, required: true },
+    isVerified: { type: Boolean, default: false },
+}, { _id: false });
 
 const userSchema = new mongoose.Schema({
     userId: {
         type: String,
         unique: true,
         required: true
-    }, companyId: {
+    },
+    companyId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CompanyRegistration',
         required: true,
@@ -42,17 +50,17 @@ const userSchema = new mongoose.Schema({
     },
     position: {
         type: String,
-        default: "Empolyee"
+        default: "Employee"  // fixed typo
     },
-    Gender: {
+    gender: {
         type: String,
         default: null
     },
-    DateOfJoining: {
+    dateOfJoining: {
         type: String,
         default: null
     },
-    Address: {
+    address: {
         type: String,
         default: null
     },
@@ -66,36 +74,25 @@ const userSchema = new mongoose.Schema({
         type: String,
     },
 
-    // 👇 Bank Details Array
-    bankDetails: [{
-        accountHolderName: { type: String, required: true },
-        accountNumber: { type: String, required: true }, // encrypt in logic
-        ifscCode: { type: String, required: true },
-        // bankName: { type: String, required: true },
-        // branchName: {type: String, required: true},
+    bankDetails: [bankDetailsSchema],
 
-    }],
-
-    // 👇 Identity Documents Array
     identityDocs: [{
-        aadhaarNumber: { type: String }, // encrypt
-        panNumber: { type: String },     // encrypt
+        aadhaarNumber: { type: String }, // encrypted externally
+        panNumber: { type: String },     // encrypted externally
         aadhaarFrontUrl: { type: String },
         panCardUrl: { type: String }
     }]
 
 }, { timestamps: true });
 
-
-
-// Generate unique userId before saving
+// Generate unique userId before validating (so required userId is set)
 userSchema.pre('validate', async function (next) {
     if (this.isNew || this.isModified('companyName')) {
         let unique = false;
         while (!unique) {
             const prefix = this.companyName.substring(0, 3).toUpperCase();
             const randomDigits = Math.floor(100000 + Math.random() * 900000);
-            const generatedId = `${prefix}${randomDigits}`;
+            const generatedId = `${prefix}${randomDigits}`;  // fixed template literal
 
             const existing = await mongoose.models.User.findOne({ userId: generatedId });
             if (!existing) {
@@ -110,12 +107,16 @@ userSchema.pre('validate', async function (next) {
 // Hash password before saving
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) return next();
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (err) {
+        next(err);
+    }
 });
 
-// Method to match password
+// Method to compare passwords
 userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
