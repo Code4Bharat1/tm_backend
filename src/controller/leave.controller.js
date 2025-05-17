@@ -14,7 +14,7 @@ export const getApprovers = async (req, res) => {
         const admins = await Admin.find({ companyId }).select('_id fullName');
 
         // 2. Get all managers from users for this company
-        const managers = await User.find({ companyId, position: 'Manager' }).select('_id firstName lastName');
+        // const managers = await User.find({ companyId, position: 'Manager' }).select('_id firstName lastName');
 
         // 3. Format both results
         const formattedAdmins = admins.map(admin => ({
@@ -23,15 +23,15 @@ export const getApprovers = async (req, res) => {
             role: 'admin',
         }));
 
-        const formattedManagers = managers.map(manager => ({
-            id: manager._id,
-            name: `${manager.firstName} ${manager.lastName}`,
-            role: 'manager',
-        }));
+        // const formattedManagers = managers.map(manager => ({
+        //     id: manager._id,
+        //     name: `${manager.firstName} ${manager.lastName}`,
+        //     role: 'manager',
+        // }));
 
         // 4. Merge and send
-        const approvers = [...formattedAdmins, ...formattedManagers];
-
+        // const approvers = [...formattedAdmins, ...formattedManagers];
+        const approvers = [...formattedAdmins];
         res.status(200).json({ success: true, data: approvers });
     } catch (error) {
         console.error('Error fetching approvers:', error);
