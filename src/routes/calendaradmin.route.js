@@ -2,19 +2,19 @@
 
 import express from "express";
 import {
-    createCalendarEntry,
-    getCalendarEntriesByUser,
-    getCalendarEntryById,
-    updateCalendarEntry,
-    deleteCalendarEntry
-} from "../controller/calendaruser.controller.js";
+    createCalendarEntryAdmin,
+    getCalendarEntriesByUserAdmin,
+    getCalendarEntryByIdAdmin,
+    updateCalendarEntryAdmin,
+    deleteCalendarEntryAdmin
+} from "../controller/calendaradmin.controller.js";
 
 const router = express.Router();
 
-router.post("/calendar", createCalendarEntry);
-router.get("/calendar/user/:userId", getCalendarEntriesByUser);
-router.get("/calendar/:id", getCalendarEntryById);
-router.put("/calendar/:id", updateCalendarEntry);
-router.delete("/calendar/:id", deleteCalendarEntry);
+router.post("/calendar", createCalendarEntryAdmin);
+router.get("/calendar/user/:userId", getCalendarEntriesByUserAdmin);
+router.get("/calendar/:id", getCalendarEntryByIdAdmin);
+router.put("/calendar/:id", updateCalendarEntryAdmin);
+router.delete("/calendar/:id", deleteCalendarEntryAdmin);
 
 export default router;
