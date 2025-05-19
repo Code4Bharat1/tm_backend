@@ -48,7 +48,7 @@ export const punchInController = async (req, res) => {
     const punchInMinute = attendance.punchIn.getUTCMinutes();
 
     if (punchInHour < 9 || (punchInHour === 9 && punchInMinute <= 30)) {
-      attendance.remark = 'On Time';
+      attendance.remark = 'Present';
     } else {
       attendance.remark = 'Late';
     }
