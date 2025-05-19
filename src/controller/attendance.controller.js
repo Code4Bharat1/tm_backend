@@ -238,15 +238,11 @@ export const getTodayAttendance = async (req, res) => {
 export const getParticularUserAttendance = async (req, res) => {
   try {
     const {userId, companyId} = req.user;
-    const attendance = await Attendance.find({ userId, companyId }).sort({ date: -1 }); // Sort by date descending
+    const attendance = await Attendance.find({ userId, companyId }).sort({ date: -1 });
 
-    if (!attendance || attendance.length === 0) {
-      return res.status(404).json({
-        message: 'No attendance records found',
-      });
-    }
-
-    res.status(200).json(attendance);
+    // Return empty array instead of 404 when no records found
+    res.status(200).json(attendance || []);
+    
   } catch (error) {
     console.error('Error fetching attendance:', error);
     res.status(500).json({

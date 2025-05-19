@@ -1,12 +1,13 @@
 // controllers/taskController.js
 import TaskAssignment from '../models/taskAssignment.model.js';
 import User from '../models/user.model.js';
+import Admin from '../models/admin.model.js';
 import mongoose from 'mongoose';
 
-// @desc    Create a new task assignment
-// @route   POST /api/task-assignments
-// @access  Private
-export const createTaskAssignment = async (req, res) => {
+export const createTaskAssignment = async (
+  req,
+  res,
+) => {
   try {
     const {
       bucketName,
@@ -27,8 +28,16 @@ export const createTaskAssignment = async (req, res) => {
     const { companyId, adminId } = req.user;
 
     // Basic validation
-    if (!bucketName || !assignedTo || !assignDate || !deadline || !taskDescription) {
-      return res.status(400).json({ message: 'Required fields are missing' });
+    if (
+      !bucketName ||
+      !assignedTo ||
+      !assignDate ||
+      !deadline ||
+      !taskDescription
+    ) {
+      return res.status(400).json({
+        message: 'Required fields are missing',
+      });
     }
 
     const newTaskAssignment = new TaskAssignment({
@@ -42,40 +51,66 @@ export const createTaskAssignment = async (req, res) => {
       priority: priority || 'Medium',
       status: status || 'Open',
       tagMembers: tagMembers || [], // Store as array of user IDs
-      attachmentRequired: attachmentRequired || false,
+      attachmentRequired:
+        attachmentRequired || false,
       recurring: recurring || false,
       taskDescription,
       remark: remark || undefined,
     });
 
-    const savedTaskAssignment = await newTaskAssignment.save();
+    const savedTaskAssignment =
+      await newTaskAssignment.save();
 
     res.status(201).json({
-      message: 'Task assignment created successfully',
+      message:
+        'Task assignment created successfully',
       data: savedTaskAssignment,
     });
   } catch (error) {
-    console.error('Error creating task assignment:', error);
-    if (error instanceof mongoose.Error.ValidationError) {
-      return res.status(400).json({ message: error.message });
+    console.error(
+      'Error creating task assignment:',
+      error,
+    );
+    if (
+      error instanceof
+      mongoose.Error.ValidationError
+    ) {
+      return res
+        .status(400)
+        .json({ message: error.message });
     }
-    res.status(500).json({ message: 'Server error while creating task assignment' });
+    res.status(500).json({
+      message:
+        'Server error while creating task assignment',
+    });
   }
 };
 
-// @desc    Get all task assignments for a company
-// @route   GET /api/task-assignments
-// @access  Private
-export const getTaskAssignments = async (req, res) => {
+export const getTaskAssignments = async (
+  req,
+  res,
+) => {
   try {
-    // Get companyId from the JWT token
-    const { companyId } = req.user;
-    
-    // Optional query parameters for filtering
-    const { status, assignedTo, fromDate, toDate } = req.query;
+    // Get companyId and userId from the JWT token
+    const { companyId, userId } = req.user;
 
-    // Always filter by company ID for data isolation
-    let query = { companyId };
+    // Optional query parameters for filtering
+    const {
+      status,
+      assignedTo,
+      fromDate,
+      toDate,
+    } = req.query;
+
+    // Always filter by company ID and user ID for data isolation
+    let query = {
+      companyId,
+      $or: [
+        { assignedTo: userId }, // Tasks assigned to the user
+        { assignedBy: userId }, // Tasks created by the user
+        { tagMembers: userId }, // Tasks where user is a tag member
+      ],
+    };
 
     if (status) {
       query.status = status;
@@ -87,40 +122,65 @@ export const getTaskAssignments = async (req, res) => {
 
     if (fromDate || toDate) {
       query.assignDate = {};
-      if (fromDate) query.assignDate.$gte = new Date(fromDate);
-      if (toDate) query.assignDate.$lte = new Date(toDate);
+      if (fromDate)
+        query.assignDate.$gte = new Date(
+          fromDate,
+        );
+      if (toDate)
+        query.assignDate.$lte = new Date(toDate);
     }
 
-    const taskAssignments = await TaskAssignment.find(query)
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('assignedBy', 'fullName email')
-      .populate('tagMembers', 'firstName lastName email')
-      .sort({ assignDate: -1 })
-      .lean();
+    const taskAssignments =
+      await TaskAssignment.find(query)
+        .populate(
+          'assignedTo',
+          'firstName lastName email',
+        )
+        .populate('assignedBy', 'fullName email')
+        .populate(
+          'tagMembers',
+          'firstName lastName email',
+        )
+        .sort({ assignDate: -1 })
+        .lean();
 
     res.status(200).json({
       count: taskAssignments.length,
       data: taskAssignments,
     });
   } catch (error) {
-    console.error('Error fetching task assignments:', error);
-    res.status(500).json({ message: 'Server error while fetching task assignments' });
+    console.error(
+      'Error fetching task assignments:',
+      error,
+    );
+    res.status(500).json({
+      message:
+        'Server error while fetching task assignments',
+    });
   }
 };
 
-// @desc    Get all user emails for a company
-// @route   GET /api/tasks/getAllUserEmails
-// @access  Private
-export const getAllUserEmails = async (req, res) => {
+export const getAllUserEmails = async (
+  req,
+  res,
+) => {
   try {
     const { companyId } = req.user;
-    
+
     // Find all users in the company and return their ID, name and email
-    const users = await User.find({ companyId }, "firstName lastName email _id");
-    
+    const users = await User.find(
+      { companyId },
+      'firstName lastName email _id',
+    );
+
     res.status(200).json(users);
   } catch (error) {
-    console.error("Error fetching user emails:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error(
+      'Error fetching user emails:',
+      error,
+    );
+    res
+      .status(500)
+      .json({ message: 'Internal Server Error' });
   }
 };
