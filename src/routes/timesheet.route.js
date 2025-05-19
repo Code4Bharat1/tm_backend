@@ -6,7 +6,7 @@ import {
   getUserTimesheetsByCompany,
   getApprovers,
 } from "../controller/timesheet.controller.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 // Route to store timesheet
@@ -27,7 +27,7 @@ router.put(
   updateTimesheet
 );
 
-router.get('/admin/timesheets', protect, getUserTimesheetsByCompany);
+router.get('/admin/timesheets', protectAdmin, getUserTimesheetsByCompany);
 router.get('/approvers', protect, getApprovers);
 // Route to get timesheet
 // router.get('/get', (req, res) => {

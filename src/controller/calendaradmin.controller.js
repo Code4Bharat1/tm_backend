@@ -3,6 +3,7 @@ import CalendarEntry from '../models/calendaruser.model.js';
 
 const allowedFields = [
     'userId',
+    'userModelType',
     'type',
     'title',
     'description',
@@ -120,6 +121,9 @@ const handleControllerError = (res, error) => {
 
 export const createCalendarEntryAdmin = async (req, res) => {
     try {
+        req.body.userId = req.user.adminId;
+        const role='Admin';
+        req.body.userModelType = role === "Admin" ? "Admin" : "User";
         // Filter and validate input data
         const data = Object.fromEntries(
             Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
@@ -154,7 +158,7 @@ export const createCalendarEntryAdmin = async (req, res) => {
 
 export const getCalendarEntriesByUserAdmin = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const  userId  = req.user.adminId;
         const { year, month, day, type } = req.query;
 
         // Validate user ID

@@ -3,8 +3,13 @@ import mongoose from "mongoose";
 const calendarEntrySchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        refPath: 'userModelType',
         required: true,
+    },
+    userModelType: {
+        type: String,
+        required: true,
+        enum: ['User', 'Admin'],
     },
     type: {
         type: String,
@@ -59,13 +64,13 @@ const calendarEntrySchema = new mongoose.Schema({
 });
 
 // Validation middleware for required fields based on type
-calendarEntrySchema.pre('validate', function(next) {
+calendarEntrySchema.pre('validate', function (next) {
     if (this.type === 'Meeting') {
         if (!this.startTime) this.invalidate('startTime', 'Start time required for meetings');
         if (!this.endTime) this.invalidate('endTime', 'End time required for meetings');
         if (this.participants.length === 0) this.invalidate('participants', 'At least one participant required for meetings');
     }
-    
+
     if (this.type === 'Deadline') {
         if (!this.title) this.invalidate('title', 'Title required for deadlines');
         if (!this.time) this.invalidate('time', 'Time required for deadlines');

@@ -112,14 +112,19 @@ const handleControllerError = (res, error) => {
         return res.status(400).json({ error: "Invalid ID format" });
     }
     
-    res.status(500).json({ 
-        error: "Server error", 
-        details: error.message 
+    res.status(500).json({
+        error: "Server error",
+        details: error.message
     });
 };
 
 export const createCalendarEntry = async (req, res) => {
     try {
+        
+        req.body.userId = req.user.userId;
+        const role='User';
+        req.body.userModelType = role === "Admin" ? "Admin" : "User";
+
         // Filter and validate input data
         const data = Object.fromEntries(
             Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
@@ -152,9 +157,10 @@ export const createCalendarEntry = async (req, res) => {
     }
 };
 
+
 export const getCalendarEntriesByUser = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const { userId } = req.user;
         const { year, month, day, type } = req.query;
 
         // Validate user ID

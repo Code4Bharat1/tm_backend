@@ -8,11 +8,12 @@ import {
     updateCalendarEntry,
     deleteCalendarEntry
 } from "../controller/calendaruser.controller.js";
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post("/calendar", createCalendarEntry);
-router.get("/calendar/user/:userId", getCalendarEntriesByUser);
+router.post("/calendar",protect, createCalendarEntry);
+router.get("/calendar/user",protect, getCalendarEntriesByUser);
 router.get("/calendar/:id", getCalendarEntryById);
 router.put("/calendar/:id", updateCalendarEntry);
 router.delete("/calendar/:id", deleteCalendarEntry);

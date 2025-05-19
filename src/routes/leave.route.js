@@ -9,7 +9,7 @@ import {
     getApprovers,
     getSingleLeave
 } from "../controller/leave.controller.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -26,9 +26,9 @@ const upload = multer({ storage });
 router.post("/apply",protect, upload.single("attachment"), applyLeave);
 router.get('/approvers', protect, getApprovers);
 router.get("/userLeave",protect, getAllLeaves);
-router.get("/admin/company-leaves",protect, getCompanyLeaves);
-router.get("/admin/single-leave/:id",protect, getSingleLeave);
-router.get('/admin/leave/:leaveId', protect, getLeaveDetailsById);
-router.put('/admin/update-status/:leaveId', protect, updateLeaveStatus);
+router.get("/admin/company-leaves",protectAdmin, getCompanyLeaves);
+router.get("/admin/single-leave/:id",protectAdmin, getSingleLeave);
+router.get('/admin/leave/:leaveId', protectAdmin, getLeaveDetailsById);
+router.put('/admin/update-status/:leaveId', protectAdmin, updateLeaveStatus);
 
 export default router;

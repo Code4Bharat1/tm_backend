@@ -6,7 +6,7 @@ import {
   getAllAttendance,
   getParticularUserAttendance,
 } from "../controller/attendance.controller.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 const router = express.Router();
 // Route to punch in
 router.post(
@@ -31,7 +31,7 @@ router.get(
 );
 router.get(
   "/allAttendance",
-  protect,
+  protectAdmin,
   getAllAttendance
 );
 

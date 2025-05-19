@@ -2,7 +2,7 @@
 import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
 
- const getUserProfile = async (req, res) => {
+const getUserProfile = async (req, res) => {
     try {
         const userId = req.user.userId; // from JWT
         console.log('User ID from token:', userId); // Debugging line
@@ -19,7 +19,7 @@ import Admin from '../models/admin.model.js';
 };
 
 
- const updateProfile = async (req, res) => {
+const updateProfile = async (req, res) => {
     try {
         const userId = req.user.userId; // Extracted from JWT by middleware
 
@@ -63,7 +63,7 @@ import Admin from '../models/admin.model.js';
     }
 };
 
- const getUserProfileAdmin = async (req, res) => {
+const getUserProfileAdmin = async (req, res) => {
     try {
         const adminId = req.user.adminId; // from JWT
         console.log('Admin ID from token:', adminId); // Debugging line
@@ -80,7 +80,7 @@ import Admin from '../models/admin.model.js';
 };
 
 
- const updateProfileAdmin = async (req, res) => {
+const updateProfileAdmin = async (req, res) => {
     try {
         const adminId = req.user.adminId; // Extracted from JWT by middleware
 
@@ -123,25 +123,25 @@ import Admin from '../models/admin.model.js';
 };
 
 const getAllUsersByCompany = async (req, res) => {
-  try {
-    const companyId = req.user.companyId;
+    try {
+        const companyId = req.user.companyId;
 
-    if (!companyId) {
-      return res.status(400).json({ message: 'Company ID not found in token' });
+        if (!companyId) {
+            return res.status(400).json({ message: 'Company ID not found in token' });
+        }
+
+        const users = await User.find({ companyId }).select(
+            'userId firstName lastName email phoneNumber position photoUrl'
+        );
+
+        res.status(200).json({
+            count: users.length,
+            users,
+        });
+    } catch (error) {
+        console.error('Error fetching users by company:', error);
+        res.status(500).json({ message: 'Server error while fetching users' });
     }
-
-    const users = await User.find({ companyId }).select(
-      'userId firstName lastName email phoneNumber position photoUrl'
-    );
-
-    res.status(200).json({
-      count: users.length,
-      users,
-    });
-  } catch (error) {
-    console.error('Error fetching users by company:', error);
-    res.status(500).json({ message: 'Server error while fetching users' });
-  }
 };
 
 export { getUserProfile, updateProfile, getUserProfileAdmin, updateProfileAdmin, getAllUsersByCompany };

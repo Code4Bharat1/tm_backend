@@ -1,9 +1,14 @@
 import mongoose from "mongoose";
 
 const calendarEntrySchema = new mongoose.Schema({
-    userId: {
+    adminId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Admin",
+        required: true,
+    },
+    companyId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CompanyRegistration",
         required: true,
     },
     type: {
