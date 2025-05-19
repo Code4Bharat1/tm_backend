@@ -20,6 +20,7 @@ import CalendarRouter from './src/routes/calendaruser.route.js';
 import CalendarAdminRouter from './src/routes/calendaradmin.route.js';
 import Document from './src/routes/adddocument.route.js';
 import CreatePost from './src/routes/createpost.route.js';
+import UserExpense from './src/routes/userexpense.route.js';
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -64,6 +65,7 @@ app.use('/api/admin', CalendarAdminRouter);
 app.use('/api/admin', CreatePost);
 app.use('/api/tasks', Task)
 app.use('/api/document', Document);
+app.use('/api/expense', UserExpense);
 
 
 app.listen(Port, () => {
