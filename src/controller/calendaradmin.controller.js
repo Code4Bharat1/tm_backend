@@ -16,6 +16,7 @@ const allowedFields = [
     'participants'
 ];
 
+// Enhanced validation function
 const validateEntryData = (data) => {
     const errors = [];
     const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
@@ -27,8 +28,10 @@ const validateEntryData = (data) => {
         errors.push('Invalid entry type');
     }
 
-    // Common validations
-    if (data.date && isNaN(new Date(data.date))) {
+    // Date validation
+    if (!data.date) {
+        errors.push('Date is required');
+    } else if (isNaN(new Date(data.date))) {
         errors.push('Invalid date format');
     }
 
@@ -37,38 +40,61 @@ const validateEntryData = (data) => {
         case 'Meeting':
             if (!data.startTime) errors.push('Start time is required for meetings');
             if (!data.endTime) errors.push('End time is required for meetings');
-            if (data.startTime && data.endTime && data.startTime >= data.endTime) {
-                errors.push('End time must be after start time');
+            
+            // Validate time format and order
+            if (data.startTime && data.endTime) {
+                if (!timeRegex.test(data.startTime) || !timeRegex.test(data.endTime)) {
+                    errors.push('Meeting times must be in HH:MM AM/PM format');
+                } else {
+                    const parseTime = (timeStr) => {
+                        const [time, period] = timeStr.split(' ');
+                        let [hours, minutes] = time.split(':').map(Number);
+                        if (period === 'PM' && hours < 12) hours += 12;
+                        if (period === 'AM' && hours === 12) hours = 0;
+                        return hours * 60 + minutes;
+                    };
+
+                    try {
+                        const start = parseTime(data.startTime);
+                        const end = parseTime(data.endTime);
+                        if (start >= end) errors.push('End time must be after start time');
+                    } catch (e) {
+                        errors.push('Invalid time format for meeting');
+                    }
+                }
             }
+
             if (!data.participants?.length) {
                 errors.push('At least one participant is required for meetings');
             }
             break;
-            
+
         case 'Deadline':
             if (!data.title) errors.push('Title is required for deadlines');
-            if (!data.time) errors.push('Time is required for deadlines');
-            if (data.time && !timeRegex.test(data.time)) {
-                errors.push('Invalid time format (use HH:MM AM/PM)');
+            if (!data.time) {
+                errors.push('Time is required for deadlines');
+            } else if (!timeRegex.test(data.time)) {
+                errors.push('Invalid time format for deadline (use HH:MM AM/PM)');
             }
             break;
-            
+
         case 'Event':
-            if (!data.category) errors.push('Category is required for events');
-            if (!data.title) errors.push('Title is required for events');
-            if (data.category && !['Meeting', 'Leave', 'Daily Task', 'Reminder', 'Deadline'].includes(data.category)) {
+            if (!data.category) {
+                errors.push('Category is required for events');
+            } else if (!['Meeting', 'Leaves', 'Daily Task', 'Reminder', 'Deadline'].includes(data.category)) {
                 errors.push('Invalid event category');
             }
+            if (!data.title) errors.push('Title is required for events');
             break;
-            
+
         case 'Task':
             if (!data.title) errors.push('Title is required for tasks');
             break;
     }
 
-    // Time format validation
+    // General time validation
     if (data.time && !timeRegex.test(data.time)) {
-        errors.push('Invalid time format (use HH:MM AM/PM)');
+        errors.push('Time must be in HH:MM AM/PM format');
     }
 
     return errors;
@@ -92,27 +118,26 @@ const handleControllerError = (res, error) => {
     });
 };
 
-export const createCalendarEntry = async (req, res) => {
+export const createCalendarEntryAdmin = async (req, res) => {
     try {
-        // Filter input data
+        // Filter and validate input data
         const data = Object.fromEntries(
-            Object.entries(req.body)
-                .filter(([key]) => allowedFields.includes(key))
+            Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
         );
 
-        // Validate data
+        // Custom validation
         const validationErrors = validateEntryData(data);
         if (validationErrors.length > 0) {
             return res.status(400).json({ errors: validationErrors });
         }
 
-        // Convert and validate date
+        // Process dates and times
         data.date = new Date(data.date);
         if (isNaN(data.date)) {
             return res.status(400).json({ error: "Invalid date format" });
         }
 
-        // Validate user ID
+        // Validate user ID format
         if (!mongoose.Types.ObjectId.isValid(data.userId)) {
             return res.status(400).json({ error: "Invalid userId format" });
         }
@@ -122,13 +147,12 @@ export const createCalendarEntry = async (req, res) => {
         const savedEntry = await newEntry.save();
         
         res.status(201).json(savedEntry);
-        
     } catch (error) {
         handleControllerError(res, error);
     }
 };
 
-export const getCalendarEntriesByUser = async (req, res) => {
+export const getCalendarEntriesByUserAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
         const { year, month, day, type } = req.query;
@@ -138,9 +162,9 @@ export const getCalendarEntriesByUser = async (req, res) => {
             return res.status(400).json({ error: "Invalid userId format" });
         }
 
+        // Build query
         const query = { userId };
-        const dateFilter = {};
-
+        
         // Date filtering
         if (year || month || day) {
             const startDate = new Date(Date.UTC(
@@ -150,14 +174,9 @@ export const getCalendarEntriesByUser = async (req, res) => {
             ));
 
             const endDate = new Date(startDate);
-            
-            if (day) {
-                endDate.setUTCDate(endDate.getUTCDate() + 1);
-            } else if (month) {
-                endDate.setUTCMonth(endDate.getUTCMonth() + 1);
-            } else {
-                endDate.setUTCFullYear(endDate.getUTCFullYear() + 1);
-            }
+            if (day) endDate.setUTCDate(endDate.getUTCDate() + 1);
+            else if (month) endDate.setUTCMonth(endDate.getUTCMonth() + 1);
+            else endDate.setUTCFullYear(endDate.getUTCFullYear() + 1);
 
             query.date = { 
                 $gte: startDate.toISOString(), 
@@ -173,12 +192,13 @@ export const getCalendarEntriesByUser = async (req, res) => {
             query.type = type;
         }
 
+        // Fetch entries
         const entries = await CalendarEntry.find(query)
             .populate('userId', 'firstName lastName position')
             .sort({ date: 1, startTime: 1 })
             .lean();
 
-        // Convert dates to local time
+        // Format dates
         const localizedEntries = entries.map(entry => ({
             ...entry,
             date: new Date(entry.date).toLocaleDateString('en-CA'),
@@ -186,13 +206,12 @@ export const getCalendarEntriesByUser = async (req, res) => {
         }));
 
         res.status(200).json(localizedEntries);
-
     } catch (error) {
         handleControllerError(res, error);
     }
 };
 
-export const getCalendarEntryById = async (req, res) => {
+export const getCalendarEntryByIdAdmin = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -212,18 +231,16 @@ export const getCalendarEntryById = async (req, res) => {
             date: new Date(entry.date).toLocaleDateString('en-CA'),
             createdAt: entry.createdAt.toISOString()
         });
-
     } catch (error) {
         handleControllerError(res, error);
     }
 };
 
-export const updateCalendarEntry = async (req, res) => {
+export const updateCalendarEntryAdmin = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = Object.fromEntries(
-            Object.entries(req.body)
-                .filter(([key]) => allowedFields.includes(key))
+            Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
         );
 
         // Validate entry ID
@@ -231,13 +248,13 @@ export const updateCalendarEntry = async (req, res) => {
             return res.status(400).json({ error: "Invalid entry ID format" });
         }
 
-        // Validate update data
+        // Custom validation
         const validationErrors = validateEntryData(updates);
         if (validationErrors.length > 0) {
             return res.status(400).json({ errors: validationErrors });
         }
 
-        // Handle date conversion
+        // Process date updates
         if (updates.date) {
             updates.date = new Date(updates.date);
             if (isNaN(updates.date)) {
@@ -245,6 +262,7 @@ export const updateCalendarEntry = async (req, res) => {
             }
         }
 
+        // Perform update
         const updatedEntry = await CalendarEntry.findByIdAndUpdate(
             id,
             updates,
@@ -260,13 +278,12 @@ export const updateCalendarEntry = async (req, res) => {
             date: new Date(updatedEntry.date).toLocaleDateString('en-CA'),
             createdAt: updatedEntry.createdAt.toISOString()
         });
-
     } catch (error) {
         handleControllerError(res, error);
     }
 };
 
-export const deleteCalendarEntry = async (req, res) => {
+export const deleteCalendarEntryAdmin = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -287,8 +304,15 @@ export const deleteCalendarEntry = async (req, res) => {
                 date: new Date(deletedEntry.date).toLocaleDateString('en-CA')
             }
         });
-
     } catch (error) {
         handleControllerError(res, error);
     }
+};
+
+export default {
+    createCalendarEntryAdmin,
+    getCalendarEntriesByUserAdmin,
+    getCalendarEntryByIdAdmin,
+    updateCalendarEntryAdmin,
+    deleteCalendarEntryAdmin
 };

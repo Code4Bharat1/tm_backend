@@ -10,6 +10,7 @@ import ProfileRouter from './src/routes/profile.route.js';
 import AdminRouter from './src/routes/adminAuth.route.js';
 import SuperAdminRouter from './src/routes/superAdminAuth.route.js';
 import companyRegister from './src/routes/companyRegister.route.js'
+import BankDetailsRouter from './src/routes/bankDetails.route.js';
 import Task from './src/routes/task.route.js'
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -17,6 +18,8 @@ import cookieParser from 'cookie-parser';
 import { logout } from './src/controller/logout.controller.js';
 import CalendarRouter from './src/routes/calendaruser.route.js';
 import CalendarAdminRouter from './src/routes/calendaradmin.route.js';
+import Document from './src/routes/adddocument.route.js';
+import CreatePost from './src/routes/createpost.route.js';
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -47,6 +50,7 @@ app.get('/', (req, res) => res.send('API is working'));
 app.use('/api/user', SignupRouter);
 app.use('/api/user', LoginRouter);
 app.use('/api/user', CalendarRouter);
+app.use('/api/user', BankDetailsRouter);
 app.use('/api/forgotpassword', ForgotPasswordRouter);
 app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
@@ -57,7 +61,9 @@ app.use('/api/logout', logout)
 app.use('/api/superadmin', SuperAdminRouter);
 app.use('/api/companyRegister', companyRegister)
 app.use('/api/admin', CalendarAdminRouter);
+app.use('/api/admin', CreatePost);
 app.use('/api/tasks', Task)
+app.use('/api/document', Document);
 
 
 app.listen(Port, () => {

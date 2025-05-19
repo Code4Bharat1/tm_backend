@@ -1,6 +1,42 @@
 import Timesheet from "../models/timesheet.model.js";
 import moment from "moment";
 
+const getApprovers = async (req, res) => {
+    try {
+        const { companyId } = req.user;
+
+        if (!companyId) {
+            return res.status(401).json({ success: false, message: 'Unauthorized. Company ID missing.' });
+        }
+
+        // 1. Get all admins for this company
+        const admins = await Admin.find({ companyId }).select('_id fullName');
+
+        // 2. Get all managers from users for this company
+        // const managers = await User.find({ companyId, position: 'Manager' }).select('_id firstName lastName');
+
+        // 3. Format both results
+        const formattedAdmins = admins.map(admin => ({
+            id: admin._id,
+            name: admin.fullName,
+            role: 'admin',
+        }));
+
+        // const formattedManagers = managers.map(manager => ({
+        //     id: manager._id,
+        //     name: `${manager.firstName} ${manager.lastName}`,
+        //     role: 'manager',
+        // }));
+
+        // 4. Merge and send
+        // const approvers = [...formattedAdmins, ...formattedManagers];
+        const approvers = [...formattedAdmins];
+        res.status(200).json({ success: true, data: approvers });
+    } catch (error) {
+        console.error('Error fetching approvers:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
 // Store Timesheet Controller
 const storeTimesheet = async (
   req,
@@ -266,4 +302,5 @@ export {
   getTimesheetsbyDate,
   updateTimesheet,
   getUserTimesheetsByCompany,
+  getApprovers
 };

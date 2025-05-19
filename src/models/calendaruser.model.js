@@ -29,7 +29,7 @@ const calendarEntrySchema = new mongoose.Schema({
     },
     category: {
         type: String,
-        enum: ["Meeting", "Leave", "Daily Task", "Reminder", "Deadline"],
+        enum: ["Meeting", "Leaves", "Daily Task", "Reminder", "Deadline"],
         default: null,
     },
     reminder: {
@@ -55,10 +55,10 @@ const calendarEntrySchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now,
-    }
+    },
 });
 
-// Add validation for required fields based on type
+// Validation middleware for required fields based on type
 calendarEntrySchema.pre('validate', function(next) {
     if (this.type === 'Meeting') {
         if (!this.startTime) this.invalidate('startTime', 'Start time required for meetings');
@@ -79,4 +79,5 @@ calendarEntrySchema.pre('validate', function(next) {
 });
 
 const CalendarEntry = mongoose.model("CalendarEntry", calendarEntrySchema);
+
 export default CalendarEntry;
