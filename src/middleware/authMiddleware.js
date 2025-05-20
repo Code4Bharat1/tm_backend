@@ -19,7 +19,7 @@ import jwt from 'jsonwebtoken';
 const protectAdmin = (req, res, next) => {
     try {
         const admintoken = req.cookies.admintoken; // Assuming it's stored as 'token'
-
+        
         if (!admintoken) {
             return res.status(401).json({ message: 'No token, authorization denied' });
         }

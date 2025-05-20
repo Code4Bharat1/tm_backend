@@ -9,9 +9,9 @@ import LeaveRouter from './src/routes/leave.route.js';
 import ProfileRouter from './src/routes/profile.route.js';
 import AdminRouter from './src/routes/adminAuth.route.js';
 import SuperAdminRouter from './src/routes/superAdminAuth.route.js';
-import companyRegister from './src/routes/companyRegister.route.js'
+import companyRegister from './src/routes/companyRegister.route.js';
 import BankDetailsRouter from './src/routes/bankDetails.route.js';
-import Task from './src/routes/task.route.js'
+import Task from './src/routes/task.route.js';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -20,6 +20,9 @@ import CalendarRouter from './src/routes/calendaruser.route.js';
 import CalendarAdminRouter from './src/routes/calendaradmin.route.js';
 import Document from './src/routes/adddocument.route.js';
 import CreatePost from './src/routes/createpost.route.js';
+import Expenses from './src/routes/expense.route.js';
+import UploadRouter from './src/routes/upload.route.js';
+
 // import UserExpense from './src/routes/userexpense.route.js';
 dotenv.config();
 const Port = process.env.PORT;
@@ -29,45 +32,57 @@ const router = express.Router();
 
 connectDB();
 
-app.use(cors({
-    origin: ['http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
-        'https://task-tracker.code4bharat.com',
-        'https://task-tracker-admin.code4bharat.com',
-        'https://task-tracker-superadmin.code4bharat.com',
-        'https://www.task-tracker.code4bharat.com',
-        'https://www.task-tracker-admin.code4bharat.com',
-        'https://www.task-tracker-superadmin.code4bharat.com'], // Frontend origin
+app.use(
+  cors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'https://task-tracker.code4bharat.com',
+      'https://task-tracker-admin.code4bharat.com',
+      'https://task-tracker-superadmin.code4bharat.com',
+      'https://www.task-tracker.code4bharat.com',
+      'https://www.task-tracker-admin.code4bharat.com',
+      'https://www.task-tracker-superadmin.code4bharat.com',
+    ], // Frontend origin
     credentials: true,
-}));
+  }),
+);
 
 app.use(cookieParser()); // Middleware to parse cookies
 
 app.use(express.json());
 
-app.get('/', (req, res) => res.send('API is working'));
+app.get('/', (req, res) =>
+  res.send('API is working'),
+);
 
 app.use('/api/user', SignupRouter);
 app.use('/api/user', LoginRouter);
 app.use('/api/user', CalendarRouter);
 app.use('/api/user', BankDetailsRouter);
-app.use('/api/forgotpassword', ForgotPasswordRouter);
+app.use(
+  '/api/forgotpassword',
+  ForgotPasswordRouter,
+);
 app.use('/api/timesheet', TimesheetRouter);
 app.use('/api/attendance', AttendanceRouter);
 app.use('/api/leave', LeaveRouter);
 app.use('/api/profile', ProfileRouter);
-app.use('/api/admin', AdminRouter)
-app.use('/api/logout', logout)
+app.use('/api/admin', AdminRouter);
+app.use('/api/logout', logout);
 app.use('/api/superadmin', SuperAdminRouter);
-app.use('/api/companyRegister', companyRegister)
+app.use('/api/companyRegister', companyRegister);
 app.use('/api/admin', CalendarAdminRouter);
 app.use('/api/admin', CreatePost);
-app.use('/api/tasks', Task)
+app.use('/api/tasks', Task);
 app.use('/api/document', Document);
+app.use('/api/expense', Expenses);
+app.use('/api/upload', UploadRouter);
 // app.use('/api/expense', UserExpense);
 
-
 app.listen(Port, () => {
-    console.log(`Server running on http://localhost:${Port}`);
+  console.log(
+    `Server running on http://localhost:${Port}`,
+  );
 });
