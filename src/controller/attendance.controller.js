@@ -298,11 +298,10 @@ export const getAllAttendance = async (req, res) => {
         $sort: { date: -1 }, // Most recent records first
       },
     ]);
-
-    if (!attendanceRecords.length) {
-      return res.status(404).json({ message: "No attendance records found." });
+    // Return empty array instead of 404 when no records found
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      return res.status(200).json([]);
     }
-
     res.status(200).json(attendanceRecords);
   } catch (error) {
     console.error("Error fetching attendance records:", error);

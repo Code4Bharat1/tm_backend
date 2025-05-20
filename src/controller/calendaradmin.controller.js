@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import CalendarEntry from '../models/calendaruser.model.js';
 
 const allowedFields = [
+    'userId',
     'userModelType',
     'type',
     'title',

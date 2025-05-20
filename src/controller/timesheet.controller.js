@@ -160,9 +160,10 @@ const getTimesheetsbyDate = async (
         timesheet,
       });
     } else {
-      return res.status(404).json({
-        message:
-          "Timesheet not found for this date",
+      return res.status(200).json({
+        message: "No timesheet found for this date",
+        boolean: false,
+        timesheet: null,
       });
     }
   } catch (err) {
@@ -251,7 +252,7 @@ const updateTimesheet = async (
       );
 
     if (!updated) {
-      return res.status(404).json({
+      return res.status(200).json({
         message:
           "Timesheet not found for this date.",
       });
@@ -283,7 +284,7 @@ const getUserTimesheetsByCompany = async (req, res) => {
       .exec();
 
     if (!timesheets || timesheets.length === 0) {
-      return res.status(404).json({ success: false, message: "No timesheets found." });
+      return res.status(200).json({ success: false, message: "No timesheets found." });
     }
 
     res.status(200).json({

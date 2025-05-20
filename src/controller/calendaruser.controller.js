@@ -3,6 +3,7 @@ import CalendarEntry from '../models/calendaruser.model.js';
 
 const allowedFields = [
     'userId',
+    'userModelType',
     'type',
     'title',
     'description',
@@ -36,11 +37,11 @@ const validateEntryData = (data) => {
     }
 
     // Type-specific validations
-    switch(data.type) {
+    switch (data.type) {
         case 'Meeting':
             if (!data.startTime) errors.push('Start time is required for meetings');
             if (!data.endTime) errors.push('End time is required for meetings');
-            
+
             // Validate time format and order
             if (data.startTime && data.endTime) {
                 if (!timeRegex.test(data.startTime) || !timeRegex.test(data.endTime)) {
@@ -102,16 +103,16 @@ const validateEntryData = (data) => {
 
 const handleControllerError = (res, error) => {
     console.error('Controller Error:', error);
-    
+
     if (error instanceof mongoose.Error.ValidationError) {
         const messages = Object.values(error.errors).map(err => err.message);
         return res.status(400).json({ errors: messages });
     }
-    
+
     if (error.name === 'CastError') {
         return res.status(400).json({ error: "Invalid ID format" });
     }
-    
+
     res.status(500).json({
         error: "Server error",
         details: error.message
@@ -120,42 +121,51 @@ const handleControllerError = (res, error) => {
 
 export const createCalendarEntry = async (req, res) => {
     try {
-        
+        console.log("Received request body:", req.body); // Debugging line
+
         req.body.userId = req.user.userId;
-        const role='User';
+        const role = 'User';
         req.body.userModelType = role === "Admin" ? "Admin" : "User";
 
         // Filter and validate input data
         const data = Object.fromEntries(
             Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
         );
+        console.log("Filtered and validated data:", data); // Debugging line
 
         // Custom validation
         const validationErrors = validateEntryData(data);
         if (validationErrors.length > 0) {
+            console.warn("Validation errors:", validationErrors); // Debugging line
             return res.status(400).json({ errors: validationErrors });
         }
 
         // Process dates and times
         data.date = new Date(data.date);
         if (isNaN(data.date)) {
+            console.error("Invalid date format:", data.date); // Debugging line
             return res.status(400).json({ error: "Invalid date format" });
         }
 
         // Validate user ID format
         if (!mongoose.Types.ObjectId.isValid(data.userId)) {
+            console.error("Invalid userId format:", data.userId); // Debugging line
             return res.status(400).json({ error: "Invalid userId format" });
         }
 
         // Create and save entry
+        console.log("Creating calendar entry with data:", data); // Debugging line
         const newEntry = new CalendarEntry(data);
         const savedEntry = await newEntry.save();
-        
+
+        console.log("Successfully saved calendar entry:", savedEntry); // Debugging line
         res.status(201).json(savedEntry);
     } catch (error) {
+        console.error("Error in createCalendarEntry:", error); // Debugging line
         handleControllerError(res, error);
     }
 };
+
 
 
 export const getCalendarEntriesByUser = async (req, res) => {
@@ -170,7 +180,7 @@ export const getCalendarEntriesByUser = async (req, res) => {
 
         // Build query
         const query = { userId };
-        
+
         // Date filtering
         if (year || month || day) {
             const startDate = new Date(Date.UTC(
@@ -184,9 +194,9 @@ export const getCalendarEntriesByUser = async (req, res) => {
             else if (month) endDate.setUTCMonth(endDate.getUTCMonth() + 1);
             else endDate.setUTCFullYear(endDate.getUTCFullYear() + 1);
 
-            query.date = { 
-                $gte: startDate.toISOString(), 
-                $lt: endDate.toISOString() 
+            query.date = {
+                $gte: startDate.toISOString(),
+                $lt: endDate.toISOString()
             };
         }
 
@@ -298,7 +308,7 @@ export const deleteCalendarEntry = async (req, res) => {
         }
 
         const deletedEntry = await CalendarEntry.findByIdAndDelete(id);
-        
+
         if (!deletedEntry) {
             return res.status(404).json({ error: "Entry not found" });
         }
