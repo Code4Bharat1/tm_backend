@@ -13,7 +13,7 @@ import { protectAdmin } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.post("/calendar",protectAdmin, createCalendarEntryAdmin);
-router.get("/calendar/user",protectAdmin, getCalendarEntriesByUserAdmin);
+router.get("/calendar/user/:calType",protectAdmin, getCalendarEntriesByUserAdmin);
 router.get("/calendar/:id", getCalendarEntryByIdAdmin);
 router.put("/calendar/:id", updateCalendarEntryAdmin);
 router.delete("/calendar/:id", deleteCalendarEntryAdmin);

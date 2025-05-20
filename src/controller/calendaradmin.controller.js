@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
-import CalendarEntry from '../models/calendaruser.model.js';
+import CalendarEntry from '../models/calendaradmin.model.js';
 
 const allowedFields = [
     'userId',
     'userModelType',
+    'calType',
     'type',
     'title',
     'description',
@@ -121,53 +122,75 @@ const handleControllerError = (res, error) => {
 
 export const createCalendarEntryAdmin = async (req, res) => {
     try {
-        req.body.userId = req.user.adminId;
-        const role='Admin';
-        req.body.userModelType = role === "Admin" ? "Admin" : "User";
-        // Filter and validate input data
-        const data = Object.fromEntries(
-            Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
-        );
+        // Set user identity
+        const role = 'Admin';
+        const userId = req.user?.adminId;
 
+        if (!userId) {
+            return res.status(400).json({ error: "Missing adminId in request" });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ error: "Invalid userId format" });
+        }
+
+        req.body.userId = userId;
+        req.body.userModelType = role === "Admin" ? "Admin" : "User";
+
+        // Filter request fields
+        const data = {};
+        allowedFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                data[field] = req.body[field];
+            }
+        });
+console.log("Filtered Data:", data);    
         // Custom validation
         const validationErrors = validateEntryData(data);
         if (validationErrors.length > 0) {
             return res.status(400).json({ errors: validationErrors });
         }
 
-        // Process dates and times
-        data.date = new Date(data.date);
-        if (isNaN(data.date)) {
+        // Ensure `date` is a proper Date object
+        const parsedDate = new Date(data.date);
+        if (isNaN(parsedDate)) {
             return res.status(400).json({ error: "Invalid date format" });
         }
+        data.date = parsedDate;
 
-        // Validate user ID format
-        if (!mongoose.Types.ObjectId.isValid(data.userId)) {
-            return res.status(400).json({ error: "Invalid userId format" });
-        }
+        // Debugging logs
+        console.log("Prepared Data for Saving:", data);
 
-        // Create and save entry
+        // Save to database
         const newEntry = new CalendarEntry(data);
+        console.log("New Entry Object:", newEntry);
         const savedEntry = await newEntry.save();
-        
+
         res.status(201).json(savedEntry);
     } catch (error) {
         handleControllerError(res, error);
     }
 };
 
+
 export const getCalendarEntriesByUserAdmin = async (req, res) => {
     try {
-        const  userId  = req.user.adminId;
+        const userId = req.user.adminId;
+        const { calType } = req.params;
         const { year, month, day, type } = req.query;
-
+        
         // Validate user ID
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ error: "Invalid userId format" });
         }
-
+        
         // Build query
         const query = { userId };
+        
+        // Add calType to query if needed
+        if (calType) {
+            query.calType = calType;
+        }
         
         // Date filtering
         if (year || month || day) {
@@ -176,40 +199,62 @@ export const getCalendarEntriesByUserAdmin = async (req, res) => {
                 month ? parseInt(month) - 1 : 0,
                 day ? parseInt(day) : 1
             ));
-
             const endDate = new Date(startDate);
             if (day) endDate.setUTCDate(endDate.getUTCDate() + 1);
             else if (month) endDate.setUTCMonth(endDate.getUTCMonth() + 1);
             else endDate.setUTCFullYear(endDate.getUTCFullYear() + 1);
-
-            query.date = { 
-                $gte: startDate.toISOString(), 
-                $lt: endDate.toISOString() 
+            query.date = {
+                $gte: startDate.toISOString(),
+                $lt: endDate.toISOString()
             };
         }
-
+        
         // Type filtering
         if (type) {
-            if (!['Event', 'Task', 'Meeting', 'Deadline'].includes(type)) {
+            const validTypes = ['Event', 'Task', 'Meeting', 'Deadline'];
+            if (!validTypes.includes(type)) {
                 return res.status(400).json({ error: "Invalid type filter" });
             }
             query.type = type;
         }
-
+        
         // Fetch entries
-        const entries = await CalendarEntry.find(query)
-            .populate('userId', 'firstName lastName position')
+        let entries = await CalendarEntry.find(query)
             .sort({ date: 1, startTime: 1 })
             .lean();
-
-        // Format dates
-        const localizedEntries = entries.map(entry => ({
-            ...entry,
-            date: new Date(entry.date).toLocaleDateString('en-CA'),
-            createdAt: new Date(entry.createdAt).toISOString()
-        }));
-
-        res.status(200).json(localizedEntries);
+        
+            console.log("Fetched Entries:", entries);   
+        // Transform entries to match the desired output format
+        const transformedEntries = entries.map(entry => {
+            // Create the transformed entry with the new field structure
+            const transformedEntry = {
+                userId: entry.userId,
+                userModelType: "Admin", // Set default userModelType as Admin
+                type: entry.type,
+                calType: entry.calType,
+                title: entry.title,
+                description: entry.description,
+                date: entry.date,
+                time: entry.time,
+                category: entry.category,
+                reminder: true, // Default value
+                remindBefore: 30, // Default value in minutes
+                startTime: entry.startTime,
+                endTime: entry.endTime,
+                participants: entry.participants || [],
+                _id: entry._id,
+                createdAt: entry.createdAt,
+                __v: entry.__v
+            };
+            
+            // Remove calType field as it's not needed in the response
+            
+            return transformedEntry;
+        });
+        
+        console.log("Transformed Entries:", transformedEntries);
+        
+        res.status(200).json(transformedEntries);   
     } catch (error) {
         handleControllerError(res, error);
     }

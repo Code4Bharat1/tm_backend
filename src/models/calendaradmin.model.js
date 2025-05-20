@@ -11,6 +11,11 @@ const calendarEntrySchema = new mongoose.Schema({
         ref: "CompanyRegistration",
         required: true,
     },
+    calType: {
+        type: String,
+        enum: ['Personal', 'Monthly','Yearly'],
+        required: true,
+    },
     type: {
         type: String,
         enum: ["Event", "Task", "Meeting", "Deadline"],
@@ -83,6 +88,6 @@ calendarEntrySchema.pre('validate', function(next) {
     next();
 });
 
-const CalendarEntry = mongoose.model("CalendarEntry", calendarEntrySchema);
+const CalendarEntry = mongoose.models.CalendarEntry || mongoose.model("CalendarEntry", calendarEntrySchema);
 
 export default CalendarEntry;
