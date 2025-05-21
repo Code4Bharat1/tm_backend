@@ -7,16 +7,16 @@ import {
   getCompaniesByStatus,
   updateCompanyStatus,
 } from '../controller/companyRegistration.controller.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protectSuperAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.post('/register', registerCompany);
 router.post('/login', loginCompanyAdmin);
-router.get('/getAllCompanies',protect, getAllCompanies);
-router.delete('/:id', protect, deleteCompany);
+router.get('/getAllCompanies',protectSuperAdmin, getAllCompanies);
+router.delete('/:id', protectSuperAdmin, deleteCompany);
 
 router.get('/status', getCompaniesByStatus);      // ?status=Pending
-router.patch('/updateStatus/:id', updateCompanyStatus); // Update status by ID
+router.patch('/updateStatus/:id',protectSuperAdmin, updateCompanyStatus); // Update status by ID
 
 export default router;

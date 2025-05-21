@@ -40,7 +40,7 @@ export async function loginSuperAdmin(req, res) {
     );
 
     // 5. Set JWT token in a secure, HTTP-only cookie
-    res.setHeader('Set-Cookie', cookie.serialize('token', token, {
+    res.setHeader('Set-Cookie', cookie.serialize('superAdminToken', token, {
       httpOnly: true, // Ensures the cookie is not accessible via JavaScript
       secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
       maxAge: 24 * 60 * 60, // 1 day
