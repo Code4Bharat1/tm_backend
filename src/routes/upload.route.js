@@ -1,34 +1,31 @@
 import express from 'express';
 import { upload } from '../middleware/multer.middleware.js';
+import {v2 as cloudinary} from 'cloudinary';
 
 const router = express.Router();
 
 router.post(
   '/',
   upload.single('file'),
-  (req, res) => {
+  async (req, res) => {
     if (!req.file) {
-      return res
-        .status(400)
-        .json({ message: 'No file uploaded' });
+      return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // When using Cloudinary, multer-storage-cloudinary automatically
-    // adds Cloudinary-specific information to the file object
+    // Extract available info from multer upload
     const fileInfo = {
       fileName: req.file.originalname,
-      fileUrl: req.file.path, // Cloudinary secure URL
-      publicId: req.file.filename, // Cloudinary public ID (useful for deletion later)
-      format: req.file.format,
-      resourceType: req.file.resource_type,
+      fileUrl: req.file.path,  // This is actually the secure URL despite being called 'path'
+      publicId: req.file.filename,
+      format: req.file.originalname.split('.').pop().toLowerCase(), // Extract extension from filename
+      fileResourceType: req.file.mimetype.split('/')[0] === 'image' ? 'image' : 'raw' // Determine type from mimetype
     };
-
+    
     res.status(200).json({
-      message:
-        'File uploaded successfully to Cloudinary',
-      ...fileInfo,
+      message: 'File uploaded successfully to Cloudinary',
+      ...fileInfo
     });
-  },
+  }
 );
 
 // Optional: Add a route to delete a file from Cloudinary
@@ -36,10 +33,6 @@ router.delete('/:publicId', async (req, res) => {
   try {
     const { publicId } = req.params;
 
-    // Import cloudinary for deletion
-    const { v2: cloudinary } = await import(
-      'cloudinary'
-    );
 
     // Delete the file from Cloudinary
     const result =

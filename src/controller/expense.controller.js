@@ -1,24 +1,44 @@
-// Update the expense controller with new functionality for updating expenses
-
 import Expense from '../models/expense.model.js';
 import mongoose from 'mongoose';
-
+import { v2 as cloudinary } from 'cloudinary';
 /**
  * Create a new expense entry
  */
+// export const createExpense = async (req, res) => {
+//   try {
+//     const { expenses } = req.body;
+//     const { userId, companyId } = req.user;
+
+//     const newExpenses = expenses.map((exp) => ({
+//       userId,
+//       companyId,
+//       category: exp.category,
+//       amount: exp.amount,
+//       date: exp.date,
+//       paymentMethod: exp.paymentMethod,
+//       description: exp.description || '',
+//       documents: exp.documents?.map(doc => ({
+//         fileName: doc.fileName,
+//         fileUrl: doc.fileUrl,
+//         filePublicId: doc.filePublicId,
+//         fileResourceType: doc.fileResourceType // Explicitly map this field
+//       })) || []
+//     }));
+
+//     const savedExpenses = await Expense.insertMany(newExpenses);
+
+//     res.status(201).json({
+//       message: 'Expenses created successfully',
+//       data: savedExpenses
+//     });
+//   } catch (error) {
+//     console.error('Error creating expense:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
 export const createExpense = async (req, res) => {
   try {
     const { expenses } = req.body;
-
-    if (
-      !Array.isArray(expenses) ||
-      expenses.length === 0
-    ) {
-      return res.status(400).json({
-        message: 'No expense data provided',
-      });
-    }
-
     const { userId, companyId } = req.user;
 
     const newExpenses = expenses.map((exp) => ({
@@ -29,8 +49,16 @@ export const createExpense = async (req, res) => {
       date: exp.date,
       paymentMethod: exp.paymentMethod,
       description: exp.description || '',
-      documents: exp.documents || [], // expects [{ fileName, fileUrl }]
-    }));
+      documents:
+        exp.documents?.map((doc) => ({
+          fileName: doc.fileName,
+          fileUrl: doc.fileUrl,
+          filePublicId: doc.filePublicId,
+          fileResourceType: doc.fileResourceType, // Explicitly map this field
+        })) || [],
+        
+    }
+  ));
 
     const savedExpenses =
       await Expense.insertMany(newExpenses);
@@ -49,86 +77,6 @@ export const createExpense = async (req, res) => {
       .json({ message: 'Internal server error' });
   }
 };
-
-/**
- * Update an existing expense
- */
-// export const updateExpense = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { userId } = req.user;
-//     const {
-//       category,
-//       amount,
-//       date,
-//       paymentMethod,
-//       description,
-//     } = req.body;
-
-//     // Validate the expense ID
-//     if (!mongoose.Types.ObjectId.isValid(id)) {
-//       return res
-//         .status(400)
-//         .json({ message: 'Invalid expense ID' });
-//     }
-
-//     // Find the expense first to check if it belongs to the user
-//     const expense = await Expense.findById(id);
-
-//     if (!expense) {
-//       return res
-//         .status(404)
-//         .json({ message: 'Expense not found' });
-//     }
-
-//     // Check if the expense belongs to the user
-//     if (
-//       String(expense.userId) !== String(userId)
-//     ) {
-//       return res.status(403).json({
-//         message:
-//           'Not authorized to update this expense',
-//       });
-//     }
-
-//     // Check if the expense is in a pending state (only pending expenses can be updated)
-//     if (expense.status !== 'pending') {
-//       return res.status(400).json({
-//         message:
-//           'Only pending expenses can be updated',
-//       });
-//     }
-
-//     // Update the expense
-//     const updatedExpense =
-//       await Expense.findByIdAndUpdate(
-//         id,
-//         {
-//           category,
-//           amount,
-//           date,
-//           status: 'Pending',
-//           paymentMethod,
-//           description,
-//         },
-//         { new: true },
-//       );
-
-//     res.status(200).json({
-//       message: 'Expense updated successfully',
-//       data: updatedExpense,
-//     });
-//   } catch (error) {
-//     console.error(
-//       'Error updating expense:',
-//       error,
-//     );
-//     res
-//       .status(500)
-//       .json({ message: 'Internal server error' });
-//   }
-// };
-
 export const approveExpense = async (
   req,
   res,
@@ -207,32 +155,64 @@ export const rejectExpense = async (req, res) => {
   }
 };
 
-/**
- * Delete an expense entry
- */
 export const deleteExpense = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate the expense ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
         .status(400)
         .json({ message: 'Invalid expense ID' });
     }
 
-    const deleted =
-      await Expense.findByIdAndDelete(id);
+    const expense = await Expense.findById(id);
 
-    if (!deleted) {
+    if (!expense) {
       return res
         .status(404)
         .json({ message: 'Expense not found' });
     }
 
+    // 🔄 Loop through all attached documents and delete from Cloudinary
+    for (const doc of expense.documents || []) {
+      if (doc.filePublicId) {
+        try {
+          const result =
+            await cloudinary.uploader.destroy(
+              doc.filePublicId,
+              {
+                resource_type:
+                  doc.fileResourceType || 'image', // handles images, PDFs, etc.
+              },
+            );
+
+          console.log(
+            `Deleted Cloudinary file ${doc.filePublicId}:`,
+            result,
+          );
+
+          if (result.result !== 'ok') {
+            console.warn(
+              `Cloudinary deletion failed for ${doc.filePublicId}:`,
+              result,
+            );
+          }
+        } catch (cloudErr) {
+          console.error(
+            `Error deleting file ${doc.filePublicId} from Cloudinary:`,
+            cloudErr,
+          );
+        }
+      }
+    }
+
+    // ❌ Delete the expense from MongoDB
+    await Expense.findByIdAndDelete(id);
+
     res.status(200).json({
-      message: 'Expense deleted successfully',
-      data: { id: deleted._id },
+      message:
+        'Expense and associated files deleted successfully',
+      data: { id: expense._id },
     });
   } catch (error) {
     console.error(

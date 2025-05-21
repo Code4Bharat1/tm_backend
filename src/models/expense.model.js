@@ -59,6 +59,8 @@ const expenseSchema = new mongoose.Schema(
       {
         fileName: String,
         fileUrl: String,
+        filePublicId: String,
+        fileResourceType: String,
         _id: false,
       },
     ],
