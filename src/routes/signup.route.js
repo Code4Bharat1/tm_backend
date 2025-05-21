@@ -1,11 +1,11 @@
 // routes/userRoutes.js
 import express from 'express';
 import { createUser, bulkCreateUsers } from '../controller/signup.controller.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protectAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/register', protect, createUser);
-router.post('/register/bulk', protect, bulkCreateUsers);
+router.post('/register', protectAdmin, createUser);
+router.post('/register/bulk', protectAdmin, bulkCreateUsers);
 
 export default router;
