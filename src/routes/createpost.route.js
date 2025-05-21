@@ -5,15 +5,17 @@ import {
     getPostById,
     updatePost,
     deletePost,
+    proxyDownload,
 } from '../controller/createpost.controller.js';
 import { protectAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 router.post('/create', protectAdmin, createPost);
-router.get('/post', getAllPosts);
+router.get('/getAllPosts',protectAdmin, getAllPosts);
 router.get('/:id', getPostById);
 router.put('/:id', updatePost);
 router.delete('/:id', deletePost);
+router.post('/proxyDownload', proxyDownload)
 
 export default router;

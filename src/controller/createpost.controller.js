@@ -1,3 +1,4 @@
+import axios from 'axios';
 import Post from '../models/createpost.model.js';
 
 // Create a new post
@@ -40,24 +41,24 @@ export const createPost = async (req, res) => {
     });
   }
 };
-// Get all posts
+
+// Get posts for admin
 export const getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find().populate(
-      'userId companyId',
-    );
-    res
-      .status(200)
-      .json({ success: true, data: posts });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching posts',
-      error,
+    const { adminId, companyId } = req.user;
+
+    const posts = await Post.find({
+      adminId,
+      companyId,
     });
+    res.status(200).json({ posts });
+  } catch (error) {
+    console.error('Error fetching posts', error);
+    res
+      .status(500)
+      .json({ message: 'Internal server error' });
   }
 };
-
 // Get post by ID
 export const getPostById = async (req, res) => {
   try {
@@ -130,5 +131,45 @@ export const deletePost = async (req, res) => {
       message: 'Error deleting post',
       error,
     });
+  }
+};
+
+export const proxyDownload = async (req, res) => {
+  try {
+    const { fileUrl, fileName } = req.body;
+
+    if (!fileUrl) {
+      return res
+        .status(400)
+        .json({ error: 'File URL is required' });
+    }
+
+    // Make a request to the file URL from the server side (no CORS issues here)
+    const response = await axios.get(fileUrl, {
+      responseType: 'arraybuffer', // Important for binary files
+    });
+
+    // Set appropriate headers for file download
+    res.setHeader(
+      'Content-Type',
+      response.headers['content-type'],
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${
+        fileName || 'download'
+      }"`,
+    );
+
+    // Send the file data back to the client
+    return res.send(response.data);
+  } catch (error) {
+    console.error(
+      'Error proxying download:',
+      error,
+    );
+    return res
+      .status(500)
+      .json({ error: 'Failed to download file' });
   }
 };
