@@ -161,4 +161,49 @@ const getUserInfo = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
-export { updateUserInfo, getUserInfo };
+
+const getUsersByCompany = async (req, res) => {
+    try {
+        const { companyId } = req.user;
+
+        if (!companyId) {
+            return res.status(400).json({ message: 'CompanyId is required' });
+        }
+
+        // Fetch only bankDetails from all users in the same company
+        const users = await User.find({ companyId }, { bankDetails: 1, _id: 0 }).lean();
+
+        if (!users || users.length === 0) {
+            return res.status(200).json({ message: 'No users found for this company' });
+        }
+
+        const decryptedBankDetails = [];
+
+        for (const user of users) {
+            if (Array.isArray(user.bankDetails)) {
+                for (const detail of user.bankDetails) {
+                    decryptedBankDetails.push({
+                        accountHolderName: decrypt(detail.accountHolderName),
+                        accountNumber: decrypt(detail.accountNumber),
+                        ifscCode: detail.ifscCode,
+                        bankName: detail.bankName,
+                        branchName: detail.branchName,
+                    });
+                }
+            }
+        }
+
+        return res.status(200).json({
+            message: 'Bank details fetched successfully',
+            bankDetails: decryptedBankDetails,
+        });
+
+    } catch (err) {
+        console.error('Error fetching bank details:', err);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+
+
+export { updateUserInfo, getUserInfo, getUsersByCompany };

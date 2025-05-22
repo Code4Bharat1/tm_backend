@@ -22,6 +22,8 @@ import CalendarAdminRouter from './src/routes/calendaradmin.route.js';
 import CreatePost from './src/routes/createpost.route.js';
 import Expenses from './src/routes/expense.route.js';
 import UploadRouter from './src/routes/upload.route.js';
+import adddocument from './src/routes/adddocument.route.js'
+
 
 // import UserExpense from './src/routes/userexpense.route.js';
 dotenv.config();
@@ -80,6 +82,9 @@ app.use('/api/tasks', Task);
 app.use('/api/expense', Expenses);
 app.use('/api/upload', UploadRouter);
 // app.use('/api/expense', UserExpense);
+
+app.use('/api/adddocument', adddocument)
+
 
 app.listen(Port, () => {
   console.log(
