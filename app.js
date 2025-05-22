@@ -1,4 +1,5 @@
 import express from 'express';
+import cron from 'node-cron';
 import connectDB from './src/init/dbConnection.js';
 import SignupRouter from './src/routes/signup.route.js';
 import LoginRouter from './src/routes/login.route.js';
@@ -24,6 +25,7 @@ import Expenses from './src/routes/expense.route.js';
 import UploadRouter from './src/routes/upload.route.js';
 import adddocument from './src/routes/adddocument.route.js'
 
+import { processAbsentees } from './src/controller/attendance.controller.js';
 
 // import UserExpense from './src/routes/userexpense.route.js';
 dotenv.config();
@@ -85,6 +87,17 @@ app.use('/api/upload', UploadRouter);
 
 app.use('/api/adddocument', adddocument)
 
+cron.schedule('29 18 * * *', async () => {
+  try {
+    console.log('✅ Cron job is runns at 11:59 pm IST');
+    
+    // Call your actual logic
+    await processAbsentees();
+
+  } catch (err) {
+    console.error('❌ Cron job error:', err.message);
+  }
+});
 
 app.listen(Port, () => {
   console.log(

@@ -1,4 +1,5 @@
 import Attendance from '../models/attendance.model.js';
+import User from '../models/user.model.js';
 import mongoose from 'mongoose';
 // Utility function to calculate duration in hours
 const calculateHours = (start, end) => {
@@ -311,3 +312,39 @@ export const getAllAttendance = async (req, res) => {
     });
   }
 };
+
+function getStartOfTodayUTC() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+export async function processAbsentees() {
+  try {
+    const todayStart = getStartOfTodayUTC();
+    const users = await User.find({});
+
+    for (const user of users) {
+      const attendance = await Attendance.findOne({
+        userId: user._id,
+        companyId: user.companyId,
+        date: todayStart,
+      });
+
+      if (!attendance) {
+        await new Attendance({
+          userId: user._id,
+          companyId: user.companyId,
+          date: todayStart,
+          status: 'Absent',
+          remark: 'Absent',
+        }).save();
+
+        console.log(`🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split('T')[0]}`);
+      }
+    }
+
+    console.log(`✅ All absentees processed for ${todayStart.toISOString().split('T')[0]}`);
+  } catch (error) {
+    console.error('❌ Error running absentee cron job:', error.message);
+  }
+}
