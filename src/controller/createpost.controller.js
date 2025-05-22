@@ -59,6 +59,22 @@ export const getAllPosts = async (req, res) => {
       .json({ message: 'Internal server error' });
   }
 };
+
+export const getUserPosts = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    const posts = await Post.find({
+      companyId,
+    });
+    res.status(200).json({ posts });
+  } catch (error) {
+    console.error('Error fetching posts', error);
+    res
+      .status(500)
+      .json({ message: 'Internal server error' });
+  }
+};
 // Get post by ID
 export const getPostById = async (req, res) => {
   try {
