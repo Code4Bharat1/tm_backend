@@ -1,5 +1,7 @@
 import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
+import RoleFeatureAccess from '../models/roleFeatureAccess.model.js';
+import { defaultFeatures } from '../constants/defaultFeatures.js';
 import { sendMail } from "../service/nodemailerConfig.js";
 
 const createUser = async (req, res) => {
@@ -7,7 +9,9 @@ const createUser = async (req, res) => {
     const { firstName, lastName, phoneNumber, email, position, gender, dateOfJoining } = req.body;
     const password = 'User@1234'; // Default password
     const adminId = req.user.adminId; // Extracted from JWT by middleware
+    const companyId = req.user.companyId; // Extracted from JWT by middleware
 
+    // Validate adminId
     if (!adminId) {
       return res.status(403).json({ message: 'Admin ID is required' });
     }
@@ -68,6 +72,22 @@ const createUser = async (req, res) => {
     });
 
     await newUser.save();
+
+    const features = defaultFeatures[position] || [];
+
+    if (!features || features.length === 0) {
+      return res.status(400).json({ message: "Role must have at least one feature." });
+    }
+
+    const roleAccess = new RoleFeatureAccess({
+      userId: newUser._id,
+      role: position,
+      companyId,
+      features, // pass full array
+      addedBy: adminId,
+    });
+
+    await roleAccess.save();
 
     await sendMail(
       newUser.email,

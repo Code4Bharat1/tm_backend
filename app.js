@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import cron from 'node-cron';
 import connectDB from './src/init/dbConnection.js';
 import SignupRouter from './src/routes/signup.route.js';
@@ -19,15 +20,16 @@ import cookieParser from 'cookie-parser';
 import { logout } from './src/controller/logout.controller.js';
 import CalendarRouter from './src/routes/calendaruser.route.js';
 import CalendarAdminRouter from './src/routes/calendaradmin.route.js';
-// import Document from './src/routes/adddocument.route.js';
 import CreatePost from './src/routes/createpost.route.js';
 import Expenses from './src/routes/expense.route.js';
 import UploadRouter from './src/routes/upload.route.js';
 import adddocument from './src/routes/adddocument.route.js'
-import Performance from './src/routes/performance.route.js';
+
 import { processAbsentees } from './src/controller/attendance.controller.js';
 
-// import UserExpense from './src/routes/userexpense.route.js';
+import { initSocketServer } from './src/service/socket.js';
+import permissionsRoute from './src/routes/permissions.route.js';
+
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -80,13 +82,11 @@ app.use('/api/companyRegister', companyRegister);
 app.use('/api/admin', CalendarAdminRouter);
 app.use('/api/admin', CreatePost);
 app.use('/api/tasks', Task);
-// app.use('/api/document', Document);
 app.use('/api/expense', Expenses);
 app.use('/api/upload', UploadRouter);
-app.use('/api/performance', Performance)
-// app.use('/api/expense', UserExpense);
+app.use('/api/adddocument', adddocument);
+app.use('/api/permissions', permissionsRoute);
 
-app.use('/api/adddocument', adddocument)
 
 cron.schedule('29 18 * * *', async () => {
   try {
@@ -100,8 +100,17 @@ cron.schedule('29 18 * * *', async () => {
   }
 });
 
+const server = http.createServer(app);
+initSocketServer(server); // pass HTTP server to socket setup
+
+server.listen(Port, () => {
+  console.log(`🚀Socket Server running at http://localhost:${Port}`);
+});
+
 app.listen(Port, () => {
   console.log(
     `Server running on http://localhost:${Port}`,
   );
 });
+
+
