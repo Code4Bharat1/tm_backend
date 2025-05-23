@@ -9,7 +9,7 @@ const attendanceSchema = new mongoose.Schema(
     },
     companyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "CompanyRegistration",
+      ref: 'CompanyRegistration',
       required: true,
     },
     date: {
@@ -17,7 +17,11 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
       default: () => {
         const now = new Date();
-        return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+        );
       },
     },
     punchIn: {
@@ -46,7 +50,13 @@ const attendanceSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Present', 'Half-Day', 'Emergency', 'Pending', 'Absent'],
+      enum: [
+        'Present',
+        'Half-Day',
+        'Emergency',
+        'Pending',
+        'Absent',
+      ],
       default: 'Pending',
     },
     emergencyReason: {
@@ -67,4 +77,13 @@ const attendanceSchema = new mongoose.Schema(
   },
 );
 
-export default mongoose.model('Attendance', attendanceSchema);
+attendanceSchema.index({
+  userId: 1,
+  companyId: 1,
+  date: 1,
+});
+
+export default mongoose.model(
+  'Attendance',
+  attendanceSchema,
+);
