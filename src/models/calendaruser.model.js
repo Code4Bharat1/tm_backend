@@ -16,6 +16,11 @@ const calendarEntrySchema = new mongoose.Schema({
         enum: ["Event", "Task", "Meeting", "Deadline"],
         required: true,
     },
+     calType: {
+        type: String,
+        enum: ['Personal', 'Monthly','Yearly'],
+        required: true,
+    },
     title: {
         type: String,
         default: null,
