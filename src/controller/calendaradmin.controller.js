@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import CalendarEntry from '../models/calendaradmin.model.js';
+import CalendarAdminEntry from '../models/calendaradmin.model.js';
 
 const allowedFields = [
     'userId',
@@ -122,48 +122,46 @@ const handleControllerError = (res, error) => {
 
 export const createCalendarEntryAdmin = async (req, res) => {
     try {
-        // Set user identity
-        const role = 'Admin';
-        const userId = req.user?.adminId;
+        // Extract adminId and companyId from authenticated user
+        const { adminId, companyId } = req.user;
 
-        if (!userId) {
-            return res.status(400).json({ error: "Missing adminId in request" });
+        // Validate required IDs
+        if (!adminId || !companyId) {
+            return res.status(400).json({ error: "Missing adminId or companyId in request" });
         }
 
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ error: "Invalid userId format" });
+        // Validate ObjectId format
+        if (!mongoose.Types.ObjectId.isValid(adminId) || !mongoose.Types.ObjectId.isValid(companyId)) {
+            return res.status(400).json({ error: "Invalid ID format" });
         }
 
-        req.body.userId = userId;
-        req.body.userModelType = role === "Admin" ? "Admin" : "User";
-
-        // Filter request fields
+        // Filter allowed fields from request body
         const data = {};
         allowedFields.forEach(field => {
             if (req.body[field] !== undefined) {
                 data[field] = req.body[field];
             }
         });
-console.log("Filtered Data:", data);    
+
+        // Force adminId and companyId from authenticated user
+        data.adminId = adminId;
+        data.companyId = companyId;
+
         // Custom validation
         const validationErrors = validateEntryData(data);
         if (validationErrors.length > 0) {
             return res.status(400).json({ errors: validationErrors });
         }
 
-        // Ensure `date` is a proper Date object
+        // Validate and parse date
         const parsedDate = new Date(data.date);
         if (isNaN(parsedDate)) {
             return res.status(400).json({ error: "Invalid date format" });
         }
         data.date = parsedDate;
 
-        // Debugging logs
-        console.log("Prepared Data for Saving:", data);
-
-        // Save to database
-        const newEntry = new CalendarEntry(data);
-        console.log("New Entry Object:", newEntry);
+        // Create and save entry
+        const newEntry = new CalendarAdminEntry(data);
         const savedEntry = await newEntry.save();
 
         res.status(201).json(savedEntry);
@@ -172,26 +170,29 @@ console.log("Filtered Data:", data);
     }
 };
 
-
 export const getCalendarEntriesByUserAdmin = async (req, res) => {
     try {
-        const userId = req.user.adminId;
+        const adminId = req.user.adminId;
         const { calType } = req.params;
         const { year, month, day, type } = req.query;
         
-        // Validate user ID
-        if (!mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ error: "Invalid userId format" });
+        // Validate admin ID
+        if (!mongoose.Types.ObjectId.isValid(adminId)) {
+            return res.status(400).json({ error: "Invalid adminId format" });
         }
-        
+
         // Build query
-        const query = { userId };
-        
-        // Add calType to query if needed
+        const query = { adminId };
+
+        // Validate and add calType to query
         if (calType) {
+            const validCalTypes = ['Personal', 'Monthly', 'Yearly'];
+            if (!validCalTypes.includes(calType)) {
+                return res.status(400).json({ error: "Invalid calType value" });
+            }
             query.calType = calType;
         }
-        
+
         // Date filtering
         if (year || month || day) {
             const startDate = new Date(Date.UTC(
@@ -203,12 +204,13 @@ export const getCalendarEntriesByUserAdmin = async (req, res) => {
             if (day) endDate.setUTCDate(endDate.getUTCDate() + 1);
             else if (month) endDate.setUTCMonth(endDate.getUTCMonth() + 1);
             else endDate.setUTCFullYear(endDate.getUTCFullYear() + 1);
+            
             query.date = {
-                $gte: startDate.toISOString(),
-                $lt: endDate.toISOString()
+                $gte: startDate,
+                $lt: endDate
             };
         }
-        
+
         // Type filtering
         if (type) {
             const validTypes = ['Event', 'Task', 'Meeting', 'Deadline'];
@@ -217,44 +219,34 @@ export const getCalendarEntriesByUserAdmin = async (req, res) => {
             }
             query.type = type;
         }
-        
+
         // Fetch entries
-        let entries = await CalendarEntry.find(query)
+        let entries = await CalendarAdminEntry.find(query)
             .sort({ date: 1, startTime: 1 })
             .lean();
-        
-            console.log("Fetched Entries:", entries);   
-        // Transform entries to match the desired output format
-        const transformedEntries = entries.map(entry => {
-            // Create the transformed entry with the new field structure
-            const transformedEntry = {
-                userId: entry.userId,
-                userModelType: "Admin", // Set default userModelType as Admin
-                type: entry.type,
-                calType: entry.calType,
-                title: entry.title,
-                description: entry.description,
-                date: entry.date,
-                time: entry.time,
-                category: entry.category,
-                reminder: true, // Default value
-                remindBefore: 30, // Default value in minutes
-                startTime: entry.startTime,
-                endTime: entry.endTime,
-                participants: entry.participants || [],
-                _id: entry._id,
-                createdAt: entry.createdAt,
-                __v: entry.__v
-            };
-            
-            // Remove calType field as it's not needed in the response
-            
-            return transformedEntry;
-        });
-        
-        console.log("Transformed Entries:", transformedEntries);
-        
-        res.status(200).json(transformedEntries);   
+
+        // Transform entries
+        const transformedEntries = entries.map(entry => ({
+            adminId: entry.adminId,
+            companyId: entry.companyId,
+            type: entry.type,
+            calType: entry.calType,
+            title: entry.title,
+            description: entry.description,
+            date: entry.date,
+            time: entry.time,
+            category: entry.category,
+            reminder: entry.reminder,
+            remindBefore: entry.remindBefore,
+            startTime: entry.startTime,
+            endTime: entry.endTime,
+            participants: entry.participants,
+            _id: entry._id,
+            createdAt: entry.createdAt,
+            __v: entry.__v
+        }));
+
+        res.status(200).json(transformedEntries);
     } catch (error) {
         handleControllerError(res, error);
     }
@@ -268,7 +260,7 @@ export const getCalendarEntryByIdAdmin = async (req, res) => {
             return res.status(400).json({ error: "Invalid entry ID format" });
         }
 
-        const entry = await CalendarEntry.findById(id)
+        const entry = await CalendarAdminEntry.findById(id)
             .populate('userId', 'firstName lastName position');
 
         if (!entry) {
@@ -312,7 +304,7 @@ export const updateCalendarEntryAdmin = async (req, res) => {
         }
 
         // Perform update
-        const updatedEntry = await CalendarEntry.findByIdAndUpdate(
+        const updatedEntry = await CalendarAdminEntry.findByIdAndUpdate(
             id,
             updates,
             { new: true, runValidators: true }
@@ -340,7 +332,7 @@ export const deleteCalendarEntryAdmin = async (req, res) => {
             return res.status(400).json({ error: "Invalid entry ID format" });
         }
 
-        const deletedEntry = await CalendarEntry.findByIdAndDelete(id);
+        const deletedEntry = await CalendarAdminEntry.findByIdAndDelete(id);
         
         if (!deletedEntry) {
             return res.status(404).json({ error: "Entry not found" });

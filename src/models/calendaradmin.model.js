@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const calendarEntrySchema = new mongoose.Schema({
+const calendarAdminEntrySchema = new mongoose.Schema({
     adminId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Admin",
@@ -69,7 +69,7 @@ const calendarEntrySchema = new mongoose.Schema({
 });
 
 // Validation middleware for required fields based on type
-calendarEntrySchema.pre('validate', function(next) {
+calendarAdminEntrySchema.pre('validate', function(next) {
     if (this.type === 'Meeting') {
         if (!this.startTime) this.invalidate('startTime', 'Start time required for meetings');
         if (!this.endTime) this.invalidate('endTime', 'End time required for meetings');
@@ -88,6 +88,6 @@ calendarEntrySchema.pre('validate', function(next) {
     next();
 });
 
-const CalendarEntry = mongoose.models.CalendarEntry || mongoose.model("CalendarEntry", calendarEntrySchema);
+const CalendarAdminEntry = mongoose.models.CalendarAdminEntry || mongoose.model("CalendarAdminEntry", calendarAdminEntrySchema);
 
-export default CalendarEntry;
+export default CalendarAdminEntry;
