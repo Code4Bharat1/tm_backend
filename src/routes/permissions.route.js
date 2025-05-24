@@ -4,7 +4,7 @@ import { updateUserFeaturesByRoleAccess, getUsersFeaturesByCompany } from '../co
 
 const router = express.Router();
 
-router.post('/update-permissions',protectAdmin, updateUserFeaturesByRoleAccess);
+router.put('/update-permissions',protectAdmin, updateUserFeaturesByRoleAccess);
 router.get('/user-features',protectAdmin ,getUsersFeaturesByCompany);
 
 export default router;

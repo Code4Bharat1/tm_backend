@@ -1,7 +1,7 @@
 import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
 import RoleFeatureAccess from '../models/roleFeatureAccess.model.js';
-import { defaultFeatures } from '../constants/defaultFeatures.js';
+import { defaultFeatures,maxFeature } from '../constants/defaultFeatures.js';
 import { sendMail } from "../service/nodemailerConfig.js";
 
 const createUser = async (req, res) => {
@@ -73,21 +73,25 @@ const createUser = async (req, res) => {
 
     await newUser.save();
 
-    const features = defaultFeatures[position] || [];
+    if (position !== 'Employee') {
+      const features = defaultFeatures[position] || [];
+      const maxFeatures = maxFeature[position] || [];
 
-    if (!features || features.length === 0) {
-      return res.status(400).json({ message: "Role must have at least one feature." });
+      if (!features || features.length === 0) {
+        return res.status(400).json({ message: "Role must have at least one feature." });
+      }
+
+      const roleAccess = new RoleFeatureAccess({
+        userId: newUser._id,
+        role: position,
+        companyId,
+        features,
+        maxFeatures, // pass full array
+        addedBy: adminId,
+      });
+
+      await roleAccess.save();
     }
-
-    const roleAccess = new RoleFeatureAccess({
-      userId: newUser._id,
-      role: position,
-      companyId,
-      features, // pass full array
-      addedBy: adminId,
-    });
-
-    await roleAccess.save();
 
     await sendMail(
       newUser.email,
@@ -145,6 +149,7 @@ const bulkCreateUsers = async (req, res) => {
   try {
     const adminId = req.user.adminId;
     const users = req.body.users;
+    const companyId = req.user.companyId;   
 
     if (!adminId) {
       return res.status(403).json({ message: 'Admin ID is required' });
@@ -182,6 +187,26 @@ const bulkCreateUsers = async (req, res) => {
 
       await newUser.save();
       createdUsers.push(newUser);
+
+      if (position !== 'Employee') {
+        const features = defaultFeatures[position] || [];
+        const maxFeatures = maxFeature[position] || [];
+
+        if (!features || features.length === 0) {
+          return res.status(400).json({ message: "Role must have at least one feature." });
+        }
+
+        const roleAccess = new RoleFeatureAccess({
+          userId: newUser._id,
+          role: position,
+          companyId,
+          features,
+          maxFeatures, // pass full array
+          addedBy: adminId,
+        });
+
+        await roleAccess.save();
+      }
 
       // Optionally send email
       await sendMail(

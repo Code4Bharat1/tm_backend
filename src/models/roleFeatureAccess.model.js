@@ -15,7 +15,7 @@ const RoleFeatureAccessSchema = new Schema(
         },
         role: {
             type: String,
-            enum: ["admin", "manager", "Employee", "teamleader", "hr"],
+            enum: ["Manager", "TeamLeader", "HR"],
             required: true,
             // lowercase: true,
             trim: true,
@@ -29,6 +29,10 @@ const RoleFeatureAccessSchema = new Schema(
                 },
                 message: "Features array must contain at least one feature.",
             },
+        },
+        maxFeatures: {
+            type: [String],
+            default: [],
         },
         addedBy: {
             type: Schema.Types.ObjectId,
