@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import CalendarAdminEntry from '../models/calendaradmin.model.js';
+import User from '../models/user.model.js';
 
 const allowedFields = [
     'userId',
@@ -38,11 +39,11 @@ const validateEntryData = (data) => {
     }
 
     // Type-specific validations
-    switch(data.type) {
+    switch (data.type) {
         case 'Meeting':
             if (!data.startTime) errors.push('Start time is required for meetings');
             if (!data.endTime) errors.push('End time is required for meetings');
-            
+
             // Validate time format and order
             if (data.startTime && data.endTime) {
                 if (!timeRegex.test(data.startTime) || !timeRegex.test(data.endTime)) {
@@ -104,19 +105,19 @@ const validateEntryData = (data) => {
 
 const handleControllerError = (res, error) => {
     console.error('Controller Error:', error);
-    
+
     if (error instanceof mongoose.Error.ValidationError) {
         const messages = Object.values(error.errors).map(err => err.message);
         return res.status(400).json({ errors: messages });
     }
-    
+
     if (error.name === 'CastError') {
         return res.status(400).json({ error: "Invalid ID format" });
     }
-    
-    res.status(500).json({ 
-        error: "Server error", 
-        details: error.message 
+
+    res.status(500).json({
+        error: "Server error",
+        details: error.message
     });
 };
 
@@ -175,7 +176,7 @@ export const getCalendarEntriesByUserAdmin = async (req, res) => {
         const adminId = req.user.adminId;
         const { calType } = req.params;
         const { year, month, day, type } = req.query;
-        
+
         // Validate admin ID
         if (!mongoose.Types.ObjectId.isValid(adminId)) {
             return res.status(400).json({ error: "Invalid adminId format" });
@@ -204,7 +205,7 @@ export const getCalendarEntriesByUserAdmin = async (req, res) => {
             if (day) endDate.setUTCDate(endDate.getUTCDate() + 1);
             else if (month) endDate.setUTCMonth(endDate.getUTCMonth() + 1);
             else endDate.setUTCFullYear(endDate.getUTCFullYear() + 1);
-            
+
             query.date = {
                 $gte: startDate,
                 $lt: endDate
@@ -252,6 +253,54 @@ export const getCalendarEntriesByUserAdmin = async (req, res) => {
     }
 };
 
+export const findUserEmailById = async (req, res) => {
+    try {
+        // Get company ID from authenticated user
+        const companyId = req.user.companyId;
+
+        // Validate company ID format
+        if (!mongoose.Types.ObjectId.isValid(companyId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid company ID format"
+            });
+        }
+
+        // Find all users with matching company ID
+        const employees = await User.find({ companyId })
+            .select('email firstName lastName _id') // Include names if needed
+            .lean();
+
+        // Handle no employees found
+        if (!employees.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No employees found for this company"
+            });
+        }
+
+        // Extract and format emails
+        const emails = employees.map(user => ({
+            id: user._id.toString(),
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`
+        }));
+
+        res.status(200).json({
+            success: true,
+            count: emails.length,
+            data: emails
+        });
+
+    } catch (error) {
+        console.error("Error fetching company emails:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
 export const getCalendarEntryByIdAdmin = async (req, res) => {
     try {
         const { id } = req.params;
@@ -333,7 +382,7 @@ export const deleteCalendarEntryAdmin = async (req, res) => {
         }
 
         const deletedEntry = await CalendarAdminEntry.findByIdAndDelete(id);
-        
+
         if (!deletedEntry) {
             return res.status(404).json({ error: "Entry not found" });
         }
@@ -355,5 +404,6 @@ export default {
     getCalendarEntriesByUserAdmin,
     getCalendarEntryByIdAdmin,
     updateCalendarEntryAdmin,
-    deleteCalendarEntryAdmin
+    deleteCalendarEntryAdmin,
+    findUserEmailById,
 };
