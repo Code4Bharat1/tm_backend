@@ -13,9 +13,53 @@ export const generateWeeklyScore = async (req, res) => {
       return res.status(400).json({ message: "companyId is required" });
     }
 
-    const { weekStart, weekEnd } = getWeekRange();
+    // Get week range from query params or use current week
+    let weekStart, weekEnd;
+    if (req.query.weekStart) {
+      weekStart = new Date(req.query.weekStart);
+      // Ensure it's Monday and set time to start of day
+      weekStart.setHours(0, 0, 0, 0);
 
+      weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 5); // Saturday (6 days from Monday)
+      weekEnd.setHours(23, 59, 59, 999);
+    } else {
+      const weekRange = getWeekRange();
+      weekStart = weekRange.weekStart;
+      weekEnd = weekRange.weekEnd;
+    }
+
+    // First, try to find existing performance data for this week
+    const existingPerformanceData = await PerformanceScore.find({
+      companyId,
+      weekStart,
+      weekEnd,
+    }).populate("userId", "firstName lastName");
+
+    if (existingPerformanceData && existingPerformanceData.length > 0) {
+      // Return existing data with proper structure
+      const formattedData = existingPerformanceData.map((perf) => ({
+        _id: perf._id,
+        userId: perf.userId._id,
+        name: `${perf.userId.firstName} ${perf.userId.lastName}`,
+        timesheetScore: perf.score[0]?.timesheetScore || 0,
+        attendanceScore: perf.score[0]?.attendanceScore || 0,
+        behaviourScore: perf.score[0]?.behaviourScore || 0,
+        totalScore: perf.score[0]?.totalScore || 0,
+        remark: perf.remark || "", // Include remark from performance record
+      }));
+
+      return res.status(200).json(formattedData);
+    }
+
+    // If no existing data, generate new scores
     const users = await User.find({ companyId });
+
+    if (!users || users.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No users found for this company" });
+    }
 
     const allScores = [];
 
@@ -83,7 +127,7 @@ export const generateWeeklyScore = async (req, res) => {
             100
           : 0;
 
-      // Check for existing performance record
+      // Check for existing performance record for this specific week
       let performanceScore = await PerformanceScore.findOne({
         userId,
         companyId,
@@ -93,8 +137,10 @@ export const generateWeeklyScore = async (req, res) => {
 
       // Preserve existing behavior score if available
       let existingBehaviourScore = 0;
+      let existingRemark = "";
       if (performanceScore && performanceScore.score.length > 0) {
-        existingBehaviourScore = performanceScore.score[0].behaviourScore;
+        existingBehaviourScore = performanceScore.score[0].behaviourScore || 0;
+        existingRemark = performanceScore.remark || "";
       }
 
       // Create score entry with preserved behavior score
@@ -118,6 +164,7 @@ export const generateWeeklyScore = async (req, res) => {
           weekStart,
           weekEnd,
           score: [scoreEntry],
+          remark: existingRemark,
         });
       }
 
@@ -128,23 +175,36 @@ export const generateWeeklyScore = async (req, res) => {
         userId: user._id,
         name: `${user.firstName} ${user.lastName}`,
         ...scoreEntry,
+        remark: existingRemark, // Include remark in response
+      });
+    }
+
+    // If we generated new scores but they're all empty, return appropriate message
+    if (allScores.length === 0) {
+      return res.status(404).json({
+        message: "No performance data found for the specified week range",
       });
     }
 
     return res.status(200).json(allScores);
   } catch (err) {
-    console.error(err);
+    console.error("Error in generateWeeklyScore:", err);
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: err.message });
   }
 };
+
 export const updateBehaviourScore = async (req, res) => {
   try {
     const { id } = req.params;
-    const { behaviourScore } = req.body;
-    if (!id || behaviourScore === undefined) {
-      return res.status(400).json({ message: "Missing required fields" });
+    const { behaviourScore, remark } = req.body;
+
+    if (!id || (behaviourScore === undefined && remark === undefined)) {
+      return res.status(400).json({
+        message:
+          "ID and at least one field (behaviourScore or remark) are required",
+      });
     }
 
     const performance = await PerformanceScore.findById(id);
@@ -153,23 +213,42 @@ export const updateBehaviourScore = async (req, res) => {
       return res.status(404).json({ message: "Performance record not found" });
     }
 
+    // Update the score and remark
     const score = performance.score[0];
-    score.behaviourScore = behaviourScore;
+
+    if (behaviourScore !== undefined) {
+      // Validate behaviour score range (updated to 0-3 as per frontend)
+      if (behaviourScore < 0 || behaviourScore > 3) {
+        return res
+          .status(400)
+          .json({ message: "Behaviour score must be between 0 and 3" });
+      }
+      score.behaviourScore = behaviourScore;
+    }
+
+    if (remark !== undefined) {
+      performance.remark = remark.trim();
+    }
+
+    // Recalculate total score
     score.totalScore =
       Math.round(
-        (score.attendanceScore + score.timesheetScore + behaviourScore) * 100,
+        (score.attendanceScore + score.timesheetScore + score.behaviourScore) *
+          100,
       ) / 100;
 
     await performance.save();
 
-    return res
-      .status(200)
-      .json({ message: "Behaviour score updated", performance });
+    return res.status(200).json({
+      message: "Performance record updated successfully",
+      performance,
+    });
   } catch (err) {
-    console.error(err);
-    return res
-      .status(500)
-      .json({ message: "Internal server error", error: err.message });
+    console.error("Error in updateBehaviourScore:", err);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: err.message,
+    });
   }
 };
 
@@ -203,7 +282,7 @@ export const getWeeklyScore = async (req, res) => {
       companyId,
       weekStart,
       weekEnd,
-    }).populate("userId", "firstName");
+    }).populate("userId", "firstName lastName");
 
     if (!performanceScores || performanceScores.length === 0) {
       return res.status(404).json({
@@ -211,7 +290,18 @@ export const getWeeklyScore = async (req, res) => {
       });
     }
 
-    return res.status(200).json({ performanceScores });
+    // Format the response to include remarks
+    const formattedScores = performanceScores.map((perf) => ({
+      _id: perf._id,
+      userId: perf.userId._id,
+      name: `${perf.userId.firstName} ${perf.userId.lastName}`,
+      score: perf.score[0],
+      remark: perf.remark || "",
+      weekStart: perf.weekStart,
+      weekEnd: perf.weekEnd,
+    }));
+
+    return res.status(200).json({ performanceScores: formattedScores });
   } catch (err) {
     console.error("Error fetching weekly scores:", err);
     return res.status(500).json({
@@ -227,20 +317,31 @@ export const getAllWeeklyScores = async (req, res) => {
 
     const weeklyScore = await PerformanceScore.find({
       companyId,
-    }).populate("userId", "firstName");
+    }).populate("userId", "firstName lastName");
 
-    if (!weeklyScore)
+    if (!weeklyScore || weeklyScore.length === 0) {
       return res.status(404).json({
         message: "No weekly score found",
       });
+    }
 
-    res.status(200).json(weeklyScore);
+    // Format the response to include remarks
+    const formattedScores = weeklyScore.map((perf) => ({
+      _id: perf._id,
+      userId: perf.userId._id,
+      name: `${perf.userId.firstName} ${perf.userId.lastName}`,
+      score: perf.score[0],
+      remark: perf.remark || "",
+      weekStart: perf.weekStart,
+      weekEnd: perf.weekEnd,
+    }));
+
+    res.status(200).json(formattedScores);
   } catch (error) {
     console.error("Error in fetching all weekly score", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
 export const getIndividualWeeklyScore = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
@@ -369,18 +470,15 @@ export const getIndividualMonthlyScore = async (req, res) => {
       monthlyScores.length;
     let monthlyRemark = "";
 
-    if (overallAvgScore >= 90) {
+    if (overallAvgScore >= 9) {
       monthlyRemark =
         "Outstanding monthly performance! Consistently excellent across all areas.";
-    } else if (overallAvgScore >= 80) {
+    } else if (overallAvgScore >= 8) {
       monthlyRemark =
         "Very good monthly performance with room for minor improvements.";
-    } else if (overallAvgScore >= 70) {
+    } else if (overallAvgScore >= 7) {
       monthlyRemark =
         "Good monthly performance. Focus on consistency across all metrics.";
-    } else if (overallAvgScore >= 60) {
-      monthlyRemark =
-        "Fair monthly performance. Consider identifying areas for improvement.";
     } else {
       monthlyRemark =
         "Monthly performance needs significant improvement. Consider discussing with your manager.";
@@ -523,18 +621,15 @@ export const getIndividualYearlyScore = async (req, res) => {
       yearlyScores.length;
     let yearlyRemark = "";
 
-    if (overallAvgScore >= 90) {
+    if (overallAvgScore >= 9) {
       yearlyRemark =
         "Exceptional yearly performance! You've maintained excellence throughout the year.";
-    } else if (overallAvgScore >= 80) {
+    } else if (overallAvgScore >= 8) {
       yearlyRemark =
         "Strong yearly performance with consistent results across most months.";
-    } else if (overallAvgScore >= 70) {
+    } else if (overallAvgScore >= 7) {
       yearlyRemark =
         "Good yearly performance. Consider focusing on consistency for the upcoming year.";
-    } else if (overallAvgScore >= 60) {
-      yearlyRemark =
-        "Fair yearly performance. There's potential for significant improvement in the coming year.";
     } else {
       yearlyRemark =
         "Yearly performance shows room for substantial improvement. Consider setting specific goals for next year.";

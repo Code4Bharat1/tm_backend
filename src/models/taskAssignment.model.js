@@ -39,7 +39,7 @@ const taskAssignmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["Open", "In Progress", "Completed", "Deferred"],
+    enum: ["Open", "In Progress", "Completed", "Deferred", "Closed"], // Added "Closed" status
     default: "Open",
   },
   tagMembers: [
@@ -61,12 +61,15 @@ const taskAssignmentSchema = new mongoose.Schema({
       _id: false,
     },
   ],
-  
   taskDescription: {
     type: String,
     required: true,
   },
   remark: {
+    type: String,
+  },
+  remarkDescription: {
+    // New field for closing remark description
     type: String,
   },
   createdAt: {

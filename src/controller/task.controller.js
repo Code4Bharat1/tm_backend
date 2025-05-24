@@ -3,6 +3,7 @@ import TaskAssignment from "../models/taskAssignment.model.js";
 import User from "../models/user.model.js";
 import Admin from "../models/admin.model.js";
 import mongoose from "mongoose";
+import axios from "axios";
 
 export const createTaskAssignment = async (req, res) => {
   try {
@@ -167,5 +168,117 @@ export const getAllUserEmails = async (req, res) => {
   } catch (error) {
     console.error("Error fetching user emails:", error);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// New function to close a task
+export const closeTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { remarkDescription } = req.body;
+    const { companyId, userId } = req.user;
+
+    // Find the task
+    const task = await TaskAssignment.findOne({
+      _id: taskId,
+      companyId,
+      $or: [
+        { assignedTo: userId }, // User is assigned to the task
+        { assignedBy: userId }, // User created the task
+        { tagMembers: userId }, // User is a tag member
+      ],
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found or access denied",
+      });
+    }
+
+    // Check if task is already closed
+    if (task.status === "Closed") {
+      return res.status(400).json({
+        success: false,
+        message: "Task is already closed",
+      });
+    }
+
+    // Handle file upload if attachment is provided
+    let uploadedFile = null;
+    if (req.file) {
+      try {
+        // Convert buffer to Blob
+        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+
+        const formData = new FormData();
+        formData.append("file", blob, req.file.originalname); // Use Blob here
+
+        // Simulated upload response (replace with actual API call)
+        uploadedFile = {
+          fileName: req.file.originalname,
+          fileUrl: `${process.env.CLOUDINARY_URL}/${req.file.filename}`,
+          filePublicId: req.file.filename,
+          fileResourceType: req.file.mimetype.startsWith("image/")
+            ? "image"
+            : "raw",
+        };
+      } catch (uploadError) {
+        console.error("Error uploading file:", uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Error uploading attachment",
+        });
+      }
+    }
+
+    // Check if attachment is required but not provided
+    if (task.attachmentRequired && !uploadedFile) {
+      return res.status(400).json({
+        success: false,
+        message: "Attachment is required to close this task",
+      });
+    }
+
+    // Update the task
+    const updateData = {
+      status: "Closed",
+      remarkDescription: remarkDescription || "",
+      updatedAt: new Date(),
+    };
+
+    // Add attachment to documents array if uploaded
+    if (uploadedFile) {
+      updateData.$push = {
+        documents: uploadedFile,
+      };
+    }
+
+    const updatedTask = await TaskAssignment.findByIdAndUpdate(
+      taskId,
+      updateData,
+      { new: true, runValidators: true },
+    )
+      .populate("assignedTo", "firstName lastName email")
+      .populate("assignedBy", "fullName email")
+      .populate("tagMembers", "firstName lastName email");
+
+    res.status(200).json({
+      success: true,
+      message: "Task closed successfully",
+      data: updatedTask,
+    });
+  } catch (error) {
+    console.error("Error closing task:", error);
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Server error while closing task",
+    });
   }
 };
