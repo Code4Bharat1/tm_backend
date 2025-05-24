@@ -24,7 +24,7 @@ import CreatePost from './src/routes/createpost.route.js';
 import Expenses from './src/routes/expense.route.js';
 import UploadRouter from './src/routes/upload.route.js';
 import adddocument from './src/routes/adddocument.route.js'
-
+import Performance from './src/routes/performance.route.js'
 import { processAbsentees } from './src/controller/attendance.controller.js';
 
 import { initSocketServer } from './src/service/socket.js';
@@ -86,7 +86,7 @@ app.use('/api/expense', Expenses);
 app.use('/api/upload', UploadRouter);
 app.use('/api/adddocument', adddocument);
 app.use('/api/permissions', permissionsRoute);
-
+app.use('/api/performance', Performance);
 
 cron.schedule('29 18 * * *', async () => {
   try {

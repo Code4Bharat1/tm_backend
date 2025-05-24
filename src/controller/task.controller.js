@@ -1,13 +1,10 @@
 // controllers/taskController.js
-import TaskAssignment from '../models/taskAssignment.model.js';
-import User from '../models/user.model.js';
-import Admin from '../models/admin.model.js';
-import mongoose from 'mongoose';
+import TaskAssignment from "../models/taskAssignment.model.js";
+import User from "../models/user.model.js";
+import Admin from "../models/admin.model.js";
+import mongoose from "mongoose";
 
-export const createTaskAssignment = async (
-  req,
-  res,
-) => {
+export const createTaskAssignment = async (req, res) => {
   try {
     const {
       bucketName,
@@ -36,7 +33,7 @@ export const createTaskAssignment = async (
       !taskDescription
     ) {
       return res.status(400).json({
-        message: 'Required fields are missing',
+        message: "Required fields are missing",
       });
     }
 
@@ -48,59 +45,37 @@ export const createTaskAssignment = async (
       assignDate: new Date(assignDate),
       deadline: new Date(deadline),
       dueTime: dueTime || undefined,
-      priority: priority || 'Medium',
-      status: status || 'Open',
+      priority: priority || "Medium",
+      status: status || "Open",
       tagMembers: tagMembers || [], // Store as array of user IDs
-      attachmentRequired:
-        attachmentRequired || false,
-      recurring: recurring || false,
+      attachmentRequired: attachmentRequired || false,
       taskDescription,
-      remark: remark || undefined,
     });
 
-    const savedTaskAssignment =
-      await newTaskAssignment.save();
+    const savedTaskAssignment = await newTaskAssignment.save();
 
     res.status(201).json({
-      message:
-        'Task assignment created successfully',
+      message: "Task assignment created successfully",
       data: savedTaskAssignment,
     });
   } catch (error) {
-    console.error(
-      'Error creating task assignment:',
-      error,
-    );
-    if (
-      error instanceof
-      mongoose.Error.ValidationError
-    ) {
-      return res
-        .status(400)
-        .json({ message: error.message });
+    console.error("Error creating task assignment:", error);
+    if (error instanceof mongoose.Error.ValidationError) {
+      return res.status(400).json({ message: error.message });
     }
     res.status(500).json({
-      message:
-        'Server error while creating task assignment',
+      message: "Server error while creating task assignment",
     });
   }
 };
 
-export const getTaskAssignments = async (
-  req,
-  res,
-) => {
+export const getTaskAssignments = async (req, res) => {
   try {
     // Get companyId and userId from the JWT token
     const { companyId, userId } = req.user;
 
     // Optional query parameters for filtering
-    const {
-      status,
-      assignedTo,
-      fromDate,
-      toDate,
-    } = req.query;
+    const { status, assignedTo, fromDate, toDate } = req.query;
 
     // Always filter by company ID and user ID for data isolation
     let query = {
@@ -122,65 +97,75 @@ export const getTaskAssignments = async (
 
     if (fromDate || toDate) {
       query.assignDate = {};
-      if (fromDate)
-        query.assignDate.$gte = new Date(
-          fromDate,
-        );
-      if (toDate)
-        query.assignDate.$lte = new Date(toDate);
+      if (fromDate) query.assignDate.$gte = new Date(fromDate);
+      if (toDate) query.assignDate.$lte = new Date(toDate);
     }
 
-    const taskAssignments =
-      await TaskAssignment.find(query)
-        .populate(
-          'assignedTo',
-          'firstName lastName email',
-        )
-        .populate('assignedBy', 'fullName email')
-        .populate(
-          'tagMembers',
-          'firstName lastName email',
-        )
-        .sort({ assignDate: -1 })
-        .lean();
+    const taskAssignments = await TaskAssignment.find(query)
+      .populate("assignedTo", "firstName lastName email")
+      .populate("assignedBy", "fullName email")
+      .populate("tagMembers", "firstName lastName email")
+      .sort({ assignDate: -1 })
+      .lean();
 
     res.status(200).json({
       count: taskAssignments.length,
       data: taskAssignments,
     });
   } catch (error) {
-    console.error(
-      'Error fetching task assignments:',
-      error,
-    );
+    console.error("Error fetching task assignments:", error);
     res.status(500).json({
-      message:
-        'Server error while fetching task assignments',
+      message: "Server error while fetching task assignments",
     });
   }
 };
 
-export const getAllUserEmails = async (
-  req,
-  res,
-) => {
+export const getOngoingProjects = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    const ongoingTasks = await TaskAssignment.find({
+      companyId,
+      status: { $in: ["Open", "In Progress"] },
+    })
+      .select("bucketName taskDescription assignedTo") // only select required fields
+      .populate("assignedTo", "firstName lastName photoUrl") // populate assignedTo with fields
+      .lean();
+
+    const result = ongoingTasks.map((task) => ({
+      assignedToName: task.assignedTo
+        ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}`
+        : "Unassigned",
+      bucketName: task.bucketName,
+      taskDescription: task.taskDescription,
+      photoUrl: task.assignedTo?.photoUrl || "", // ✅ Fix: access photoUrl via assignedTo
+    }));
+
+    res.status(200).json({
+      count: result.length,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error fetching ongoing projects:", error);
+    res.status(500).json({
+      message: "Server error while fetching ongoing projects",
+    });
+  }
+};
+
+export const getAllUserEmails = async (req, res) => {
   try {
     const { companyId } = req.user;
 
     // Find all users in the company and return their ID, name and email
     const users = await User.find(
       { companyId },
-      'firstName lastName email _id',
+      "firstName lastName email _id",
     );
 
     res.status(200).json(users);
   } catch (error) {
-    console.error(
-      'Error fetching user emails:',
-      error,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal Server Error' });
+    console.error("Error fetching user emails:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };

@@ -1,5 +1,5 @@
 // models/TaskAssignment.js
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const taskAssignmentSchema = new mongoose.Schema({
   bucketName: {
@@ -8,17 +8,17 @@ const taskAssignmentSchema = new mongoose.Schema({
   },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: true,
   },
   assignedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin',
+    ref: "Admin",
     required: true,
   },
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'CompanyRegistration',
+    ref: "CompanyRegistration",
     required: true,
   },
   assignDate: {
@@ -34,33 +34,34 @@ const taskAssignmentSchema = new mongoose.Schema({
   },
   priority: {
     type: String,
-    enum: ['High', 'Medium', 'Low'],
-    default: 'Medium',
+    enum: ["High", "Medium", "Low"],
+    default: "Medium",
   },
   status: {
     type: String,
-    enum: [
-      'Open',
-      'In Progress',
-      'Completed',
-      'Deferred',
-    ],
-    default: 'Open',
+    enum: ["Open", "In Progress", "Completed", "Deferred"],
+    default: "Open",
   },
   tagMembers: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
     },
   ],
   attachmentRequired: {
     type: Boolean,
     default: false,
   },
-  recurring: {
-    type: Boolean,
-    default: false,
-  },
+  documents: [
+    {
+      fileName: String,
+      fileUrl: String,
+      filePublicId: String,
+      fileResourceType: String,
+      _id: false,
+    },
+  ],
+  
   taskDescription: {
     type: String,
     required: true,
@@ -79,14 +80,11 @@ const taskAssignmentSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-taskAssignmentSchema.pre('save', function (next) {
+taskAssignmentSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-const TaskAssignment = mongoose.model(
-  'TaskAssignment',
-  taskAssignmentSchema,
-);
+const TaskAssignment = mongoose.model("TaskAssignment", taskAssignmentSchema);
 
 export default TaskAssignment;

@@ -5,7 +5,7 @@ const scoreItemSchema = new mongoose.Schema(
     timesheetScore: { type: Number, default: 0 },
     attendanceScore: { type: Number, default: 0 },
     behaviourScore: { type: Number, default: 0 },
-    totalScore: { type: Number, default: 0 }, // NEW
+    totalScore: { type: Number, default: 0 },
   },
   { _id: false },
 );
@@ -29,6 +29,10 @@ const performanceScoreSchema = new mongoose.Schema(
     weekEnd: {
       type: Date,
       required: true,
+    },
+    remark: {
+      type: String,
+      default: "",
     },
     score: [scoreItemSchema], // To track weekly scores
   },
