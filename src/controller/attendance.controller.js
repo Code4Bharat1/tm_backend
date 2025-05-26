@@ -1,5 +1,6 @@
 import Attendance from '../models/attendance.model.js';
 import User from '../models/user.model.js';
+import TaskAssignment from '../models/taskAssignment.model.js';
 import mongoose from 'mongoose';
 import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
 
@@ -293,6 +294,119 @@ export const getAllAttendance = async (req, res) => {
     });
   }
 };
+
+export const getPositionWiseAttendance = async (req, res) => {
+  try {
+    const { companyId, position, userId } = req.user;
+
+    if (!companyId) {
+      return res.status(400).json({ message: "Missing company ID in cookie" });
+    }
+
+    let attendanceRecords = [];
+
+    if (position === "TeamLeader") {
+      // Find earliest task assigned to this TeamLeader
+      const task = await TaskAssignment.findOne({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        assignedTo: new mongoose.Types.ObjectId(userId),
+      }).sort({ assignDate: 1 });
+
+      console.log("Task found for TeamLeader:", task);
+
+      if (!task || !task.tagMembers || task.tagMembers.length === 0) {
+        return res.status(200).json([]); // no task or no team members found
+      }
+
+      // Use all team member IDs from tagMembers
+      const teamMemberIds = task.tagMembers.map((id) => new mongoose.Types.ObjectId(id));
+
+      attendanceRecords = await Attendance.aggregate([
+        {
+          $match: {
+            companyId: new mongoose.Types.ObjectId(companyId),
+            userId: { $in: teamMemberIds },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "userInfo",
+          },
+        },
+        { $unwind: "$userInfo" },
+        {
+          $project: {
+            userId: 1,
+            date: 1,
+            punchIn: 1,
+            punchInLocation: 1,
+            punchOut: 1,
+            totalWorkedHours: 1,
+            overtime: 1,
+            status: 1,
+            remark: 1,
+            "userInfo.firstName": 1,
+            "userInfo.lastName": 1,
+            "userInfo.email": 1,
+            "userInfo.position": 1,
+          },
+        },
+        { $sort: { date: -1 } },
+      ]);
+    } else if (position === "Manager" || position === "HR") {
+      attendanceRecords = await Attendance.aggregate([
+        {
+          $match: {
+            companyId: new mongoose.Types.ObjectId(companyId),
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "userInfo",
+          },
+        },
+        { $unwind: "$userInfo" },
+        {
+          $project: {
+            userId: 1,
+            date: 1,
+            punchIn: 1,
+            punchInLocation: 1,
+            punchOut: 1,
+            totalWorkedHours: 1,
+            overtime: 1,
+            status: 1,
+            remark: 1,
+            "userInfo.firstName": 1,
+            "userInfo.lastName": 1,
+            "userInfo.email": 1,
+            "userInfo.position": 1,
+          },
+        },
+        { $sort: { date: -1 } },
+      ]);
+    } else {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    return res.status(200).json(attendanceRecords || []);
+  } catch (error) {
+    console.error("Error fetching attendance records:", error);
+    return res.status(500).json({
+      message: "Server error fetching attendance records",
+      error: error.message,
+    });
+  }
+};
+
+
+
 
 function getStartOfTodayUTC() {
   const now = new Date();

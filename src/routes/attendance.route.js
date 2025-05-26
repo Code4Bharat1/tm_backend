@@ -5,6 +5,7 @@ import {
   getTodayAttendance,
   getAllAttendance,
   getParticularUserAttendance,
+  getPositionWiseAttendance,
 } from "../controller/attendance.controller.js";
 import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 const router = express.Router();
@@ -33,6 +34,11 @@ router.get(
   "/allAttendance",
   protectAdmin,
   getAllAttendance
+);
+router.get(
+  "/teamAttendance",
+  protect,
+  getPositionWiseAttendance
 );
 
 export default router;

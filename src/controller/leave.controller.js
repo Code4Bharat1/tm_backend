@@ -1,6 +1,8 @@
 import Leave from "../models/leave.model.js";
 import Admin from '../models/admin.model.js';
 import User from '../models/user.model.js';
+import TaskAssignment from "../models/taskAssignment.model.js";
+import mongoose from "mongoose";
 
 export const getApprovers = async (req, res) => {
     try {
@@ -130,6 +132,55 @@ const getCompanyLeaves = async (req, res) => {
     }
 };
 
+const getTeamLeaves = async (req, res) => {
+  try {
+    const { companyId, userId, position } = req.user;
+    console.log("Company ID from token:", companyId);
+
+    if (!companyId) {
+      return res.status(401).json({ message: "Unauthorized. Company ID missing." });
+    }
+
+    let userIds = [];
+
+    if (position === "Manager" || position === "HR") {
+      // Get all users in the company
+      const users = await User.find({ companyId }).select("_id");
+      userIds = users.map((user) => user._id);
+    } else if (position === "TeamLeader") {
+      // Get tasks assigned to the TeamLeader and extract tag members (team)
+      const tasks = await TaskAssignment.find({
+        companyId,
+        assignedTo: userId,
+      }).select("tagMembers");
+
+      // Flatten and deduplicate tagMembers
+      const tagMemberIds = [
+        ...new Set(tasks.flatMap((task) => task.tagMembers.map(String))),
+      ];
+
+      if (tagMemberIds.length === 0) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+
+      userIds = tagMemberIds.map((id) => new mongoose.Types.ObjectId(id));
+    } else {
+      return res.status(403).json({ message: "Unauthorized access." });
+    }
+
+    // Fetch leaves for filtered userIds
+    const leaves = await Leave.find({ userId: { $in: userIds } })
+      .populate("userId", "firstName lastName email position username")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, count: leaves.length, data: leaves });
+  } catch (error) {
+    console.error("Error fetching company leaves:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
 const getSingleLeave = async (req, res) => {
     try {
         const leave = await Leave.findById(req.params.id).populate("userId", "firstName lastName email position");
@@ -210,4 +261,4 @@ const updateLeaveStatus = async (req, res) => {
 
 
 
-export { applyLeave, getAllLeaves, updateLeaveStatus, getCompanyLeaves, getSingleLeave };
+export { applyLeave, getAllLeaves, updateLeaveStatus, getCompanyLeaves, getTeamLeaves, getSingleLeave };

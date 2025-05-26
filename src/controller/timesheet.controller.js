@@ -1,4 +1,6 @@
 import Timesheet from "../models/timesheet.model.js";
+import TaskAssignment from "../models/taskAssignment.model.js";
+import mongoose from "mongoose";
 import moment from "moment";
 
 const getApprovers = async (req, res) => {
@@ -298,10 +300,67 @@ const getUserTimesheetsByCompany = async (req, res) => {
   }
 };
 
+const getTeamTimesheet = async (req, res) => {
+  try {
+    const { companyId, position, userId } = req.user;
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: "Missing company ID" });
+    }
+
+    let timesheets;
+
+    if (position === "TeamLeader") {
+      // Find tasks assigned to this TeamLeader
+      const tasks = await TaskAssignment.find({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        assignedTo: new mongoose.Types.ObjectId(userId),
+      }).select("tagMembers");
+
+      // Extract unique team member IDs from tagMembers across tasks
+      const teamMemberIds = new Set();
+      tasks.forEach(task => {
+        if (Array.isArray(task.tagMembers)) {
+          task.tagMembers.forEach(id => teamMemberIds.add(id.toString()));
+        }
+      });
+
+      if (teamMemberIds.size === 0) {
+        // No team members found
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+
+      timesheets = await Timesheet.find({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        userId: { $in: Array.from(teamMemberIds).map(id => new mongoose.Types.ObjectId(id)) },
+      })
+        .populate("userId", "firstName lastName email position")
+        .exec();
+
+    } else if (position === "Manager" || position === "HR") {
+      // Get all timesheets for company
+      timesheets = await Timesheet.find({ companyId: new mongoose.Types.ObjectId(companyId) })
+        .populate("userId", "firstName lastName email position")
+        .exec();
+    } else {
+      return res.status(403).json({ success: false, message: "Unauthorized access" });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: timesheets.length,
+      data: timesheets,
+    });
+  } catch (error) {
+    console.error("Error fetching timesheets:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
 export {
   storeTimesheet,
   getTimesheetsbyDate,
   updateTimesheet,
   getUserTimesheetsByCompany,
-  getApprovers
+  getApprovers,
+  getTeamTimesheet
 };

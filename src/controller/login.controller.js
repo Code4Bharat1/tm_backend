@@ -25,7 +25,7 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email/phone or password' });
     }
 
-    const token = jwt.sign({ userId: user._id, email: user.email, companyId: user.companyId }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ userId: user._id, email: user.email, companyId: user.companyId, position: user.position }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRATION,
     });
 
@@ -55,4 +55,16 @@ const loginUser = async (req, res) => {
   }
 };
 
-export { loginUser };
+const auth =async(req, res) =>{
+  const token = req.cookies.token
+  if (!token) return res.status(401).json({ message: 'Unauthorized' })
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    res.json({ userId: decoded.userId, role: decoded.position })
+  } catch (err) {
+    res.status(401).json({ message: 'Invalid token' })
+  }
+}
+
+export { loginUser, auth };

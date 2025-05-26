@@ -7,7 +7,7 @@ export const updateUserFeaturesByRoleAccess = async (req, res) => {
         const { companyId } = req.user;
         const { userId, roleAccessUpdates } = req.body;
 
-        console.log('📥 Received request to update user features:', { userId, roleAccessUpdates });
+        //console.log('📥 Received request to update user features:', { userId, roleAccessUpdates });
 
         // Validate input
         if (!userId || !Array.isArray(roleAccessUpdates) || roleAccessUpdates.length === 0) {
@@ -21,7 +21,7 @@ export const updateUserFeaturesByRoleAccess = async (req, res) => {
         for (const update of roleAccessUpdates) {
             const { roleId, features = [], maxFeature = [] } = update;
 
-            console.log('🔄 Processing role access update:', { roleId, features, maxFeature });
+            //console.log('🔄 Processing role access update:', { roleId, features, maxFeature });
 
             if (!roleId || !Array.isArray(features) || !Array.isArray(maxFeature)) {
                 return res.status(400).json({
@@ -39,7 +39,7 @@ export const updateUserFeaturesByRoleAccess = async (req, res) => {
                 features: features || [],
                 maxFeatures: maxFeature || [],
             };
-            console.log('🔍 Querying for role feature access:', updateData.maxFeatures);
+            //console.log('🔍 Querying for role feature access:', updateData.maxFeatures);
             const updatedRole = await RoleFeatureAccess.findOneAndUpdate(query, updateData, {
                 new: true,
                 upsert: false,
@@ -52,16 +52,19 @@ export const updateUserFeaturesByRoleAccess = async (req, res) => {
                 });
             }
 
-            console.log('✅ Updated role document:', updatedRole);
+            //console.log('✅ Updated role document:', updatedRole);
 
             // Emit update via socket if user is connected
             const socketId = userSocketMap.get(userId.toString());
             if (socketId) {
+                console.log(`📡 Emitting socket event to socket ID: ${socketId}`);
                 io.to(socketId).emit('permissions_updated', {
                     roleId,
                     updatedFeatures: updatedRole.features,
                     updatedMaxFeatures: updatedRole.maxFeature,
                 });
+            } else {
+                console.warn(`⚠️ No active socket found for userId ${userId}`);
             }
 
             updateResults.push(updatedRole);
@@ -95,7 +98,7 @@ export const getUsersFeaturesByCompany = async (req, res) => {
                     .select('features maxFeatures');
 
                 // 🔍 Debugging line to log what is returned
-               // console.log(`🔎 Role Features for user ${user._id}:`, roleFeatures);
+                // console.log(`🔎 Role Features for user ${user._id}:`, roleFeatures);
 
                 const featureList = roleFeatures.flatMap(rf => rf.features).filter(f => f);
                 const maxFeatureList = roleFeatures.flatMap(rf => rf.maxFeatures).filter(f => f);
@@ -119,43 +122,38 @@ export const getUsersFeaturesByCompany = async (req, res) => {
     }
 };
 
-
 export const getUsersFeatures = async (req, res) => {
     try {
         const { companyId, userId } = req.user;
+         // Pass userId as query param if needed
 
-        // Fetch user (assuming userId is present in req.user)
-        const users = await User.find({ companyId, _id: userId }).select('firstName lastName position');
+        // Build user filter
+        const userFilter = { companyId };
+        if (userId) userFilter._id = userId;
+
+        // Fetch users
+        const users = await User.find(userFilter).select('firstName lastName position');
 
         if (users.length === 0) {
-            return res.status(404).json({ message: 'No users found for this company/user' });
+            return res.status(404).json({ message: 'No users found for this company' });
         }
 
         const usersWithFeatures = await Promise.all(
             users.map(async (user) => {
                 const roleFeatures = await RoleFeatureAccess.find({ userId: user._id, companyId })
-                    .select('features maxFeature');
+                    .select('features maxFeatures');
 
-                if (roleFeatures.length === 0) {
-                    return {
-                        userName: `${user.firstName} ${user.lastName}`,
-                        position: user.position,
-                        features: [],
-                        maxFeatures: [],
-                        roleIds: [],
-                    };
-                }
-
-                const featureList = roleFeatures.flatMap(rf => rf.features);
-                const maxFeatureList = roleFeatures.flatMap(rf => rf.maxFeature);
+                const featureList = roleFeatures.flatMap(rf => rf.features).filter(f => f);
+                const maxFeatureList = roleFeatures.flatMap(rf => rf.maxFeatures).filter(f => f);
                 const roleIds = roleFeatures.map(rf => rf._id);
 
                 return {
+                    userId: user._id,
                     userName: `${user.firstName} ${user.lastName}`,
                     position: user.position,
                     features: featureList,
                     maxFeatures: maxFeatureList,
-                    roleIds,
+                    roleIds
                 };
             })
         );

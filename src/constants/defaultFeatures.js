@@ -1,15 +1,12 @@
 // src/constants/defaultFeatures.js
-
 export const defaultFeatures = {
-    //admin: ['dashboard', 'employeeManagement', 'reports', 'settings'],
-    Manager: ['viewtimesheet', 'tasks', 'viewattendance', 'viewleave', 'performanceScore'],
-    // Employee: ['dashboard', 'tasks', 'timesheet'],
-    TeamLeader: ['viewTeamTimesheet', 'teamTasks', 'viewTeamAttendance', ],
-    HR: ['dashboard', 'employeeRecords', 'leaveRequests', 'payroll','viewExpense', 'addDocument'],
-};
+  Manager: ['viewtimesheet', 'tasks', 'viewattendance', 'viewleave', 'performanceScore'],
+  TeamLeader: ['viewtimesheet', 'teamTasks', 'viewattendance'],
+  HR: ['dashboard', 'employeeRecords', 'leaveRequests', 'payroll', 'viewexpense', 'addDocument'],
+}
 
 export const maxFeature = {
-    Manager: ['payroll'],
-    TeamLeader: ['viewTeamLeave'],
-    HR: ['postUpload'],
+  Manager: ['payroll'],
+  TeamLeader: ['viewleave'],
+  HR: ['postUpload'],
 }
