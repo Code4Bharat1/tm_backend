@@ -217,6 +217,95 @@ export const getTaskAssignments = async (req, res) => {
   }
 };
 
+export const getUserTaskAssignments = async (req, res) => {
+  try {
+    // Get user ID and company ID from the JWT token
+    const { userId, companyId } = req.user;
+
+    // Optional query parameters for filtering
+    const { status, fromDate, toDate } = req.query;
+
+    // Base query - tasks assigned to current user within their company
+    let query = { 
+      companyId,
+      assignedTo: userId 
+    };
+
+    // Apply filters if provided
+    if (status) {
+      query.status = status;
+    }
+
+    if (fromDate || toDate) {
+      query.assignDate = {};
+      if (fromDate) query.assignDate.$gte = new Date(fromDate);
+      if (toDate) query.assignDate.$lte = new Date(toDate);
+    }
+
+    // Only select the required fields
+    const taskAssignments = await TaskAssignment.find(query)
+      .select('bucketName assignDate deadline status') // Added status for user visibility
+      .sort({ assignDate: -1 })
+      .lean();
+
+    res.status(200).json({
+      count: taskAssignments.length,
+      data: taskAssignments,
+    });
+  } catch (error) {
+    console.error("Error fetching user task assignments:", error);
+    res.status(500).json({
+      message: "Server error while fetching your tasks",
+      error: error.message
+    });
+  }
+};
+
+export const getAdminTaskAssignments = async (req, res) => {
+  try {
+    // Get companyId from the JWT token (admin has full access)
+    const { companyId } = req.user;
+
+    // Optional query parameters for filtering
+    const { status, assignedTo, fromDate, toDate } = req.query;
+
+    // Base query - only filter by company ID for admin view
+    let query = { companyId };
+
+    // Apply filters if provided
+    if (status) {
+      query.status = status;
+    }
+
+    if (assignedTo) {
+      query.assignedTo = assignedTo;
+    }
+
+    if (fromDate || toDate) {
+      query.assignDate = {};
+      if (fromDate) query.assignDate.$gte = new Date(fromDate);
+      if (toDate) query.assignDate.$lte = new Date(toDate);
+    }
+
+    // Only select the three required fields
+    const taskAssignments = await TaskAssignment.find(query)
+      .select('bucketName assignDate deadline') // Only these three fields
+      .sort({ assignDate: -1 })
+      .lean();
+
+    res.status(200).json({
+      count: taskAssignments.length,
+      data: taskAssignments,
+    });
+  } catch (error) {
+    console.error("Error fetching admin task assignments:", error);
+    res.status(500).json({
+      message: "Server error while fetching task assignments",
+      error: error.message
+    });
+  }
+};
+
 export const getOngoingProjects = async (req, res) => {
   try {
     const { companyId } = req.user;

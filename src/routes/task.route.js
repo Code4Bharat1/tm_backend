@@ -30,6 +30,8 @@ import {
   getTaskAssignments,
   closeTask,
   getTaskStatistics,
+  getAdminTaskAssignments,
+  getUserTaskAssignments,
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -51,5 +53,9 @@ router.get("/getOngoingProjects", protectAdmin, getOngoingProjects);
 
 // Close a task with optional file upload
 router.post("/:taskId/close", protect, upload.single("attachment"), closeTask);
+
+router.get("/projects", protectAdmin, getAdminTaskAssignments);
+
+router.get("/projectsuser", protect, getUserTaskAssignments);
 
 export default router;
