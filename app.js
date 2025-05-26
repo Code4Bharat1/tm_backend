@@ -29,6 +29,7 @@ import { processAbsentees } from "./src/controller/attendance.controller.js";
 
 import { initSocketServer } from "./src/service/socket.js";
 import permissionsRoute from "./src/routes/permissions.route.js";
+import letterOfConfirmation from "./src/routes/loc.route.js";
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -82,6 +83,7 @@ app.use("/api/upload", UploadRouter);
 app.use("/api/adddocument", adddocument);
 app.use("/api/permissions", permissionsRoute);
 app.use("/api/performance", Performance);
+app.use("/api/admin", letterOfConfirmation);
 
 cron.schedule("29 18 * * *", async () => {
   try {
