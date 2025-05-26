@@ -78,13 +78,6 @@ export const updateUserFeaturesByRoleAccess = async (req, res) => {
     }
 };
 
-
-export const maxFeature = {
-    manager: ['payroll'],
-    teamleader: ['viewTeamLeave'],
-    hr: ['postUpload'],
-};
-
 export const getUsersFeaturesByCompany = async (req, res) => {
     try {
         const { companyId } = req.user;
@@ -99,21 +92,21 @@ export const getUsersFeaturesByCompany = async (req, res) => {
         const usersWithFeatures = await Promise.all(
             users.map(async (user) => {
                 const roleFeatures = await RoleFeatureAccess.find({ userId: user._id, companyId })
-                    .select('features maxFeature');
+                    .select('features maxFeatures');
+
+                // 🔍 Debugging line to log what is returned
+               // console.log(`🔎 Role Features for user ${user._id}:`, roleFeatures);
 
                 const featureList = roleFeatures.flatMap(rf => rf.features).filter(f => f);
-                const maxFeatureList = roleFeatures.flatMap(rf => rf.maxFeature).filter(f => f);
+                const maxFeatureList = roleFeatures.flatMap(rf => rf.maxFeatures).filter(f => f);
                 const roleIds = roleFeatures.map(rf => rf._id);
 
-                const userPosition = user.position?.toLowerCase() || '';
-                const defaultMaxFeatures = maxFeature[userPosition] || [];
-                console.log(`Default max features for ${userPosition}:`, defaultMaxFeatures);
                 return {
                     userId: user._id,
                     userName: `${user.firstName} ${user.lastName}`,
                     position: user.position,
                     features: featureList,
-                    maxFeatures: [...new Set([...defaultMaxFeatures, ...maxFeatureList])], // combine unique
+                    maxFeatures: maxFeatureList,
                     roleIds
                 };
             })
@@ -125,6 +118,7 @@ export const getUsersFeaturesByCompany = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
 export const getUsersFeatures = async (req, res) => {
     try {
