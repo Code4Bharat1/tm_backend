@@ -70,13 +70,71 @@ export const createTaskAssignment = async (req, res) => {
   }
 };
 
+// Helper function to check if a project overlaps with the given time period
+const doesProjectOverlapWithPeriod = (
+  assignDate,
+  deadline,
+  periodStart,
+  periodEnd,
+) => {
+  const projectStart = new Date(assignDate);
+  const projectEnd = new Date(deadline);
+
+  // Check if there's any overlap between project duration and the period
+  return projectStart <= periodEnd && projectEnd >= periodStart;
+};
+
+// Helper function to get date range based on filter
+const getDateRangeForFilter = (filter) => {
+  const now = new Date();
+  let startDate, endDate;
+
+  switch (filter) {
+    case "week":
+      // Get start of current week (Sunday)
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - now.getDay());
+      startDate.setHours(0, 0, 0, 0);
+
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      endDate.setHours(23, 59, 59, 999);
+      break;
+
+    case "month":
+      // Get start of current month
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
+      break;
+
+    case "year":
+      // Get start of current year
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      break;
+
+    default:
+      return null;
+  }
+
+  return { startDate, endDate };
+};
+
 export const getTaskAssignments = async (req, res) => {
   try {
     // Get companyId and userId from the JWT token
     const { companyId, userId } = req.user;
 
     // Optional query parameters for filtering
-    const { status, assignedTo, fromDate, toDate } = req.query;
+    const { status, assignedTo, fromDate, toDate, timeFilter } = req.query;
 
     // Always filter by company ID and user ID for data isolation
     let query = {
@@ -96,22 +154,60 @@ export const getTaskAssignments = async (req, res) => {
       query.assignedTo = assignedTo;
     }
 
-    if (fromDate || toDate) {
-      query.assignDate = {};
-      if (fromDate) query.assignDate.$gte = new Date(fromDate);
-      if (toDate) query.assignDate.$lte = new Date(toDate);
-    }
-
-    const taskAssignments = await TaskAssignment.find(query)
+    // Get all tasks first without date filtering for overlap logic
+    let taskAssignments = await TaskAssignment.find(query)
       .populate("assignedTo", "firstName lastName email")
       .populate("assignedBy", "fullName email")
       .populate("tagMembers", "firstName lastName email")
       .sort({ assignDate: -1 })
       .lean();
 
+    // Apply date filtering logic
+    if (fromDate || toDate || timeFilter) {
+      if (timeFilter && timeFilter !== "all") {
+        const dateRange = getDateRangeForFilter(timeFilter);
+
+        if (dateRange) {
+          const { startDate, endDate } = dateRange;
+
+          // Filter tasks that overlap with the specified period
+          taskAssignments = taskAssignments.filter((task) =>
+            doesProjectOverlapWithPeriod(
+              task.assignDate,
+              task.deadline,
+              startDate,
+              endDate,
+            ),
+          );
+        }
+      } else if (fromDate || toDate) {
+        // Use explicit fromDate and toDate if provided
+        const filterStart = fromDate
+          ? new Date(fromDate)
+          : new Date("1970-01-01");
+        const filterEnd = toDate ? new Date(toDate) : new Date("2099-12-31");
+
+        taskAssignments = taskAssignments.filter((task) =>
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            filterStart,
+            filterEnd,
+          ),
+        );
+      }
+    }
+
     res.status(200).json({
       count: taskAssignments.length,
       data: taskAssignments,
+      filter: {
+        timeFilter: timeFilter || "all",
+        fromDate,
+        toDate,
+        status,
+        assignedTo,
+      },
     });
   } catch (error) {
     console.error("Error fetching task assignments:", error);
@@ -124,14 +220,39 @@ export const getTaskAssignments = async (req, res) => {
 export const getOngoingProjects = async (req, res) => {
   try {
     const { companyId } = req.user;
+    const { timeFilter } = req.query;
 
-    const ongoingTasks = await TaskAssignment.find({
+    // Base query for ongoing tasks
+    let query = {
       companyId,
       status: { $in: ["Open", "In Progress"] },
-    })
-      .select("bucketName taskDescription assignedTo") // only select required fields
-      .populate("assignedTo", "firstName lastName photoUrl") // populate assignedTo with fields
+    };
+
+    // Get all ongoing tasks first
+    let ongoingTasks = await TaskAssignment.find(query)
+      .select("bucketName taskDescription assignedTo assignDate deadline") // Include deadline for overlap check
+      .populate("assignedTo", "firstName lastName photoUrl")
+      .sort({ assignDate: -1 })
       .lean();
+
+    // Apply time filtering with overlap logic
+    if (timeFilter && timeFilter !== "all") {
+      const dateRange = getDateRangeForFilter(timeFilter);
+
+      if (dateRange) {
+        const { startDate, endDate } = dateRange;
+
+        // Filter tasks that overlap with the specified period
+        ongoingTasks = ongoingTasks.filter((task) =>
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            startDate,
+            endDate,
+          ),
+        );
+      }
+    }
 
     const result = ongoingTasks.map((task) => ({
       assignedToName: task.assignedTo
@@ -139,12 +260,17 @@ export const getOngoingProjects = async (req, res) => {
         : "Unassigned",
       bucketName: task.bucketName,
       taskDescription: task.taskDescription,
-      photoUrl: task.assignedTo?.photoUrl || "", // ✅ Fix: access photoUrl via assignedTo
+      photoUrl: task.assignedTo?.photoUrl || "",
+      assignDate: task.assignDate,
+      deadline: task.deadline, // Include deadline in response for reference
     }));
 
     res.status(200).json({
       count: result.length,
       data: result,
+      filter: {
+        timeFilter: timeFilter || "all",
+      },
     });
   } catch (error) {
     console.error("Error fetching ongoing projects:", error);
@@ -279,6 +405,77 @@ export const closeTask = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error while closing task",
+    });
+  }
+};
+
+// Updated function to get task statistics with overlap-based time filtering
+export const getTaskStatistics = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { timeFilter } = req.query;
+
+    // Base query
+    let query = {
+      companyId,
+    };
+
+    // Get all tasks matching the base criteria
+    let tasks = await TaskAssignment.find(query).lean();
+
+    // Apply time filtering with overlap logic
+    if (timeFilter && timeFilter !== "all") {
+      const dateRange = getDateRangeForFilter(timeFilter);
+
+      if (dateRange) {
+        const { startDate, endDate } = dateRange;
+
+        // Filter tasks that overlap with the specified period
+        tasks = tasks.filter((task) =>
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            startDate,
+            endDate,
+          ),
+        );
+      }
+    }
+
+    // Calculate statistics
+    const stats = {
+      total: tasks.length,
+      open: tasks.filter((task) => task.status === "Open").length,
+      inProgress: tasks.filter((task) => task.status === "In Progress").length,
+      completed: tasks.filter((task) => task.status === "Completed").length,
+      closed: tasks.filter((task) => task.status === "Closed").length,
+      deferred: tasks.filter((task) => task.status === "Deferred").length,
+    };
+
+    // Calculate percentages
+    const percentages = {};
+    Object.keys(stats).forEach((key) => {
+      if (key !== "total") {
+        percentages[key] =
+          stats.total > 0 ? Math.round((stats[key] / stats.total) * 100) : 0;
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        counts: stats,
+        percentages,
+        filter: {
+          timeFilter: timeFilter || "all",
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching task statistics:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching task statistics",
     });
   }
 };
