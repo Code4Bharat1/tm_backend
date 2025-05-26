@@ -32,11 +32,19 @@ const attendanceSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    punchInPhoto: {
+      type: String,
+      default: null,
+    },
     punchOut: {
       type: Date,
       default: null,
     },
     punchOutLocation: {
+      type: String,
+      default: null,
+    },
+    punchOutPhoto: {
       type: String,
       default: null,
     },

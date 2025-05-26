@@ -1,197 +1,178 @@
 import Attendance from '../models/attendance.model.js';
 import User from '../models/user.model.js';
 import mongoose from 'mongoose';
-// Utility function to calculate duration in hours
-const calculateHours = (start, end) => {
-  const ms = new Date(end) - new Date(start);
-  return (ms / (1000 * 60 * 60)).toFixed(2); // convert to hours with 2 decimal places
-};
-
-// Utility to get start of day in UTC
-const getStartOfDayUTC = () => {
-  const now = new Date();
-  now.setUTCHours(0, 0, 0, 0);
-  return now;
-};
+import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
 
 export const punchInController = async (req, res) => {
   try {
-    const { punchInTime, punchInLocation } = req.body;
+    const { punchInTime, punchInLocation, selfieImage } = req.body;
     const { userId, companyId } = req.user;
 
-    // Get start of today (midnight) in UTC
-    const todayStart = getStartOfDayUTC();
+    // Validation
+    if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
+    if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
+      return res.status(400).json({ message: 'Invalid image format' });
+    }
 
-    // Get todayEnd = 11:59:59.999 PM (end of the day)
+    // Date setup
+    const todayStart = new Date(getStartOfDayUTC());
     const todayEnd = new Date(todayStart);
     todayEnd.setUTCHours(23, 59, 59, 999);
 
-    // Get start of tomorrow (midnight next day)
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
+    // Time validation
+    const punchInDateTime = punchInTime ? new Date(punchInTime) : new Date();
+    if (isNaN(punchInDateTime)) {
+      return res.status(400).json({ message: 'Invalid time format' });
+    }
 
-    // Determine punch-in datetime (provided or now)
-    const now = new Date();
-    const punchInDateTime = punchInTime ? new Date(punchInTime) : now;
-
-    // Check if punch-in is after or equal to 11:59 PM today but before tomorrow midnight
-    if (punchInDateTime >= todayEnd && punchInDateTime < tomorrowStart) {
-      // Mark absent for today
-      let attendance = await Attendance.findOne({
-        userId,
-        companyId,
-        date: todayStart,
-      });
-
-      if (!attendance) {
-        attendance = new Attendance({
-          userId,
-          companyId,
-          date: todayStart,
-        });
-      }
-
-      attendance.status = 'Absent';
-      attendance.remark = 'Absent due to late punch-in (after 11:59 PM)';
-      await attendance.save();
-
+    // Late punch-in handling
+    if (punchInDateTime >= todayEnd) {
+      const attendance = await Attendance.findOneAndUpdate(
+        { userId, companyId, date: todayStart },
+        {
+          status: 'Absent',
+          remark: 'Late punch-in attempt',
+          punchInPhoto: selfieImage
+        },
+        { upsert: true, new: true }
+      );
       return res.status(400).json({
-        message: 'Cannot punch in after 11:59 PM. Marked absent for today.',
-        attendance,
+        message: 'Punch-in after 11:59 PM not allowed',
+        attendance
       });
     }
 
-    // Normal punch-in window check (optional: punch-in before start of today disallowed)
-    if (punchInDateTime < todayStart) {
-      return res.status(400).json({
-        message: 'Invalid punch-in time: before start of today.',
-      });
+    // Existing attendance check
+    let attendance = await Attendance.findOne({ userId, companyId, date: todayStart });
+    if (attendance?.punchIn) {
+      return res.status(400).json({ message: 'Already punched in' });
     }
 
-    // Find existing attendance record for today
-    let attendance = await Attendance.findOne({
-      userId,
-      companyId,
-      date: todayStart,
-    });
-
-    if (attendance && attendance.punchIn) {
-      return res.status(400).json({
-        message: 'Already punched in for today.',
-      });
-    }
-
+    // Create new record
     if (!attendance) {
       attendance = new Attendance({
         userId,
         companyId,
-        date: todayStart,
+        date: todayStart
       });
     }
 
-    // Set punch in time and location
+    // Set punch-in details
     attendance.punchIn = punchInDateTime;
-    attendance.punchInLocation = punchInLocation || null;
-
-    // Determine remark based on punch-in time (9:30 AM cutoff)
-    const punchInHour = punchInDateTime.getUTCHours();
-    const punchInMinute = punchInDateTime.getUTCMinutes();
-
-    if (punchInHour < 9 || (punchInHour === 9 && punchInMinute <= 30)) {
-      attendance.remark = 'Present';
-    } else {
-      attendance.remark = 'Late';
-    }
-
-    attendance.status = 'Pending'; // until punch out
+    attendance.punchInLocation = punchInLocation || 'Unknown';
+    attendance.punchInPhoto = selfieImage;
+    
+    // Determine status
+    const punchInUTCHours = punchInDateTime.getUTCHours();
+    const punchInUTCMinutes = punchInDateTime.getUTCMinutes();
+    attendance.remark = (punchInUTCHours < 9 || (punchInUTCHours === 9 && punchInUTCMinutes <= 30)) 
+      ? 'Present' 
+      : 'Late';
 
     await attendance.save();
 
     res.status(200).json({
       message: 'Punch-in successful',
-      punchInTime: attendance.punchIn,
-      remark: attendance.remark,
-      attendance,
+      punchIn: attendance.punchIn,
+      photo: attendance.punchInPhoto,
+      remark: attendance.remark
     });
+
   } catch (error) {
     console.error('Punch-in error:', error);
     res.status(500).json({
-      message: 'Server error during punch-in',
-      error: error.message,
+      message: 'Server error',
+      error: error.message
     });
   }
 };
 
-
 export const punchOutController = async (req, res) => {
   try {
-    const { punchOutTime, punchOutLocation, emergencyReason } = req.body;
-    const {userId, companyId} = req.user;
-    const today = getStartOfDayUTC();
+    const { punchOutTime, punchOutLocation, emergencyReason, selfieImage } = req.body;
+    const { userId, companyId } = req.user;
 
-    const attendance = await Attendance.findOne({
-      userId: userId,
-      companyId: companyId,
-      date: today,
-    });
-
-    if (!attendance) {
-      return res.status(404).json({
-        message: 'No attendance record found for today',
-      });
+    // Validation
+    if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
+    if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
+      return res.status(400).json({ message: 'Invalid image format' });
     }
 
+    // Date setup
+    const todayStart = new Date(getStartOfDayUTC());
+    let attendance = await Attendance.findOne({ userId, companyId, date: todayStart });
+
+    if (!attendance) {
+      return res.status(404).json({ message: 'No attendance record' });
+    }
+
+    // Store photo early
+    attendance.punchOutPhoto = selfieImage;
+
+    // Validation checks
     if (!attendance.punchIn) {
       attendance.status = 'Absent';
+      attendance.remark = 'Punched out without punching in';
       await attendance.save();
-      return res.status(400).json({
-        message: 'Cannot punch out without punching in first',
-        attendance,
+      return res.status(400).json({ 
+        message: 'No punch-in found',
+        attendance 
       });
     }
 
     if (attendance.punchOut) {
-      return res.status(400).json({
-        message: 'Already punched out for today',
+      return res.status(400).json({ message: 'Already punched out' });
+    }
+
+    // Set punch-out time
+    const punchOutDateTime = punchOutTime ? new Date(punchOutTime) : new Date();
+    if (isNaN(punchOutDateTime)) {
+      return res.status(400).json({ message: 'Invalid time format' });
+    }
+    attendance.punchOut = punchOutDateTime;
+    attendance.punchOutLocation = punchOutLocation || 'Unknown';
+
+    // Calculate hours
+    let totalHours;
+    try {
+      totalHours = calculateHours(attendance.punchIn, attendance.punchOut);
+    } catch (error) {
+      console.error('Calculation error:', error);
+      return res.status(400).json({ 
+        message: 'Invalid time calculation',
+        error: error.message 
       });
     }
 
-    // Set punch out time (either provided or current time)
-    const now = new Date();
-    attendance.punchOut = punchOutTime ? new Date(punchOutTime) : now;
-    attendance.punchOutLocation = punchOutLocation || null;
+    attendance.totalWorkedHours = totalHours;
 
-    // Calculate worked hours
-    const totalHours = calculateHours(attendance.punchIn, attendance.punchOut);
-    attendance.totalWorkedHours = parseFloat(totalHours);
-
-    // Determine status based on worked hours
+    // Determine status
     if (totalHours < 4.5) {
       attendance.status = 'Emergency';
-      attendance.emergencyReason = emergencyReason || 'Not provided';
+      attendance.emergencyReason = emergencyReason || 'No reason provided';
     } else if (totalHours < 8) {
       attendance.status = 'Half-Day';
     } else {
       attendance.status = 'Present';
-      if (totalHours > 8) {
-        attendance.overtime = parseFloat((totalHours - 8).toFixed(2));
-      }
+      attendance.overtime = Math.max(0, totalHours - 8);
     }
 
     await attendance.save();
 
     res.status(200).json({
       message: 'Punch-out successful',
-      status: attendance.status,
-      totalWorkedHours: attendance.totalWorkedHours,
-      overtime: attendance.overtime || 0,
-      attendance,
+      punchOut: attendance.punchOut,
+      totalHours: attendance.totalWorkedHours,
+      overtime: attendance.overtime,
+      photo: attendance.punchOutPhoto,
+      status: attendance.status
     });
+
   } catch (error) {
     console.error('Punch-out error:', error);
     res.status(500).json({
-      message: 'Server error during punch-out',
-      error: error.message,
+      message: 'Server error',
+      error: error.message
     });
   }
 };
