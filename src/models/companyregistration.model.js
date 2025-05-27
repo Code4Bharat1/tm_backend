@@ -56,7 +56,11 @@ const companyRegistrationSchema = new mongoose.Schema({
       default: 'test@123'
     }
   },
-
+  officeLocation: {
+    type: String,
+    required: true,
+    default: 'White House, Buddha Colony Kurla West, Maharashtra' // Default static location
+  },
   planPreferences: {
     desiredPlan: {
       type: String,
@@ -74,16 +78,16 @@ const companyRegistrationSchema = new mongoose.Schema({
     type: Boolean,
     required: true
   },
-    status: {
-      type: String,
-      enum: ['Pending', 'Active', 'Suspended'],
-      default: 'Pending'
-    }
+  status: {
+    type: String,
+    enum: ['Pending', 'Active', 'Suspended'],
+    default: 'Pending'
+  }
 
-  }, { timestamps: true });
+}, { timestamps: true });
 
 // Hash admin password before saving
-companyRegistrationSchema.pre('save', async function(next) {
+companyRegistrationSchema.pre('save', async function (next) {
   if (!this.isModified('adminInfo.password')) return next();
   try {
     const salt = await bcrypt.genSalt(10);
@@ -95,7 +99,7 @@ companyRegistrationSchema.pre('save', async function(next) {
 });
 
 // Compare password method for login (if needed)
-companyRegistrationSchema.methods.comparePassword = function(candidatePassword) {
+companyRegistrationSchema.methods.comparePassword = function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.adminInfo.password);
 };
 

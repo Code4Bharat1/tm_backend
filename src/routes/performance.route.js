@@ -8,6 +8,7 @@ import {
   getIndividualYearlyScore,
   getWeeklyScore,
   updateBehaviourScore,
+  getPerformanceScores
 } from "../controller/performance.controller.js";
 
 const router = express.Router();
@@ -23,4 +24,5 @@ router.get("/getIndividualWeeklyScore", protect, getIndividualWeeklyScore);
 router.get("/getIndividualMonthlyScore", protect, getIndividualMonthlyScore);
 router.get("/getIndividualYearlyScore", protect, getIndividualYearlyScore);
 
+router.get("/getPerformanceScore", protect, getPerformanceScores)
 export default router;
