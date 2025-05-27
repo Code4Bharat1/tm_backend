@@ -32,6 +32,7 @@ import {
   getTaskStatistics,
   getAdminTaskAssignments,
   getUserTaskAssignments,
+  getAllLOCs,
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -57,5 +58,7 @@ router.post("/:taskId/close", protect, upload.single("attachment"), closeTask);
 router.get("/projects", protectAdmin, getAdminTaskAssignments);
 
 router.get("/projectsuser", protect, getUserTaskAssignments);
+
+router.get("/loc", protectAdmin, getAllLOCs)
 
 export default router;
