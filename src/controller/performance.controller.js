@@ -285,23 +285,29 @@ export const getWeeklyScore = async (req, res) => {
     }).populate("userId", "firstName lastName");
 
     if (!performanceScores || performanceScores.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: "No performance scores found for the specified week",
       });
     }
 
-    // Format the response to include remarks
-    const formattedScores = performanceScores.map((perf) => ({
-      _id: perf._id,
-      userId: perf.userId._id,
-      name: `${perf.userId.firstName} ${perf.userId.lastName}`,
-      score: perf.score[0],
-      remark: perf.remark || "",
-      weekStart: perf.weekStart,
-      weekEnd: perf.weekEnd,
-    }));
+    // Format the response to match frontend expectations
+    const formattedScores = performanceScores
+      .filter((perf) => perf.userId !== null) // Filter out invalid refs
+      .map((perf) => ({
+        _id: perf._id,
+        userId: perf.userId._id,
+        name: `${perf.userId.firstName} ${perf.userId.lastName}`,
+        timesheetScore: perf.score[0]?.timesheetScore || 0,
+        attendanceScore: perf.score[0]?.attendanceScore || 0,
+        behaviourScore: perf.score[0]?.behaviourScore || 0,
+        totalScore: perf.score[0]?.totalScore || 0,
+        remark: perf.remark || "",
+        weekStart: perf.weekStart,
+        weekEnd: perf.weekEnd,
+      }));
 
-    return res.status(200).json({ performanceScores: formattedScores });
+    // Return the array directly, not wrapped in an object
+    return res.status(200).json(formattedScores);
   } catch (err) {
     console.error("Error fetching weekly scores:", err);
     return res.status(500).json({
@@ -659,5 +665,49 @@ export const getIndividualYearlyScore = async (req, res) => {
   } catch (error) {
     console.error("Error in fetching individual yearly score:", error);
     res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getPerformanceScores = async (req, res) => {
+  try {
+    const { filter = "weekly", date } = req.query;
+    const { companyId } = req.user; // assuming `req.user` is populated by the auth middleware
+
+    const baseDate = date ? new Date(date) : new Date();
+    let startDate, endDate;
+
+    switch (filter) {
+      case "weekly":
+        ({ weekStart: startDate, weekEnd: endDate } = getWeekRange(baseDate));
+        break;
+
+      case "monthly":
+        startDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+        endDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+
+      case "yearly":
+        startDate = new Date(baseDate.getFullYear(), 0, 1);
+        endDate = new Date(baseDate.getFullYear(), 11, 31);
+        endDate.setHours(23, 59, 59, 999);
+        break;
+
+      default:
+        return res.status(400).json({ message: "Invalid filter value" });
+    }
+
+    const scores = await PerformanceScore.find({
+      companyId,
+      weekStart: { $gte: startDate },
+      weekEnd: { $lte: endDate },
+    })
+      .populate("userId", "firstName lastName email") // Optional: populate user details
+      .sort({ weekStart: -1 });
+
+    res.status(200).json(scores);
+  } catch (error) {
+    console.error("Error fetching performance scores:", error);
+    res.status(500).json({ message: "Server error", error });
   }
 };
