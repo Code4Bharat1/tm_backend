@@ -26,6 +26,7 @@ import UploadRouter from "./src/routes/upload.route.js";
 import adddocument from "./src/routes/adddocument.route.js";
 import Performance from "./src/routes/performance.route.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
+import salaryRoute from "./src/routes/salaryslip.route.js"
 
 import { initSocketServer } from "./src/service/socket.js";
 import permissionsRoute from "./src/routes/permissions.route.js";
@@ -84,6 +85,7 @@ app.use("/api/adddocument", adddocument);
 app.use("/api/permissions", permissionsRoute);
 app.use("/api/performance", Performance);
 app.use("/api/admin", letterOfConfirmation);
+app.use("/api/salary",salaryRoute);
 
 cron.schedule("29 18 * * *", async () => {
   try {
