@@ -25,6 +25,7 @@ import Expenses from "./src/routes/expense.route.js";
 import UploadRouter from "./src/routes/upload.route.js";
 import adddocument from "./src/routes/adddocument.route.js";
 import Performance from "./src/routes/performance.route.js";
+import Ticket from './src/routes/raiseTicket.route.js'
 import { processAbsentees } from "./src/controller/attendance.controller.js";
 
 import { initSocketServer } from "./src/service/socket.js";
@@ -84,7 +85,7 @@ app.use("/api/adddocument", adddocument);
 app.use("/api/permissions", permissionsRoute);
 app.use("/api/performance", Performance);
 app.use("/api/admin", letterOfConfirmation);
-
+app.use('/api/ticket', Ticket)
 cron.schedule("29 18 * * *", async () => {
   try {
     console.log("✅ Cron job is runns at 11:59 pm IST");
