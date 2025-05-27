@@ -4,15 +4,93 @@ import TaskAssignment from '../models/taskAssignment.model.js';
 import mongoose from 'mongoose';
 import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
 
+// Company office location - White House, Building, Kurla West, Maharashtra
+const COMPANY_LOCATION = {
+  name: "White House, Building, Kurla West, Maharashtra",
+  latitude: 19.0728, // Kurla West coordinates
+  longitude: 72.8826,
+  allowedRadius: 200 // meters
+};
+
+// Calculate distance between two coordinates using Haversine formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in meters
+};
+
+// Validate location based on user position
+const validateLocation = async (userId, userLocation) => {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Manager can punch in/out from anywhere
+    if (user.position === 'Manager') {
+      return { isValid: true, message: 'Manager can punch in/out from anywhere' };
+    }
+
+    // For Employee, HR, Team Leader - must be at office location
+    if (!userLocation || !userLocation.latitude || !userLocation.longitude) {
+      return { 
+        isValid: false, 
+        message: 'Location coordinates required for office-based positions' 
+      };
+    }
+
+    const distance = calculateDistance(
+      COMPANY_LOCATION.latitude,
+      COMPANY_LOCATION.longitude,
+      userLocation.latitude,
+      userLocation.longitude
+    );
+
+    if (distance <= COMPANY_LOCATION.allowedRadius) {
+      return { 
+        isValid: true, 
+        message: `Within office premises (${Math.round(distance)}m from office)` 
+      };
+    } else {
+      return { 
+        isValid: false, 
+        message: `Outside office premises. You are ${Math.round(distance)}m away from office. Please be within ${COMPANY_LOCATION.allowedRadius}m radius.` 
+      };
+    }
+  } catch (error) {
+    console.error('Location validation error:', error);
+    return { 
+      isValid: false, 
+      message: 'Error validating location. Please try again.' 
+    };
+  }
+};
+
 export const punchInController = async (req, res) => {
   try {
-    const { punchInTime, punchInLocation, selfieImage } = req.body;
+    const { punchInTime, punchInLocation, selfieImage, userLocation } = req.body;
     const { userId, companyId } = req.user;
 
     // Validation
     if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
     if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
       return res.status(400).json({ message: 'Invalid image format' });
+    }
+
+    // Location validation
+    const locationValidation = await validateLocation(userId, userLocation);
+    if (!locationValidation.isValid) {
+      return res.status(400).json({ 
+        message: locationValidation.message,
+        locationError: true
+      });
     }
 
     // Date setup
@@ -33,7 +111,8 @@ export const punchInController = async (req, res) => {
         {
           status: 'Absent',
           remark: 'Late punch-in attempt',
-          punchInPhoto: selfieImage
+          punchInPhoto: selfieImage,
+          punchInLocation: punchInLocation || COMPANY_LOCATION.name
         },
         { upsert: true, new: true }
       );
@@ -60,7 +139,7 @@ export const punchInController = async (req, res) => {
 
     // Set punch-in details
     attendance.punchIn = punchInDateTime;
-    attendance.punchInLocation = punchInLocation || 'Unknown';
+    attendance.punchInLocation = punchInLocation || COMPANY_LOCATION.name;
     attendance.punchInPhoto = selfieImage;
     
     // Determine status
@@ -76,7 +155,9 @@ export const punchInController = async (req, res) => {
       message: 'Punch-in successful',
       punchIn: attendance.punchIn,
       photo: attendance.punchInPhoto,
-      remark: attendance.remark
+      remark: attendance.remark,
+      location: attendance.punchInLocation,
+      locationValidation: locationValidation.message
     });
 
   } catch (error) {
@@ -90,13 +171,22 @@ export const punchInController = async (req, res) => {
 
 export const punchOutController = async (req, res) => {
   try {
-    const { punchOutTime, punchOutLocation, emergencyReason, selfieImage } = req.body;
+    const { punchOutTime, punchOutLocation, emergencyReason, selfieImage, userLocation } = req.body;
     const { userId, companyId } = req.user;
 
     // Validation
     if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
     if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
       return res.status(400).json({ message: 'Invalid image format' });
+    }
+
+    // Location validation
+    const locationValidation = await validateLocation(userId, userLocation);
+    if (!locationValidation.isValid) {
+      return res.status(400).json({ 
+        message: locationValidation.message,
+        locationError: true
+      });
     }
 
     // Date setup
@@ -114,6 +204,7 @@ export const punchOutController = async (req, res) => {
     if (!attendance.punchIn) {
       attendance.status = 'Absent';
       attendance.remark = 'Punched out without punching in';
+      attendance.punchOutLocation = punchOutLocation || COMPANY_LOCATION.name;
       await attendance.save();
       return res.status(400).json({ 
         message: 'No punch-in found',
@@ -131,7 +222,7 @@ export const punchOutController = async (req, res) => {
       return res.status(400).json({ message: 'Invalid time format' });
     }
     attendance.punchOut = punchOutDateTime;
-    attendance.punchOutLocation = punchOutLocation || 'Unknown';
+    attendance.punchOutLocation = punchOutLocation || COMPANY_LOCATION.name;
 
     // Calculate hours
     let totalHours;
@@ -166,11 +257,40 @@ export const punchOutController = async (req, res) => {
       totalHours: attendance.totalWorkedHours,
       overtime: attendance.overtime,
       photo: attendance.punchOutPhoto,
-      status: attendance.status
+      status: attendance.status,
+      location: attendance.punchOutLocation,
+      locationValidation: locationValidation.message
     });
 
   } catch (error) {
     console.error('Punch-out error:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to get company location info
+export const getCompanyLocationController = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      companyLocation: COMPANY_LOCATION,
+      userPosition: user.position,
+      requiresLocationValidation: user.position !== 'Manager',
+      message: user.position === 'Manager' 
+        ? 'As a Manager, you can punch in/out from anywhere'
+        : `You must be within ${COMPANY_LOCATION.allowedRadius}m of the office to punch in/out`
+    });
+  } catch (error) {
+    console.error('Get company location error:', error);
     res.status(500).json({
       message: 'Server error',
       error: error.message
