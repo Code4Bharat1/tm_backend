@@ -1,7 +1,7 @@
 import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
 import RoleFeatureAccess from '../models/roleFeatureAccess.model.js';
-import { defaultFeatures,maxFeature } from '../constants/defaultFeatures.js';
+import { defaultFeatures, maxFeature } from '../constants/defaultFeatures.js';
 import { sendMail } from "../service/nodemailerConfig.js";
 
 const createUser = async (req, res) => {
@@ -66,8 +66,8 @@ const createUser = async (req, res) => {
       companyName,
       password,
       position,
-      Gender: gender,
-      DateOfJoining: dateOfJoining,
+      gender,
+      dateOfJoining,
       companyId: admin.companyId,
     });
 
@@ -131,8 +131,8 @@ The Task Manager Team
         companyName: newUser.companyName,
         password: newUser.password,
         position: newUser.position,
-        gender: newUser.Gender,
-        dateOfJoining: newUser.DateOfJoining,
+        gender: newUser.gender,
+        dateOfJoining: newUser.dateOfJoining,
         companyId: newUser.companyId,
       },
     });
@@ -149,7 +149,7 @@ const bulkCreateUsers = async (req, res) => {
   try {
     const adminId = req.user.adminId;
     const users = req.body.users;
-    const companyId = req.user.companyId;   
+    const companyId = req.user.companyId;
 
     if (!adminId) {
       return res.status(403).json({ message: 'Admin ID is required' });
@@ -180,8 +180,8 @@ const bulkCreateUsers = async (req, res) => {
         companyName,
         password,
         position,
-        Gender: gender,
-        DateOfJoining: dateOfJoining,
+        gender,
+        dateOfJoining,
         companyId: admin.companyId,
       });
 
@@ -245,4 +245,31 @@ The Task Manager Team
   }
 };
 
-export { createUser, bulkCreateUsers };
+const getAllEmployee = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
+
+    if (!companyId) {
+      return res.status(403).json({ message: 'Company ID is required' });
+    }
+
+    const users = await User.find(
+      { companyId },
+      'firstName lastName email phoneNumber position gender dateOfJoining companyName'
+    ).sort({ firstName: 1 });
+
+    res.status(200).json({
+      message: 'Users fetched successfully',
+      count: users.length,
+      users: users
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+export { createUser, bulkCreateUsers, getAllEmployee };

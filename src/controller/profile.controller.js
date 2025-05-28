@@ -6,24 +6,24 @@ import { v2 as cloudinary } from 'cloudinary';
 // Helper function to extract public ID from Cloudinary URL
 const getPublicIdFromUrl = (url) => {
   if (!url || !url.includes('cloudinary.com')) return null;
-  
+
   try {
     // Extract the public ID from the URL
     // URL format: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.jpg
     const parts = url.split('/');
     const uploadIndex = parts.findIndex(part => part === 'upload');
     if (uploadIndex === -1) return null;
-    
+
     // Get the part after version (v1234567890) or directly after upload
     let publicIdPart = parts.slice(uploadIndex + 1);
     if (publicIdPart[0] && publicIdPart[0].startsWith('v')) {
       publicIdPart = publicIdPart.slice(1); // Remove version part
     }
-    
+
     // Join the remaining parts and remove file extension
     const publicIdWithExtension = publicIdPart.join('/');
     const publicId = publicIdWithExtension.replace(/\.[^/.]+$/, ''); // Remove extension
-    
+
     return publicId;
   } catch (error) {
     console.error('Error extracting public ID:', error);
@@ -34,10 +34,10 @@ const getPublicIdFromUrl = (url) => {
 // Helper function to delete image from Cloudinary
 const deleteFromCloudinary = async (imageUrl) => {
   if (!imageUrl) return;
-  
+
   const publicId = getPublicIdFromUrl(imageUrl);
   if (!publicId) return;
-  
+
   try {
     const result = await cloudinary.uploader.destroy(publicId);
     console.log('Cloudinary deletion result:', result);
@@ -53,7 +53,7 @@ const getUserProfile = async (req, res) => {
     const user = await User.findOne({
       _id: userId,
     }).select(
-      'firstName lastName position phoneNumber email photoUrl Gender Address DateOfJoining',
+      'firstName lastName position phoneNumber email photoUrl gender address dateOfJoining',
     );
 
     if (!user) {
@@ -105,9 +105,9 @@ const updateProfile = async (req, res) => {
       phoneNumber,
       email,
       position,
-      Gender: gender, // match schema capitalization
-      Address: address,
-      DateOfJoining: dateOfJoining,
+      gender, // match schema capitalization
+      address,
+      dateOfJoining,
     };
 
     // Only update photoUrl if it's provided

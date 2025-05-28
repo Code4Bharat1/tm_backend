@@ -6,7 +6,7 @@ import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
 
 // Company office location - White House, Building, Kurla West, Maharashtra
 const COMPANY_LOCATION = {
-  name: "White House, Building, Kurla West, Maharashtra",
+  name: "White House, Building, Kurla West, Maharashtra Buddha Colony, L Ward, Zone 5, Mumbai, Maharashtra, 400070, India",
   latitude: 19.0728, // Kurla West coordinates
   longitude: 72.8826,
   allowedRadius: 200 // meters
