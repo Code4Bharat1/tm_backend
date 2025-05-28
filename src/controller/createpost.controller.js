@@ -137,7 +137,7 @@ export const getAllPosts = async (req, res) => {
 export const getUserPosts = async (req, res) => {
   try {
     const { companyId } = req.user;
-    const userId = req.user._id;
+    const userId = req.user.userId;
     
     // Get user's position
     const user = await User.findById(userId).select('position');

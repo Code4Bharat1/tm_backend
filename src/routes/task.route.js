@@ -33,6 +33,7 @@ import {
   getAdminTaskAssignments,
   getUserTaskAssignments,
   getAllLOCs,
+  getAllTeammembers
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -60,5 +61,7 @@ router.get("/projects", protectAdmin, getAdminTaskAssignments);
 router.get("/projectsuser", protect, getUserTaskAssignments);
 
 router.get("/loc", protectAdmin, getAllLOCs)
+
+router.get("/team" , protect, getAllTeammembers)
 
 export default router;
