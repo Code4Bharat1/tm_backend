@@ -272,4 +272,62 @@ const getAllEmployee = async (req, res) => {
   }
 };
 
-export { createUser, bulkCreateUsers, getAllEmployee };
+const updateUserPosition = async (req, res) => {
+  try {
+    const { companyId } = req.user; // userId from URL
+    const {userId } = req.params; // userId from URL
+    const { position } = req.body; // new position
+
+    const validPositions = ['HR', 'Employee', 'Manager', 'TeamLeader'];
+
+    if (!validPositions.includes(position)) {
+      return res.status(400).json({ message: 'Invalid position value' });
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId, companyId },
+      { position },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'User position updated successfully',
+      user: updatedUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { userId } = req.params;
+
+    const deletedUser = await User.findOneAndDelete({_id: userId, companyId });
+
+    if (!deletedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'User deleted successfully',
+      user: deletedUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+
+export { createUser, bulkCreateUsers, getAllEmployee, updateUserPosition, deleteUser };

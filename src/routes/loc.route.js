@@ -1,8 +1,9 @@
 import express from 'express';
-import { protect, protectAdmin } from "../middleware/authMiddleware.js";
-import { createLetter } from '../controller/loc.controller.js';
+import { protectAdmin } from '../middleware/authMiddleware.js';
+import { getAllLOCs } from '../controller/loc.controller.js';
+
 const router = express.Router();
 
-router.post('/letter', protect, createLetter);
+router.get('/getloc', protectAdmin, getAllLOCs);
 
 export default router;

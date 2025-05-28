@@ -26,12 +26,13 @@ import UploadRouter from "./src/routes/upload.route.js";
 import adddocument from "./src/routes/adddocument.route.js";
 import Performance from "./src/routes/performance.route.js";
 import Ticket from './src/routes/raiseTicket.route.js'
+import meetingRoute from "./src/routes/meeting.route.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
 import salaryRoute from "./src/routes/salaryslip.route.js"
 
 import { initSocketServer } from "./src/service/socket.js";
 import permissionsRoute from "./src/routes/permissions.route.js";
-import letterOfConfirmation from "./src/routes/loc.route.js";
+import loc from "./src/routes/loc.route.js";
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -85,9 +86,10 @@ app.use("/api/upload", UploadRouter);
 app.use("/api/adddocument", adddocument);
 app.use("/api/permissions", permissionsRoute);
 app.use("/api/performance", Performance);
-app.use("/api/admin", letterOfConfirmation);
 app.use("/api/salary",salaryRoute);
 app.use('/api/ticket', Ticket)
+app.use("/api/admin/loc", loc);
+app.use("/api/meeting", meetingRoute);
 
 cron.schedule("29 18 * * *", async () => {
   try {

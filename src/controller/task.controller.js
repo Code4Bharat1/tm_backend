@@ -570,48 +570,6 @@ export const getTaskStatistics = async (req, res) => {
   }
 };
 
-export const getAllLOCs = async (req, res) => {
-  try {
-    const { companyId } = req.user;
-    
-    // Fetch users with required fields
-    const users = await User.find(
-      { companyId },
-      "firstName lastName email _id position"
-    ).sort({ firstName: 1 });
-
-    // Fetch company registration details
-    const company = await CompanyRegistration.findById(companyId)
-      .select('companyInfo.companyName adminInfo.fullName')
-      .lean();
-
-    if (!company) {
-      return res.status(404).json({ message: "Company not found" });
-    }
-
-    // Add fullName first and maintain proper order
-    const updatedUsers = users.map(user => ({
-      fullName: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      position: user.position,
-      companyName: company.companyInfo.companyName,
-      CEO: company.adminInfo.fullName
-      
-    }));
-
-    res.status(200).json({
-      message: "User details retrieved successfully",
-      count: updatedUsers.length,
-      data: updatedUsers
-    });
-  } catch (error) {
-    console.error("Error fetching user details:", error);
-    res.status(500).json({ 
-      message: "Internal Server Error",
-      error: error.message 
-    });
-  }
-};
 
 export const getAllTeammembers = async (req, res) => {
   try {
