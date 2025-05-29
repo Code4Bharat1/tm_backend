@@ -32,7 +32,10 @@ import {
   getTaskStatistics,
   getAdminTaskAssignments,
   getUserTaskAssignments,
-  getAllTeammembers
+  getAllTeammembers,
+  getUnassignedEmployeesForProject,
+  updateTaskTagMembers,
+  removeMemberFromTask
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -59,7 +62,10 @@ router.get("/projects", protectAdmin, getAdminTaskAssignments);
 
 router.get("/projectsuser", protect, getUserTaskAssignments);
 
+router.get("/getUnassignedUsers", protect, getUnassignedEmployeesForProject)
 
+router.patch('/updateTagMembers/:taskId', protect, updateTaskTagMembers)
+router.put('/:taskId/removeMember', removeMemberFromTask);
 router.get("/team" , protect, getAllTeammembers)
 
 export default router;
