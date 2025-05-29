@@ -1,10 +1,11 @@
 import User from "../models/user.model.js";
-import TeamSchema from '../models/team.model.js'
+import Team from '../models/team.model.js'; // Import as Team
+import mongoose from "mongoose";
 
 export const createBucketAssignment = async (req, res) => {
   try {
-    const { companyId } = req.user; // From authenticated user
-    const { bucketName, userId } = req.body;
+    const { companyId } = req.user;
+    const { bucketName, userId } = req.body; // Get userId from request body
 
     // Validate input
     if (!bucketName || !userId) {
@@ -15,7 +16,7 @@ export const createBucketAssignment = async (req, res) => {
 
     // Validate user exists and belongs to the same company
     const user = await User.findOne({
-      _id: userId,
+      _id: userId, // Use _id to find user
       companyId,
     });
 
@@ -73,16 +74,17 @@ export const getAllTeammembersCompany = async (req, res) => {
   try {
     const { companyId } = req.user;
 
-    // Fetch employees with only necessary fields
+    // Fetch employees with necessary fields including _id
     const users = await User.find(
       { 
         companyId,
       },
-      "firstName lastName email phoneNumber, position" // Removed _id since we don't need it
+      "firstName lastName email phoneNumber position _id" // Added _id
     ).sort({ firstName: 1 });
 
-    // Format user data without bucket information
+    // Format user data with userId
     const formattedUsers = users.map((user) => ({
+      userId: user._id, // Include user ID
       fullName: `${user.firstName} ${user.lastName}`,
       email: user.email,
       phoneNumber: user.phoneNumber,

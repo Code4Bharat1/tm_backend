@@ -1,7 +1,7 @@
 
 import express from 'express'
 import { createBucketAssignment, getAllTeammembersCompany } from '../controller/team.controller.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { protect, protectAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
