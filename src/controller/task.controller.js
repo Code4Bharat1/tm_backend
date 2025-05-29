@@ -1,10 +1,8 @@
 // controllers/taskController.js
+import mongoose from "mongoose";
+import { CompanyRegistration } from '../models/companyregistration.model.js';
 import TaskAssignment from "../models/taskAssignment.model.js";
 import User from "../models/user.model.js";
-import Admin from "../models/admin.model.js";
-import mongoose from "mongoose";
-import axios from "axios";
-import { CompanyRegistration } from '../models/companyregistration.model.js';
 
 export const createTaskAssignment = async (req, res) => {
   try {
@@ -218,6 +216,135 @@ export const getTaskAssignments = async (req, res) => {
   }
 };
 
+export const getUnassignedEmployeesForProject = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+    const { bucketName } = req.query;
+
+    if (!bucketName) {
+      return res.status(400).json({ message: "Project (bucketName) is required" });
+    }
+
+    // Step 1: Get all assigned user IDs for this bucket (project)
+    const assignedTasks = await TaskAssignment.find({
+      companyId,
+      bucketName,
+    }).select("assignedTo tagMembers");
+
+    const assignedUserIds = new Set();
+
+    assignedTasks.forEach((task) => {
+      assignedUserIds.add(task.assignedTo.toString());
+      task.tagMembers.forEach((member) => assignedUserIds.add(member.toString()));
+    });
+
+    // Step 2: Fetch users from the same company NOT in assignedUserIds
+    const unassignedEmployees = await User.find({
+      companyId,
+      _id: { $nin: Array.from(assignedUserIds) },
+    }).select("firstName lastName email");
+
+    res.status(200).json({
+      count: unassignedEmployees.length,
+      data: unassignedEmployees,
+    });
+
+  } catch (error) {
+    console.error("Error fetching unassigned employees:", error);
+    res.status(500).json({
+      message: "Server error while fetching unassigned employees",
+    });
+  }
+};
+
+
+export const updateTaskTagMembers = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { tagMembers } = req.body;
+
+    if (!Array.isArray(tagMembers)) {
+      return res.status(400).json({
+        message: "tagMembers must be an array of user IDs",
+      });
+    }
+
+    // Fetch the existing task
+    const task = await TaskAssignment.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    // Merge existing tagMembers with new ones and remove duplicates
+    const existingMembers = task.tagMembers.map(id => id.toString());
+    const newMembers = tagMembers.map(id => id.toString());
+
+    const mergedMembers = Array.from(new Set([...existingMembers, ...newMembers]));
+
+    // Update the document
+    task.tagMembers = mergedMembers;
+    const updatedTask = await task.save();
+
+    // Populate the tagMembers
+    await updatedTask.populate("tagMembers", "firstName lastName email");
+
+    res.status(200).json({
+      message: "Tag members updated successfully",
+      data: updatedTask,
+    });
+  } catch (error) {
+    console.error("Error updating tag members:", error);
+    res.status(500).json({
+      message: "Server error while updating tag members",
+    });
+  }
+};
+
+export const removeMemberFromTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { memberId } = req.body;
+
+    if (!taskId || !memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Task ID and Member ID are required'
+      });
+    }
+
+    const task = await TaskAssignment.findById(taskId);
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: 'Task not found'
+      });
+    }
+
+    const memberIndex = task.tagMembers.indexOf(memberId);
+    if (memberIndex === -1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Member is not assigned to this task'
+      });
+    }
+
+    task.tagMembers.splice(memberIndex, 1);
+    const updatedTask = await task.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Member removed successfully',
+      task: updatedTask
+    });
+  } catch (error) {
+    console.error('Error removing member:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
 export const getUserTaskAssignments = async (req, res) => {
   try {
     // Get user ID and company ID from the JWT token
@@ -227,9 +354,9 @@ export const getUserTaskAssignments = async (req, res) => {
     const { status, fromDate, toDate } = req.query;
 
     // Base query - tasks assigned to current user within their company
-    let query = { 
+    let query = {
       companyId,
-      assignedTo: userId 
+      assignedTo: userId
     };
 
     // Apply filters if provided
@@ -573,7 +700,7 @@ export const getTaskStatistics = async (req, res) => {
 export const getAllLOCs = async (req, res) => {
   try {
     const { companyId } = req.user;
-    
+
     // Fetch users with required fields
     const users = await User.find(
       { companyId },
@@ -596,7 +723,7 @@ export const getAllLOCs = async (req, res) => {
       position: user.position,
       companyName: company.companyInfo.companyName,
       CEO: company.adminInfo.fullName
-      
+
     }));
 
     res.status(200).json({
@@ -606,9 +733,9 @@ export const getAllLOCs = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching user details:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Internal Server Error",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -627,7 +754,7 @@ export const getAllTeammembers = async (req, res) => {
 
     // Fetch ONLY employees with strict filtering
     const users = await User.find(
-      { 
+      {
         companyId,
         position: { $eq: "Employee" }, // Strict equality check
         $and: [
@@ -647,14 +774,14 @@ export const getAllTeammembers = async (req, res) => {
         console.warn(`User ${user._id} missing required fields, excluding from employee list`);
         return false;
       }
-      
+
       // Strict position check - must be exactly "Employee"
       const userPosition = user.position.toString().trim();
       if (userPosition !== "Employee") {
         console.warn(`User ${user._id} has position "${userPosition}", not "Employee". Excluding from list.`);
         return false;
       }
-      
+
       return true;
     });
 
@@ -679,7 +806,7 @@ export const getAllTeammembers = async (req, res) => {
         try {
           // Find task assignment for this user
           const assignment = await TaskAssignment.findOne({ userId: user._id });
-          
+
           return {
             userId: user._id, // Include userId for selection
             fullName: `${user.firstName} ${user.lastName}`,
@@ -726,7 +853,7 @@ export const getAllTeammembers = async (req, res) => {
 
   } catch (error) {
     console.error("Error fetching employee details for team selection:", error);
-    
+
     // Handle specific database errors
     if (error.name === 'CastError') {
       return res.status(400).json({
@@ -734,10 +861,10 @@ export const getAllTeammembers = async (req, res) => {
         error: "Bad Request"
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       message: "Internal Server Error while fetching employees",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -746,34 +873,34 @@ export const getAllTeammembers = async (req, res) => {
 export const validateEmployeeAccess = async (req, res, next) => {
   try {
     const { employeeId } = req.body; // Assuming you're sending employeeId when adding to project
-    
+
     if (!employeeId) {
       return next(); // Skip validation if no employeeId provided
     }
-    
+
     // Verify the selected user is actually an employee
     const user = await User.findById(employeeId, 'position companyId');
-    
+
     if (!user) {
       return res.status(404).json({
         message: "Selected user not found"
       });
     }
-    
+
     if (user.position !== "Employee") {
       return res.status(403).json({
         message: "Access denied. Only employees can be added to projects.",
         userPosition: user.position
       });
     }
-    
+
     // Verify user belongs to same company
     if (user.companyId.toString() !== req.user.companyId.toString()) {
       return res.status(403).json({
         message: "Access denied. User from different company."
       });
     }
-    
+
     next();
   } catch (error) {
     console.error("Error in employee validation middleware:", error);
