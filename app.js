@@ -33,6 +33,7 @@ import salaryRoute from "./src/routes/salaryslip.route.js"
 import { initSocketServer } from "./src/service/socket.js";
 import permissionsRoute from "./src/routes/permissions.route.js";
 import loc from "./src/routes/loc.route.js";
+import team from './src/routes/team.route.js';
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -90,6 +91,7 @@ app.use("/api/salary",salaryRoute);
 app.use('/api/ticket', Ticket)
 app.use("/api/admin/loc", loc);
 app.use("/api/meeting", meetingRoute);
+app.use("/api/admin/member",team)
 
 cron.schedule("29 18 * * *", async () => {
   try {
