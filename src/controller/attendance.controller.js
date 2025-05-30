@@ -6,10 +6,10 @@ import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
 
 // Company office location - White House, Building, Kurla West, Maharashtra
 const COMPANY_LOCATION = {
-  name: "White House, Building, Kurla West, Maharashtra Buddha Colony, L Ward, Zone 5, Mumbai, Maharashtra, 400070, India",
+
   latitude: 19.0728, // Kurla West coordinates
   longitude: 72.8826,
-  allowedRadius: 200 // meters
+  allowedRadius: 500 // meters
 };
 
 // Calculate distance between two coordinates using Haversine formula
@@ -17,11 +17,11 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371000; // Earth's radius in meters
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in meters
 };
 
@@ -40,9 +40,9 @@ const validateLocation = async (userId, userLocation) => {
 
     // For Employee, HR, Team Leader - must be at office location
     if (!userLocation || !userLocation.latitude || !userLocation.longitude) {
-      return { 
-        isValid: false, 
-        message: 'Location coordinates required for office-based positions' 
+      return {
+        isValid: false,
+        message: 'Location coordinates required for office-based positions'
       };
     }
 
@@ -54,21 +54,21 @@ const validateLocation = async (userId, userLocation) => {
     );
 
     if (distance <= COMPANY_LOCATION.allowedRadius) {
-      return { 
-        isValid: true, 
-        message: `Within office premises (${Math.round(distance)}m from office)` 
+      return {
+        isValid: true,
+        message: `Within office premises (${Math.round(distance)}m from office)`
       };
     } else {
-      return { 
-        isValid: false, 
-        message: `Outside office premises. You are ${Math.round(distance)}m away from office. Please be within ${COMPANY_LOCATION.allowedRadius}m radius.` 
+      return {
+        isValid: false,
+        message: `Outside office premises. You are ${Math.round(distance)}m away from office. Please be within ${COMPANY_LOCATION.allowedRadius}m radius.`
       };
     }
   } catch (error) {
     console.error('Location validation error:', error);
-    return { 
-      isValid: false, 
-      message: 'Error validating location. Please try again.' 
+    return {
+      isValid: false,
+      message: 'Error validating location. Please try again.'
     };
   }
 };
@@ -87,7 +87,7 @@ export const punchInController = async (req, res) => {
     // Location validation
     const locationValidation = await validateLocation(userId, userLocation);
     if (!locationValidation.isValid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: locationValidation.message,
         locationError: true
       });
@@ -141,12 +141,12 @@ export const punchInController = async (req, res) => {
     attendance.punchIn = punchInDateTime;
     attendance.punchInLocation = punchInLocation || COMPANY_LOCATION.name;
     attendance.punchInPhoto = selfieImage;
-    
+
     // Determine status
     const punchInUTCHours = punchInDateTime.getUTCHours();
     const punchInUTCMinutes = punchInDateTime.getUTCMinutes();
-    attendance.remark = (punchInUTCHours < 9 || (punchInUTCHours === 9 && punchInUTCMinutes <= 30)) 
-      ? 'Present' 
+    attendance.remark = (punchInUTCHours < 9 || (punchInUTCHours === 9 && punchInUTCMinutes <= 30))
+      ? 'Present'
       : 'Late';
 
     await attendance.save();
@@ -173,7 +173,6 @@ export const punchOutController = async (req, res) => {
   try {
     const { punchOutTime, punchOutLocation, emergencyReason, selfieImage, userLocation } = req.body;
     const { userId, companyId } = req.user;
-
     // Validation
     if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
     if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
@@ -183,7 +182,7 @@ export const punchOutController = async (req, res) => {
     // Location validation
     const locationValidation = await validateLocation(userId, userLocation);
     if (!locationValidation.isValid) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: locationValidation.message,
         locationError: true
       });
@@ -206,9 +205,9 @@ export const punchOutController = async (req, res) => {
       attendance.remark = 'Punched out without punching in';
       attendance.punchOutLocation = punchOutLocation || COMPANY_LOCATION.name;
       await attendance.save();
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'No punch-in found',
-        attendance 
+        attendance
       });
     }
 
@@ -230,9 +229,9 @@ export const punchOutController = async (req, res) => {
       totalHours = calculateHours(attendance.punchIn, attendance.punchOut);
     } catch (error) {
       console.error('Calculation error:', error);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'Invalid time calculation',
-        error: error.message 
+        error: error.message
       });
     }
 
@@ -276,7 +275,7 @@ export const getCompanyLocationController = async (req, res) => {
   try {
     const { userId } = req.user;
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -285,7 +284,7 @@ export const getCompanyLocationController = async (req, res) => {
       companyLocation: COMPANY_LOCATION,
       userPosition: user.position,
       requiresLocationValidation: user.position !== 'Manager',
-      message: user.position === 'Manager' 
+      message: user.position === 'Manager'
         ? 'As a Manager, you can punch in/out from anywhere'
         : `You must be within ${COMPANY_LOCATION.allowedRadius}m of the office to punch in/out`
     });
@@ -300,7 +299,7 @@ export const getCompanyLocationController = async (req, res) => {
 
 export const getTodayAttendance = async (req, res) => {
   try {
-    const {userId, companyId} = req.user;
+    const { userId, companyId } = req.user;
     const today = getStartOfDayUTC();
 
     const attendance = await Attendance.findOne({
@@ -340,12 +339,12 @@ export const getTodayAttendance = async (req, res) => {
 
 export const getParticularUserAttendance = async (req, res) => {
   try {
-    const {userId, companyId} = req.user;
+    const { userId, companyId } = req.user;
     const attendance = await Attendance.find({ userId, companyId }).sort({ date: -1 });
 
     // Return empty array instead of 404 when no records found
     res.status(200).json(attendance || []);
-    
+
   } catch (error) {
     console.error('Error fetching attendance:', error);
     res.status(500).json({
