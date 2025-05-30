@@ -30,7 +30,7 @@ import SuperAdminRouter from "./src/routes/superAdminAuth.route.js";
 import Task from "./src/routes/task.route.js";
 import TimesheetRouter from "./src/routes/timesheet.route.js";
 import UploadRouter from "./src/routes/upload.route.js";
-
+import LocationRouter from "./src/routes/location.routes.js"
 import client from './src/routes/client.route.js';
 import loc from "./src/routes/loc.route.js";
 import permissionsRoute from "./src/routes/permissions.route.js";
@@ -95,6 +95,7 @@ app.use("/api/meeting", meetingRoute);
 app.use("/api/admin/member", team);
 app.use("/api/admin/client", client);
 app.use("/api", notificationRouter);
+app.use("/api/location", LocationRouter)
 
 cron.schedule("29 18 * * *", async () => {
   try {
