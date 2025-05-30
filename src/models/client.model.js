@@ -79,4 +79,5 @@ clientSchema.methods.comparePassword = async function (candidatePassword) {
 clientSchema.index({ companyId: 1, email: 1 });
 
 const Client = mongoose.model('Client', clientSchema);
+
 export default Client;

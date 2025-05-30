@@ -50,6 +50,8 @@ const leaveSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+}, {
+  timestamps: true,
 });
 
 // Pre-save middleware to calculate the number of days between `fromDate` and `toDate`
