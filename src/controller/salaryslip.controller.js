@@ -1,46 +1,28 @@
-// controller/salaryslip.controller.js
-import { Salary } from '../models/salaryslip.model.js';
+import  Salary from '../models/salaryslip.model.js';
 
 // Create and store salary data
 const createSalaryRecord = async (req, res) => {
   try {
-    const {
-      name,
-      employeeId,
-      designation,
-      department,
-      email,
-      phone,
-      payPeriod,
-      payDate,
-      companyName,
-      // Earnings
-      basicSalary,
-      hra,
-      conveyance,
-      medical,
-      specialAllowance,
-      other,
-      // Deductions
-      epf,
-      healthInsurance,
-      professionalTax,
-      // Reimbursements
-      mobileBill,
-      travel,
-      food
-    } = req.body;
-
+    // Extract all fields
+    const payload = req.body;
+    
     // Validate required fields
-    if (!name || !employeeId || !designation || !department || !email || !phone || !payPeriod || !payDate) {
+    const requiredFields = [
+      'name', 'employeeId', 'designation', 'department', 
+      'email', 'phone', 'payPeriod', 'payDate', 'basicSalary'
+    ];
+    
+    const missingFields = requiredFields.filter(field => !payload[field]);
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'All required fields must be provided'
+        message: `Missing required fields: ${missingFields.join(', ')}`
       });
     }
 
     // Check if employee ID already exists
-    const existingEmployee = await Salary.findOne({ employeeId });
+    const existingEmployee = await Salary.findOne({ employeeId: payload.employeeId });
     if (existingEmployee) {
       return res.status(409).json({
         success: false,
@@ -48,35 +30,35 @@ const createSalaryRecord = async (req, res) => {
       });
     }
 
+    // Calculate earnings total (gross salary)
+    const earningsTotal = [
+      payload.basicSalary || 0,
+      payload.hra || 0,
+      payload.conveyance || 0,
+      payload.medical || 0,
+      payload.specialAllowance || 0,
+      payload.other || 0
+    ].reduce((sum, val) => sum + val, 0);
+
+    // Calculate EPF amount
+    const epfAmount = payload.epfPercentage 
+      ? (earningsTotal * payload.epfPercentage) / 100 
+      : 0;
+
     // Create new salary record
     const newSalary = new Salary({
-      name,
-      employeeId,
-      designation,
-      department,
-      email,
-      phone,
-      payPeriod,
-      payDate,
-      companyName: companyName || "Nextcore Alliance",
-      // Earnings
-      basicSalary: basicSalary || 0,
-      hra: hra || 0,
-      conveyance: conveyance || 0,
-      medical: medical || 0,
-      specialAllowance: specialAllowance || 0,
-      other: other || 0,
-      // Deductions
-      epf: epf || 0,
-      healthInsurance: healthInsurance || 0,
-      professionalTax: professionalTax || 0,
-      // Reimbursements
-      mobileBill: mobileBill || 0,
-      travel: travel || 0,
-      food: food || 0
+      ...payload,
+      companyName: payload.companyName || "Nextcore Alliance",
+      epf: epfAmount,
+      grossSalary: earningsTotal,
+      totalDeductions: epfAmount + (payload.healthInsurance || 0) + (payload.professionalTax || 0),
+      totalReimbursements: (payload.mobileBill || 0) + (payload.travel || 0) + (payload.food || 0)
     });
 
-    // Save to database (calculations will be done in pre-save middleware)
+    // Calculate net payable
+    newSalary.netPayable = newSalary.grossSalary - newSalary.totalDeductions + newSalary.totalReimbursements;
+
+    // Save to database
     const savedSalary = await newSalary.save();
 
     res.status(201).json({
@@ -99,6 +81,29 @@ const updateSalaryRecord = async (req, res) => {
   try {
     const { employeeId } = req.params;
     const updateData = req.body;
+
+    // If epfPercentage is being updated, we need to recalculate EPF amount
+    if (updateData.epfPercentage !== undefined) {
+      // Get current earnings data
+      const currentRecord = await Salary.findOne({ employeeId });
+      if (!currentRecord) {
+        return res.status(404).json({
+          success: false,
+          message: 'Salary record not found'
+        });
+      }
+
+      // Calculate earnings total (gross salary)
+      const earningsTotal = (updateData.basicSalary || currentRecord.basicSalary) + 
+                           (updateData.hra || currentRecord.hra) + 
+                           (updateData.conveyance || currentRecord.conveyance) + 
+                           (updateData.medical || currentRecord.medical) + 
+                           (updateData.specialAllowance || currentRecord.specialAllowance) + 
+                           (updateData.other || currentRecord.other);
+
+      // Calculate new EPF amount
+      updateData.epf = earningsTotal * updateData.epfPercentage / 100;
+    }
 
     // Find and update the salary record
     const updatedSalary = await Salary.findOneAndUpdate(
