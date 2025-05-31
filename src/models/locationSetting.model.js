@@ -5,7 +5,6 @@ const locationSettingSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CompanyRegistration',
         required: true,
-        unique: true
     },
     latitude: {
         type: Number,
@@ -23,7 +22,7 @@ const locationSettingSchema = new mongoose.Schema({
     timestamps: true
 });
 
-locationSettingSchema.index({ companyId: 1 });
+locationSettingSchema.index({ companyId: 1 }, { unique: true });
 
 const LocationSetting = mongoose.model('LocationSetting', locationSettingSchema);
 export default LocationSetting;

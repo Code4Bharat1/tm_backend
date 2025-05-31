@@ -3,6 +3,7 @@ import Admin from '../models/admin.model.js';
 import RoleFeatureAccess from '../models/roleFeatureAccess.model.js';
 import { defaultFeatures, maxFeature } from '../constants/defaultFeatures.js';
 import { sendMail } from "../service/nodemailerConfig.js";
+import mongoose from 'mongoose';
 
 const createUser = async (req, res) => {
   try {
@@ -56,54 +57,55 @@ const createUser = async (req, res) => {
         .status(409)
         .json({ message: 'User with this email or phone number already exists' });
     }
-
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
     // Create user (userId will be auto-generated in the model)
-    const newUser = new User({
-      firstName,
-      lastName,
-      phoneNumber,
-      email,
-      companyName,
-      password,
-      position,
-      gender,
-      dateOfJoining,
-      companyId: admin.companyId,
-    });
+     const newUser = await User.create([{
+    firstName,
+    lastName,
+    phoneNumber,
+    email,
+    companyName,
+    password,
+    position,
+    gender,
+    dateOfJoining,
+    companyId: admin.companyId,
+  }], { session });
 
-    await newUser.save();
+  if (position !== 'Employee') {
+    const features = defaultFeatures[position] || [];
+    const maxFeatures = maxFeature[position] || [];
 
-    if (position !== 'Employee') {
-      const features = defaultFeatures[position] || [];
-      const maxFeatures = maxFeature[position] || [];
-
-      if (!features || features.length === 0) {
-        return res.status(400).json({ message: "Role must have at least one feature." });
-      }
-
-      const roleAccess = new RoleFeatureAccess({
-        userId: newUser._id,
-        role: position,
-        companyId,
-        features,
-        maxFeatures, // pass full array
-        addedBy: adminId,
-      });
-
-      await roleAccess.save();
+    if (!features.length) {
+      throw new Error("Role must have at least one feature.");
     }
 
+    await RoleFeatureAccess.create([{
+      userId: newUser[0]._id,
+      role: position,
+      companyId,
+      features,
+      maxFeatures,
+      addedBy: adminId,
+    }], { session });
+  }
+
+  await session.commitTransaction();
+  session.endSession();
+
     await sendMail(
-      newUser.email,
+      newUser[0].email,
       'Your Account Credentials - Please Change Your Password Immediately',
       `
-Hello ${newUser.firstName || 'User'},
+Hello ${newUser[0].firstName || 'User'},
 
-Welcome to ${newUser.companyName}! Your account has been successfully created.
+Welcome to ${newUser[0].companyName}! Your account has been successfully created.
 
 Here are your login details:
 
-- **Login ID:** ${newUser.email} / ${newUser.phoneNumber}
+- **Login ID:** ${newUser[0].email} / ${newUser[0].phoneNumber}
 - **Temporary Password:** ${password}
 
 For your security, please log in and change this password immediately.\n
@@ -146,17 +148,22 @@ The Task Manager Team
 };
 
 const bulkCreateUsers = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const adminId = req.user.adminId;
     const users = req.body.users;
     const companyId = req.user.companyId;
 
     if (!adminId) {
+      await session.abortTransaction();
       return res.status(403).json({ message: 'Admin ID is required' });
     }
 
-    const admin = await Admin.findById(adminId);
+    const admin = await Admin.findById(adminId).session(session);
     if (!admin) {
+      await session.abortTransaction();
       return res.status(404).json({ message: 'Admin not found' });
     }
 
@@ -167,11 +174,14 @@ const bulkCreateUsers = async (req, res) => {
     for (const userData of users) {
       const { firstName, lastName, phoneNumber, email, position, gender, dateOfJoining } = userData;
 
-      // Check for duplicates
-      const exists = await User.findOne({ $or: [{ email }, { phoneNumber }] });
-      if (exists) continue;
+      const existing = await User.findOne({
+        $or: [{ email }, { phoneNumber }],
+      }).session(session);
+      console.log(existing)
+      if (existing) continue; // Skip duplicates
 
-      const password = 'User@1234'; // default password
+      const password = 'User@1234';
+
       const newUser = new User({
         firstName,
         lastName,
@@ -182,18 +192,18 @@ const bulkCreateUsers = async (req, res) => {
         position,
         gender,
         dateOfJoining,
-        companyId: admin.companyId,
+        companyId,
       });
 
-      await newUser.save();
+      await newUser.save({ session });
       createdUsers.push(newUser);
 
       if (position !== 'Employee') {
         const features = defaultFeatures[position] || [];
         const maxFeatures = maxFeature[position] || [];
 
-        if (!features || features.length === 0) {
-          return res.status(400).json({ message: "Role must have at least one feature." });
+        if (!features.length) {
+          throw new Error('Role must have at least one feature.');
         }
 
         const roleAccess = new RoleFeatureAccess({
@@ -201,37 +211,39 @@ const bulkCreateUsers = async (req, res) => {
           role: position,
           companyId,
           features,
-          maxFeatures, // pass full array
+          maxFeatures,
           addedBy: adminId,
         });
 
-        await roleAccess.save();
+        await roleAccess.save({ session });
       }
 
-      // Optionally send email
+      // Optionally defer emails until after transaction
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Now send emails outside the transaction
+    for (const user of createdUsers) {
       await sendMail(
-        newUser.email,
+        user.email,
         'Your Account Credentials - Please Change Your Password Immediately',
         `
-Hello ${newUser.firstName || 'User'},
+Hello ${user.firstName || 'User'},
 
-Welcome to ${newUser.companyName}! Your account has been successfully created.
+Welcome to ${user.companyName}! Your account has been successfully created.
 
 Here are your login details:
 
-- **Login ID:** ${newUser.email} / ${newUser.phoneNumber}
-- **Temporary Password:** ${password}
+- **Login ID:** ${user.email} / ${user.phoneNumber}
+- **Temporary Password:** User@1234
 
-For your security, please log in and change this password immediately.\n
- If you do not change your password promptly, you may be at risk of unauthorized access, and the responsibility for any security issues will rest with you.
+Please log in and change your password immediately.
 
-Our support team is always here to help if you need assistance.
-
-Thank you for joining us!
-
-Stay safe and secure,
-The Task Manager Team
-  `
+Thank you,
+Task Manager Team
+        `
       );
     }
 
@@ -239,7 +251,10 @@ The Task Manager Team
       message: `Created ${createdUsers.length} employees successfully`,
       users: createdUsers,
     });
+
   } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
     console.error(err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -275,10 +290,10 @@ const getAllEmployee = async (req, res) => {
 const updateUserPosition = async (req, res) => {
   try {
     const { companyId } = req.user; // userId from URL
-    const {userId } = req.params; // userId from URL
+    const { userId } = req.params; // userId from URL
     const { position } = req.body; // new position
 
-    const validPositions = ['HR', 'Employee', 'Manager', 'TeamLeader'];
+    const validPositions = ['HR', 'Employee', 'Manager', 'TeamLeader', 'Salesman'];
 
     if (!validPositions.includes(position)) {
       return res.status(400).json({ message: 'Invalid position value' });
@@ -311,7 +326,7 @@ const deleteUser = async (req, res) => {
     const { companyId } = req.user;
     const { userId } = req.params;
 
-    const deletedUser = await User.findOneAndDelete({_id: userId, companyId });
+    const deletedUser = await User.findOneAndDelete({ _id: userId, companyId });
 
     if (!deletedUser) {
       return res.status(404).json({ message: 'User not found' });

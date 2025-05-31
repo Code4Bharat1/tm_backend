@@ -47,6 +47,7 @@ const addDocument = async (req, res) => {
 const getDocuments = async (req, res) => {
     try {
         const documents = await AddDocument.find();
+        console.log(documents);
         res.status(200).json(documents);
     } catch (error) {
         res.status(500).json({ message: "Error fetching documents", error: error.message });

@@ -15,7 +15,7 @@ const RoleFeatureAccessSchema = new Schema(
         },
         role: {
             type: String,
-            enum: ["Manager", "TeamLeader", "HR"],
+            enum: ["Manager", "TeamLeader", "HR", "Salesman"],
             required: true,
             // lowercase: true,
             trim: true,
