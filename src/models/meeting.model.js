@@ -21,7 +21,10 @@ const meetingSchema = new mongoose.Schema({
     enum: ['15 minutes', '30 minutes', '1 hour', "1 hour 30 minutes"],
     required: true
   },
-  participants: [String],
+  participants: [{
+    type: mongoose.Schema.Types.ObjectId,  // Store User IDs instead of strings
+    ref: 'User'                           // Reference to User model
+  }],
   meetingLink: {
     type: String,
     required: true

@@ -32,8 +32,8 @@ export const createZoomMeeting = async (meetingDetails) => {
       settings: {
         host_video: true,
         participant_video: true,
-        join_before_host: false,
-        waiting_room: true
+        join_before_host: true,
+        waiting_room: false
       }
     };
 

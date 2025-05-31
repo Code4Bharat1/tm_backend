@@ -1,7 +1,8 @@
 import express from 'express';
-import { createMeeting, getMeetings } from '../controller/meeting.controller.js';
+import { createMeeting, getMeetings ,getMeetingForParticipant} from '../controller/meeting.controller.js';
 import {roleMiddleware} from '../middleware/roleMiddleware.js';
 import { protect } from '../middleware/authMiddleware.js';
+
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.post(
 
 // Get all meetings route
 router.get('/',  getMeetings);
+router.post('/participant', getMeetingForParticipant);
 
 export default router;
