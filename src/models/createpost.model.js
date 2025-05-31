@@ -32,7 +32,7 @@ const postSchema = new mongoose.Schema({
   targetAudience: {
     positions: [{
       type: String,
-      enum: ['all', 'Employee', 'manager', 'Admin', 'HR', 'Developer', 'Designer', 'Analyst', 'Supervisor'],
+      enum: ['all', 'Employee', 'Manager', 'Admin', 'HR', 'Developer', 'Designer', 'Analyst', 'Supervisor'],
     }],
     departments: [String], // For future department-based filtering
   },

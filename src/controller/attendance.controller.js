@@ -1,76 +1,33 @@
+// controllers/attendanceController.js
+import sharp from 'sharp';
 import Attendance from '../models/attendance.model.js';
+import LocationSetting from '../models/locationSetting.model.js';
 import User from '../models/user.model.js';
-import TaskAssignment from '../models/taskAssignment.model.js';
-import mongoose from 'mongoose';
 import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
 
-// Company office location - White House, Building, Kurla West, Maharashtra
-const COMPANY_LOCATION = {
-  name: "White House, Building, Kurla West, Maharashtra Buddha Colony, L Ward, Zone 5, Mumbai, Maharashtra, 400070, India",
-  latitude: 19.0728, // Kurla West coordinates
-  longitude: 72.8826,
-  allowedRadius: 200 // meters
+// Convert base64 image string to buffer
+const base64ToBuffer = (base64) => {
+  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+  return Buffer.from(base64Data, 'base64');
 };
 
-// Calculate distance between two coordinates using Haversine formula
+// Convert buffer to base64 string with mime type
+const bufferToBase64 = (buffer, mime = 'image/jpeg') => {
+  return `data:${mime};base64,${buffer.toString('base64')}`;
+};
+
+// Calculate distance (meters) using Haversine formula
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c; // Distance in meters
-};
-
-// Validate location based on user position
-const validateLocation = async (userId, userLocation) => {
-  try {
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    // Manager can punch in/out from anywhere
-    if (user.position === 'Manager') {
-      return { isValid: true, message: 'Manager can punch in/out from anywhere' };
-    }
-
-    // For Employee, HR, Team Leader - must be at office location
-    if (!userLocation || !userLocation.latitude || !userLocation.longitude) {
-      return { 
-        isValid: false, 
-        message: 'Location coordinates required for office-based positions' 
-      };
-    }
-
-    const distance = calculateDistance(
-      COMPANY_LOCATION.latitude,
-      COMPANY_LOCATION.longitude,
-      userLocation.latitude,
-      userLocation.longitude
-    );
-
-    if (distance <= COMPANY_LOCATION.allowedRadius) {
-      return { 
-        isValid: true, 
-        message: `Within office premises (${Math.round(distance)}m from office)` 
-      };
-    } else {
-      return { 
-        isValid: false, 
-        message: `Outside office premises. You are ${Math.round(distance)}m away from office. Please be within ${COMPANY_LOCATION.allowedRadius}m radius.` 
-      };
-    }
-  } catch (error) {
-    console.error('Location validation error:', error);
-    return { 
-      isValid: false, 
-      message: 'Error validating location. Please try again.' 
-    };
-  }
+  const R = 6371000; // meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 };
 
 export const punchInController = async (req, res) => {
@@ -78,94 +35,69 @@ export const punchInController = async (req, res) => {
     const { punchInTime, punchInLocation, selfieImage, userLocation } = req.body;
     const { userId, companyId } = req.user;
 
-    // Validation
-    if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
-    if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
-      return res.status(400).json({ message: 'Invalid image format' });
+    if (!selfieImage || !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
+      return res.status(400).json({ message: 'Valid selfie image required in base64 format.' });
     }
 
-    // Location validation
-    const locationValidation = await validateLocation(userId, userLocation);
-    if (!locationValidation.isValid) {
-      return res.status(400).json({ 
-        message: locationValidation.message,
-        locationError: true
-      });
+    const inputBuffer = base64ToBuffer(selfieImage);
+    const compressedBuffer = await sharp(inputBuffer)
+      .resize({ width: 300 })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    const compressedBase64 = bufferToBase64(compressedBuffer, 'image/jpeg');
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.position !== 'Manager') {
+      if (!userLocation?.latitude || !userLocation?.longitude) {
+        return res.status(400).json({ message: 'User location is required for punch-in' });
+      }
+      const locationSetting = await LocationSetting.findOne({ companyId });
+      if (!locationSetting) {
+        return res.status(400).json({ message: 'Company location settings not configured' });
+      }
+      const { latitude, longitude, allowedRadius } = locationSetting;
+      const distance = calculateDistance(latitude, longitude, userLocation.latitude, userLocation.longitude);
+      if (distance > allowedRadius) {
+        return res.status(400).json({
+          message: `You are ${Math.round(distance)}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
+          locationError: true
+        });
+      }
     }
 
-    // Date setup
-    const todayStart = new Date(getStartOfDayUTC());
-    const todayEnd = new Date(todayStart);
-    todayEnd.setUTCHours(23, 59, 59, 999);
+    const today = new Date(getStartOfDayUTC());
+    const existingAttendance = await Attendance.findOne({ userId, companyId, date: today });
+    if (existingAttendance && existingAttendance.punchIn) {
+      return res.status(400).json({ message: 'You have already punched in today' });
+    }
 
-    // Time validation
     const punchInDateTime = punchInTime ? new Date(punchInTime) : new Date();
     if (isNaN(punchInDateTime)) {
-      return res.status(400).json({ message: 'Invalid time format' });
+      return res.status(400).json({ message: 'Invalid punch-in time' });
     }
 
-    // Late punch-in handling
-    if (punchInDateTime >= todayEnd) {
-      const attendance = await Attendance.findOneAndUpdate(
-        { userId, companyId, date: todayStart },
-        {
-          status: 'Absent',
-          remark: 'Late punch-in attempt',
-          punchInPhoto: selfieImage,
-          punchInLocation: punchInLocation || COMPANY_LOCATION.name
-        },
-        { upsert: true, new: true }
-      );
-      return res.status(400).json({
-        message: 'Punch-in after 11:59 PM not allowed',
-        attendance
-      });
-    }
-
-    // Existing attendance check
-    let attendance = await Attendance.findOne({ userId, companyId, date: todayStart });
-    if (attendance?.punchIn) {
-      return res.status(400).json({ message: 'Already punched in' });
-    }
-
-    // Create new record
-    if (!attendance) {
-      attendance = new Attendance({
-        userId,
-        companyId,
-        date: todayStart
-      });
-    }
-
-    // Set punch-in details
-    attendance.punchIn = punchInDateTime;
-    attendance.punchInLocation = punchInLocation || COMPANY_LOCATION.name;
-    attendance.punchInPhoto = selfieImage;
-    
-    // Determine status
-    const punchInUTCHours = punchInDateTime.getUTCHours();
-    const punchInUTCMinutes = punchInDateTime.getUTCMinutes();
-    attendance.remark = (punchInUTCHours < 9 || (punchInUTCHours === 9 && punchInUTCMinutes <= 30)) 
-      ? 'Present' 
-      : 'Late';
+    const attendance = new Attendance({
+      userId,
+      companyId,
+      date: today,
+      punchIn: punchInDateTime,
+      punchInLocation: punchInLocation || 'Office',
+      punchInPhoto: compressedBase64
+    });
 
     await attendance.save();
 
     res.status(200).json({
       message: 'Punch-in successful',
-      punchIn: attendance.punchIn,
-      photo: attendance.punchInPhoto,
-      remark: attendance.remark,
-      location: attendance.punchInLocation,
-      locationValidation: locationValidation.message
+      punchInTime: attendance.punchIn,
+      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + ' KB',
     });
 
   } catch (error) {
     console.error('Punch-in error:', error);
-    res.status(500).json({
-      message: 'Server error',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -174,133 +106,90 @@ export const punchOutController = async (req, res) => {
     const { punchOutTime, punchOutLocation, emergencyReason, selfieImage, userLocation } = req.body;
     const { userId, companyId } = req.user;
 
-    // Validation
-    if (!selfieImage) return res.status(400).json({ message: 'Selfie required' });
-    if (!/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
-      return res.status(400).json({ message: 'Invalid image format' });
+    if (!selfieImage || !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
+      return res.status(400).json({ message: 'Valid selfie image required in base64 format.' });
     }
 
-    // Location validation
-    const locationValidation = await validateLocation(userId, userLocation);
-    if (!locationValidation.isValid) {
-      return res.status(400).json({ 
-        message: locationValidation.message,
-        locationError: true
-      });
+    const inputBuffer = base64ToBuffer(selfieImage);
+    const compressedBuffer = await sharp(inputBuffer)
+      .resize({ width: 300 })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    const compressedBase64 = bufferToBase64(compressedBuffer, 'image/jpeg');
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.position !== 'Manager') {
+      if (!userLocation?.latitude || !userLocation?.longitude) {
+        return res.status(400).json({ message: 'User location is required for punch-out' });
+      }
+      const locationSetting = await LocationSetting.findOne({ companyId });
+      if (!locationSetting) {
+        return res.status(400).json({ message: 'Company location settings not configured' });
+      }
+      const { latitude, longitude, allowedRadius } = locationSetting;
+      const distance = calculateDistance(latitude, longitude, userLocation.latitude, userLocation.longitude);
+      if (distance > allowedRadius) {
+        return res.status(400).json({
+          message: `You are ${Math.round(distance)}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
+          locationError: true
+        });
+      }
     }
 
-    // Date setup
-    const todayStart = new Date(getStartOfDayUTC());
-    let attendance = await Attendance.findOne({ userId, companyId, date: todayStart });
-
-    if (!attendance) {
-      return res.status(404).json({ message: 'No attendance record' });
+    const today = new Date(getStartOfDayUTC());
+    const attendance = await Attendance.findOne({ userId, companyId, date: today });
+    if (!attendance || !attendance.punchIn) {
+      return res.status(400).json({ message: 'Punch-in required before punch-out' });
     }
-
-    // Store photo early
-    attendance.punchOutPhoto = selfieImage;
-
-    // Validation checks
-    if (!attendance.punchIn) {
-      attendance.status = 'Absent';
-      attendance.remark = 'Punched out without punching in';
-      attendance.punchOutLocation = punchOutLocation || COMPANY_LOCATION.name;
-      await attendance.save();
-      return res.status(400).json({ 
-        message: 'No punch-in found',
-        attendance 
-      });
-    }
-
     if (attendance.punchOut) {
-      return res.status(400).json({ message: 'Already punched out' });
+      return res.status(400).json({ message: 'You have already punched out today' });
     }
 
-    // Set punch-out time
     const punchOutDateTime = punchOutTime ? new Date(punchOutTime) : new Date();
     if (isNaN(punchOutDateTime)) {
-      return res.status(400).json({ message: 'Invalid time format' });
+      return res.status(400).json({ message: 'Invalid punch-out time' });
     }
+
+    const hoursWorked = calculateHours(attendance.punchIn, punchOutDateTime);
+    let status = 'Absent';
+    if (emergencyReason) {
+      status = 'Emergency';
+    } else if (hoursWorked >= 8) {
+      status = 'Present';
+    } else if (hoursWorked >= 4) {
+      status = 'Half-Day';
+    }
+
     attendance.punchOut = punchOutDateTime;
-    attendance.punchOutLocation = punchOutLocation || COMPANY_LOCATION.name;
-
-    // Calculate hours
-    let totalHours;
-    try {
-      totalHours = calculateHours(attendance.punchIn, attendance.punchOut);
-    } catch (error) {
-      console.error('Calculation error:', error);
-      return res.status(400).json({ 
-        message: 'Invalid time calculation',
-        error: error.message 
-      });
-    }
-
-    attendance.totalWorkedHours = totalHours;
-
-    // Determine status
-    if (totalHours < 4.5) {
-      attendance.status = 'Emergency';
-      attendance.emergencyReason = emergencyReason || 'No reason provided';
-    } else if (totalHours < 8) {
-      attendance.status = 'Half-Day';
-    } else {
-      attendance.status = 'Present';
-      attendance.overtime = Math.max(0, totalHours - 8);
-    }
+    attendance.punchOutLocation = punchOutLocation || 'Office';
+    attendance.punchOutPhoto = compressedBase64;
+    attendance.hoursWorked = hoursWorked;
+    attendance.status = status;
+    attendance.remark = status;
+    attendance.emergencyReason = emergencyReason;
 
     await attendance.save();
 
     res.status(200).json({
       message: 'Punch-out successful',
-      punchOut: attendance.punchOut,
-      totalHours: attendance.totalWorkedHours,
-      overtime: attendance.overtime,
-      photo: attendance.punchOutPhoto,
-      status: attendance.status,
-      location: attendance.punchOutLocation,
-      locationValidation: locationValidation.message
+      punchOutTime: attendance.punchOut,
+      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + ' KB',
+      hoursWorked,
+      status
     });
 
   } catch (error) {
     console.error('Punch-out error:', error);
-    res.status(500).json({
-      message: 'Server error',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Helper function to get company location info
-export const getCompanyLocationController = async (req, res) => {
-  try {
-    const { userId } = req.user;
-    const user = await User.findById(userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.status(200).json({
-      companyLocation: COMPANY_LOCATION,
-      userPosition: user.position,
-      requiresLocationValidation: user.position !== 'Manager',
-      message: user.position === 'Manager' 
-        ? 'As a Manager, you can punch in/out from anywhere'
-        : `You must be within ${COMPANY_LOCATION.allowedRadius}m of the office to punch in/out`
-    });
-  } catch (error) {
-    console.error('Get company location error:', error);
-    res.status(500).json({
-      message: 'Server error',
-      error: error.message
-    });
-  }
-};
 
 export const getTodayAttendance = async (req, res) => {
   try {
-    const {userId, companyId} = req.user;
+    const { userId, companyId } = req.user;
     const today = getStartOfDayUTC();
 
     const attendance = await Attendance.findOne({
@@ -340,12 +229,12 @@ export const getTodayAttendance = async (req, res) => {
 
 export const getParticularUserAttendance = async (req, res) => {
   try {
-    const {userId, companyId} = req.user;
+    const { userId, companyId } = req.user;
     const attendance = await Attendance.find({ userId, companyId }).sort({ date: -1 });
 
     // Return empty array instead of 404 when no records found
     res.status(200).json(attendance || []);
-    
+
   } catch (error) {
     console.error('Error fetching attendance:', error);
     res.status(500).json({

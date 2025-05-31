@@ -18,7 +18,7 @@ const meetingSchema = new mongoose.Schema({
   time: String,
   duration: {
     type: String,
-    enum: ['15 minutes','30 minutes', '1 hour',"1 hour 30 minutes"],
+    enum: ['15 minutes', '30 minutes', '1 hour', "1 hour 30 minutes"],
     required: true
   },
   participants: [String],

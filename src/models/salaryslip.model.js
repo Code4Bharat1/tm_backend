@@ -1,71 +1,44 @@
-// models/Salary.js
-import  mongoose from 'mongoose';
+import mongoose from 'mongoose';
 
 const salarySchema = new mongoose.Schema({
-  // Employee Info
-  name: {
-    type: String,
-    required: true
-  },
-  employeeId: {
-    type: String,
-    required: true
-  },
-  designation: {
-    type: String,
-    required: true
-  },
-  department: {
-    type: String,
-    required: true
-  },
-  email: {
-    type: String,
-    required: true
-  },
-  phone: {
-    type: String,
-    required: true
-  },
-  payPeriod: {
-    type: String,
-    required: true
-  },
-  payDate: {
-    type: Date,
-    required: true
-  },
+  name: { type: String, required: true },
+  employeeId: { type: String, required: true, unique: true },
+  designation: { type: String, required: true },
+  department: { type: String, required: true },
+  email: { type: String, required: true },
+  phone: { type: String, required: true },
+  payPeriod: { type: String, required: true },
+  payDate: { type: Date, required: true },
+  companyName: { type: String, default: "Nextcore Alliance" },
   
-  // Company Info
-  companyName: {
-    type: String,
-    required: true
-  },
+  // Earnings
+  basicSalary: { type: Number, required: true, min: 0 },
+  hra: { type: Number, default: 0, min: 0 },
+  conveyance: { type: Number, default: 0, min: 0 },
+  medical: { type: Number, default: 0, min: 0 },
+  specialAllowance: { type: Number, default: 0, min: 0 },
+  other: { type: Number, default: 0, min: 0 },
   
-  // Salary
-  salary: {
-    type: Number,
-    required: true
-  },
+  // Deductions
+  epf: { type: Number, default: 0, min: 0 },
+  epfPercentage: { type: Number, default: 0, min: 0, max: 100 },
+  healthInsurance: { type: Number, default: 0, min: 0 },
+  professionalTax: { type: Number, default: 0, min: 0 },
   
-  // Metadata
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
+  // Reimbursements
+  mobileBill: { type: Number, default: 0, min: 0 },
+  travel: { type: Number, default: 0, min: 0 },
+  food: { type: Number, default: 0, min: 0 },
+  
+  // Calculated fields
+  grossSalary: { type: Number, default: 0, min: 0 },
+  totalDeductions: { type: Number, default: 0, min: 0 },
+  totalReimbursements: { type: Number, default: 0, min: 0 },
+  netPayable: { type: Number, default: 0 }
+}, {
+  timestamps: true
 });
 
-// Update the updatedAt field before saving
-salarySchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
+const Salary = mongoose.model('Salary', salarySchema);
 
-
-
-export const Salary = mongoose.model('Salary', salarySchema);
-
+export default Salary;

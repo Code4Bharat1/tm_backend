@@ -1,40 +1,41 @@
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import dotenv from "dotenv";
 import express from "express";
 import http from "http";
 import cron from "node-cron";
-import connectDB from "./src/init/dbConnection.js";
-import SignupRouter from "./src/routes/signup.route.js";
-import LoginRouter from "./src/routes/login.route.js";
-import ForgotPasswordRouter from "./src/routes/forgotpassword.route.js";
-import TimesheetRouter from "./src/routes/timesheet.route.js";
-import AttendanceRouter from "./src/routes/attendance.route.js";
-import LeaveRouter from "./src/routes/leave.route.js";
-import ProfileRouter from "./src/routes/profile.route.js";
-import AdminRouter from "./src/routes/adminAuth.route.js";
-import SuperAdminRouter from "./src/routes/superAdminAuth.route.js";
-import companyRegister from "./src/routes/companyRegister.route.js";
-import BankDetailsRouter from "./src/routes/bankDetails.route.js";
-import Task from "./src/routes/task.route.js";
-import dotenv from "dotenv";
-import cors from "cors";
-import cookieParser from "cookie-parser";
+import { processAbsentees } from "./src/controller/attendance.controller.js";
 import { logout } from "./src/controller/logout.controller.js";
-import CalendarRouter from "./src/routes/calendaruser.route.js";
+import connectDB from "./src/init/dbConnection.js";
+import adddocument from "./src/routes/adddocument.route.js";
+import AdminRouter from "./src/routes/adminAuth.route.js";
+import AttendanceRouter from "./src/routes/attendance.route.js";
+import BankDetailsRouter from "./src/routes/bankDetails.route.js";
 import CalendarAdminRouter from "./src/routes/calendaradmin.route.js";
+import CalendarRouter from "./src/routes/calendaruser.route.js";
+import companyRegister from "./src/routes/companyRegister.route.js";
 import CreatePost from "./src/routes/createpost.route.js";
 import Expenses from "./src/routes/expense.route.js";
-import UploadRouter from "./src/routes/upload.route.js";
-import adddocument from "./src/routes/adddocument.route.js";
-import Performance from "./src/routes/performance.route.js";
-import Ticket from './src/routes/raiseTicket.route.js'
+import ForgotPasswordRouter from "./src/routes/forgotpassword.route.js";
+import LeaveRouter from "./src/routes/leave.route.js";
+import LoginRouter from "./src/routes/login.route.js";
 import meetingRoute from "./src/routes/meeting.route.js";
-import { processAbsentees } from "./src/controller/attendance.controller.js";
-import salaryRoute from "./src/routes/salaryslip.route.js"
-
-import { initSocketServer } from "./src/service/socket.js";
-import permissionsRoute from "./src/routes/permissions.route.js";
+import notificationRouter from './src/routes/notification.router.js';
+import Performance from "./src/routes/performance.route.js";
+import ProfileRouter from "./src/routes/profile.route.js";
+import Ticket from './src/routes/raiseTicket.route.js';
+import salaryRoute from "./src/routes/salaryslip.route.js";
+import SignupRouter from "./src/routes/signup.route.js";
+import SuperAdminRouter from "./src/routes/superAdminAuth.route.js";
+import Task from "./src/routes/task.route.js";
+import TimesheetRouter from "./src/routes/timesheet.route.js";
+import UploadRouter from "./src/routes/upload.route.js";
+import LocationRouter from "./src/routes/location.routes.js"
+import client from './src/routes/client.route.js';
 import loc from "./src/routes/loc.route.js";
+import permissionsRoute from "./src/routes/permissions.route.js";
 import team from './src/routes/team.route.js';
-
+import { initSocketServer } from "./src/service/socket.js";
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -87,11 +88,14 @@ app.use("/api/upload", UploadRouter);
 app.use("/api/adddocument", adddocument);
 app.use("/api/permissions", permissionsRoute);
 app.use("/api/performance", Performance);
-app.use("/api/salary",salaryRoute);
+app.use("/api/salary", salaryRoute);
 app.use('/api/ticket', Ticket)
 app.use("/api/admin/loc", loc);
 app.use("/api/meeting", meetingRoute);
-app.use("/api/admin/member",team)
+app.use("/api/admin/member", team);
+app.use("/api/admin/client", client);
+app.use("/api", notificationRouter);
+app.use("/api/location", LocationRouter)
 
 cron.schedule("29 18 * * *", async () => {
   try {
