@@ -1,6 +1,6 @@
 import express from 'express';
-import { sendCalendarNotification, sendExpenseNotification, sendLeaveNotification, sendMeetingNotification, sendPostNotification } from '../controller/notification.controller.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { adminCalendarNotification, adminExpenseNotification, adminSendNotification, sendCalendarNotification, sendExpenseNotification, sendLeaveNotification, sendMeetingNotification, sendPostNotification } from '../controller/notification.controller.js';
+import { protect, protectAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -9,5 +9,8 @@ router.get("/post-notification", protect, sendPostNotification);
 router.get("/expense-notification", protect, sendExpenseNotification);
 router.get("/calendar-notification", protect, sendCalendarNotification);
 router.get("/meeting-notification", protect, sendMeetingNotification);
+router.get("/admin-leave-request", protectAdmin, adminSendNotification);
+router.get("/admin-expense-request", protectAdmin, adminExpenseNotification);
+router.get("/admin-calendar-reminder", protectAdmin, adminCalendarNotification);
 
 export default router;
