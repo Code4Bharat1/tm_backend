@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import CalendarEntry from '../models/calendaruser.model.js';
+import CalendarAdminEntry from '../models/calendaradmin.model.js';
 
 const allowedFields = [
     'userId',
@@ -325,10 +326,22 @@ export const deleteCalendarEntry = async (req, res) => {
     }
 };
 
-export default {
-    createCalendarEntry,
-    getCalendarEntriesByUser,
-    getCalendarEntryById,
-    updateCalendarEntry,
-    deleteCalendarEntry
+export const getMonthlyCalendarForUser = async (req, res) => {
+    try {
+        const { userId } = req.user; // or use req.user.userId if auth provides it
+
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ error: 'Invalid or missing userId' });
+        }
+
+        const entries = await CalendarAdminEntry.find({
+            calType: 'Monthly',
+            participants: new mongoose.Types.ObjectId(userId)
+        }).sort({ date: 1 });
+
+        res.status(200).json(entries);
+    } catch (error) {
+        console.error('Error fetching monthly calendar:', error);
+        res.status(500).json({ error: 'Server error', details: error.message });
+    }
 };

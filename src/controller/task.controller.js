@@ -4,7 +4,7 @@ import User from "../models/user.model.js";
 import Admin from "../models/admin.model.js";
 import mongoose from "mongoose";
 import axios from "axios";
-import { CompanyRegistration } from '../models/companyregistration.model.js';
+import { CompanyRegistration } from "../models/companyregistration.model.js";
 
 export const createTaskAssignment = async (req, res) => {
   try {
@@ -27,13 +27,7 @@ export const createTaskAssignment = async (req, res) => {
     const { companyId, adminId } = req.user;
 
     // Basic validation
-    if (
-      !bucketName ||
-      !assignedTo ||
-      !assignDate ||
-      !deadline ||
-      !taskDescription
-    ) {
+    if (!bucketName || !assignedTo || !assignDate || !deadline || !taskDescription) {
       return res.status(400).json({
         message: "Required fields are missing",
       });
@@ -72,12 +66,7 @@ export const createTaskAssignment = async (req, res) => {
 };
 
 // Helper function to check if a project overlaps with the given time period
-const doesProjectOverlapWithPeriod = (
-  assignDate,
-  deadline,
-  periodStart,
-  periodEnd,
-) => {
+const doesProjectOverlapWithPeriod = (assignDate, deadline, periodStart, periodEnd) => {
   const projectStart = new Date(assignDate);
   const projectEnd = new Date(deadline);
 
@@ -105,15 +94,7 @@ const getDateRangeForFilter = (filter) => {
     case "month":
       // Get start of current month
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       break;
 
     case "year":
@@ -173,28 +154,16 @@ export const getTaskAssignments = async (req, res) => {
 
           // Filter tasks that overlap with the specified period
           taskAssignments = taskAssignments.filter((task) =>
-            doesProjectOverlapWithPeriod(
-              task.assignDate,
-              task.deadline,
-              startDate,
-              endDate,
-            ),
+            doesProjectOverlapWithPeriod(task.assignDate, task.deadline, startDate, endDate),
           );
         }
       } else if (fromDate || toDate) {
         // Use explicit fromDate and toDate if provided
-        const filterStart = fromDate
-          ? new Date(fromDate)
-          : new Date("1970-01-01");
+        const filterStart = fromDate ? new Date(fromDate) : new Date("1970-01-01");
         const filterEnd = toDate ? new Date(toDate) : new Date("2099-12-31");
 
         taskAssignments = taskAssignments.filter((task) =>
-          doesProjectOverlapWithPeriod(
-            task.assignDate,
-            task.deadline,
-            filterStart,
-            filterEnd,
-          ),
+          doesProjectOverlapWithPeriod(task.assignDate, task.deadline, filterStart, filterEnd),
         );
       }
     }
@@ -227,9 +196,9 @@ export const getUserTaskAssignments = async (req, res) => {
     const { status, fromDate, toDate } = req.query;
 
     // Base query - tasks assigned to current user within their company
-    let query = { 
+    let query = {
       companyId,
-      assignedTo: userId 
+      assignedTo: userId,
     };
 
     // Apply filters if provided
@@ -245,7 +214,7 @@ export const getUserTaskAssignments = async (req, res) => {
 
     // Only select the required fields
     const taskAssignments = await TaskAssignment.find(query)
-      .select('bucketName assignDate deadline status') // Added status for user visibility
+      .select("bucketName assignDate deadline status") // Added status for user visibility
       .sort({ assignDate: -1 })
       .lean();
 
@@ -257,7 +226,7 @@ export const getUserTaskAssignments = async (req, res) => {
     console.error("Error fetching user task assignments:", error);
     res.status(500).json({
       message: "Server error while fetching your tasks",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -290,7 +259,7 @@ export const getAdminTaskAssignments = async (req, res) => {
 
     // Only select the three required fields
     const taskAssignments = await TaskAssignment.find(query)
-      .select('bucketName assignDate deadline') // Only these three fields
+      .select("bucketName assignDate deadline") // Only these three fields
       .sort({ assignDate: -1 })
       .lean();
 
@@ -302,7 +271,7 @@ export const getAdminTaskAssignments = async (req, res) => {
     console.error("Error fetching admin task assignments:", error);
     res.status(500).json({
       message: "Server error while fetching task assignments",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -334,12 +303,7 @@ export const getOngoingProjects = async (req, res) => {
 
         // Filter tasks that overlap with the specified period
         ongoingTasks = ongoingTasks.filter((task) =>
-          doesProjectOverlapWithPeriod(
-            task.assignDate,
-            task.deadline,
-            startDate,
-            endDate,
-          ),
+          doesProjectOverlapWithPeriod(task.assignDate, task.deadline, startDate, endDate),
         );
       }
     }
@@ -375,10 +339,7 @@ export const getAllUserEmails = async (req, res) => {
     const { companyId } = req.user;
 
     // Find all users in the company and return their ID, name and email
-    const users = await User.find(
-      { companyId },
-      "firstName lastName email _id",
-    );
+    const users = await User.find({ companyId }, "firstName lastName email _id");
 
     res.status(200).json(users);
   } catch (error) {
@@ -391,18 +352,13 @@ export const getAllUserEmails = async (req, res) => {
 export const closeTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { remarkDescription } = req.body;
+    const { remarkDescription, fileUrl, filePublicId, fileResourceType, fileName } = req.body;
     const { companyId, userId } = req.user;
 
-    // Find the task
     const task = await TaskAssignment.findOne({
       _id: taskId,
       companyId,
-      $or: [
-        { assignedTo: userId }, // User is assigned to the task
-        { assignedBy: userId }, // User created the task
-        { tagMembers: userId }, // User is a tag member
-      ],
+      $or: [{ assignedTo: userId }, { assignedBy: userId }, { tagMembers: userId }],
     });
 
     if (!task) {
@@ -412,7 +368,6 @@ export const closeTask = async (req, res) => {
       });
     }
 
-    // Check if task is already closed
     if (task.status === "Closed") {
       return res.status(400).json({
         success: false,
@@ -420,35 +375,18 @@ export const closeTask = async (req, res) => {
       });
     }
 
-    // Handle file upload if attachment is provided
-    let uploadedFile = null;
-    if (req.file) {
-      try {
-        // Convert buffer to Blob
-        const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+    // Build attachment object if provided
+    const uploadedFile =
+      fileUrl && filePublicId
+        ? {
+            fileName: fileName || "attachment",
+            fileUrl,
+            filePublicId,
+            fileResourceType: fileResourceType || "raw",
+          }
+        : null;
 
-        const formData = new FormData();
-        formData.append("file", blob, req.file.originalname); // Use Blob here
-
-        // Simulated upload response (replace with actual API call)
-        uploadedFile = {
-          fileName: req.file.originalname,
-          fileUrl: `${process.env.CLOUDINARY_URL}/${req.file.filename}`,
-          filePublicId: req.file.filename,
-          fileResourceType: req.file.mimetype.startsWith("image/")
-            ? "image"
-            : "raw",
-        };
-      } catch (uploadError) {
-        console.error("Error uploading file:", uploadError);
-        return res.status(500).json({
-          success: false,
-          message: "Error uploading attachment",
-        });
-      }
-    }
-
-    // Check if attachment is required but not provided
+    // Check if attachment is required but missing
     if (task.attachmentRequired && !uploadedFile) {
       return res.status(400).json({
         success: false,
@@ -456,42 +394,31 @@ export const closeTask = async (req, res) => {
       });
     }
 
-    // Update the task
     const updateData = {
       status: "Closed",
       remarkDescription: remarkDescription || "",
       updatedAt: new Date(),
     };
 
-    // Add attachment to documents array if uploaded
     if (uploadedFile) {
-      updateData.$push = {
-        documents: uploadedFile,
-      };
+      updateData.$push = { documents: uploadedFile };
     }
 
-    const updatedTask = await TaskAssignment.findByIdAndUpdate(
-      taskId,
-      updateData,
-      { new: true, runValidators: true },
-    )
+    const updatedTask = await TaskAssignment.findByIdAndUpdate(taskId, updateData, {
+      new: true,
+      runValidators: true,
+    })
       .populate("assignedTo", "firstName lastName email")
       .populate("assignedBy", "fullName email")
       .populate("tagMembers", "firstName lastName email");
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Task closed successfully",
       data: updatedTask,
     });
   } catch (error) {
     console.error("Error closing task:", error);
-    if (error instanceof mongoose.Error.ValidationError) {
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-    }
     res.status(500).json({
       success: false,
       message: "Server error while closing task",
@@ -522,12 +449,7 @@ export const getTaskStatistics = async (req, res) => {
 
         // Filter tasks that overlap with the specified period
         tasks = tasks.filter((task) =>
-          doesProjectOverlapWithPeriod(
-            task.assignDate,
-            task.deadline,
-            startDate,
-            endDate,
-          ),
+          doesProjectOverlapWithPeriod(task.assignDate, task.deadline, startDate, endDate),
         );
       }
     }
@@ -546,8 +468,7 @@ export const getTaskStatistics = async (req, res) => {
     const percentages = {};
     Object.keys(stats).forEach((key) => {
       if (key !== "total") {
-        percentages[key] =
-          stats.total > 0 ? Math.round((stats[key] / stats.total) * 100) : 0;
+        percentages[key] = stats.total > 0 ? Math.round((stats[key] / stats.total) * 100) : 0;
       }
     });
 
@@ -573,16 +494,15 @@ export const getTaskStatistics = async (req, res) => {
 export const getAllLOCs = async (req, res) => {
   try {
     const { companyId } = req.user;
-    
+
     // Fetch users with required fields
-    const users = await User.find(
-      { companyId },
-      "firstName lastName email _id position"
-    ).sort({ firstName: 1 });
+    const users = await User.find({ companyId }, "firstName lastName email _id position").sort({
+      firstName: 1,
+    });
 
     // Fetch company registration details
     const company = await CompanyRegistration.findById(companyId)
-      .select('companyInfo.companyName adminInfo.fullName')
+      .select("companyInfo.companyName adminInfo.fullName")
       .lean();
 
     if (!company) {
@@ -590,25 +510,24 @@ export const getAllLOCs = async (req, res) => {
     }
 
     // Add fullName first and maintain proper order
-    const updatedUsers = users.map(user => ({
+    const updatedUsers = users.map((user) => ({
       fullName: `${user.firstName} ${user.lastName}`,
       email: user.email,
       position: user.position,
       companyName: company.companyInfo.companyName,
-      CEO: company.adminInfo.fullName
-      
+      CEO: company.adminInfo.fullName,
     }));
 
     res.status(200).json({
       message: "User details retrieved successfully",
       count: updatedUsers.length,
-      data: updatedUsers
+      data: updatedUsers,
     });
   } catch (error) {
     console.error("Error fetching user details:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Internal Server Error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -621,40 +540,42 @@ export const getAllTeammembers = async (req, res) => {
     if (!companyId) {
       return res.status(400).json({
         message: "Company ID is required",
-        error: "Invalid user session"
+        error: "Invalid user session",
       });
     }
 
     // Fetch ONLY employees with strict filtering
     const users = await User.find(
-      { 
+      {
         companyId,
         position: { $eq: "Employee" }, // Strict equality check
         $and: [
-          { position: { $exists: true } },    // Position field must exist
-          { position: { $ne: null } },        // Position must not be null
-          { position: { $ne: "" } },          // Position must not be empty
-          { position: { $regex: /^Employee$/i } } // Case-insensitive exact match
-        ]
+          { position: { $exists: true } }, // Position field must exist
+          { position: { $ne: null } }, // Position must not be null
+          { position: { $ne: "" } }, // Position must not be empty
+          { position: { $regex: /^Employee$/i } }, // Case-insensitive exact match
+        ],
       },
-      "firstName lastName email phoneNumber position _id" // Include position for verification
+      "firstName lastName email phoneNumber position _id", // Include position for verification
     ).sort({ firstName: 1 });
 
     // Additional strict validation - Double check each user
-    const strictEmployeesOnly = users.filter(user => {
+    const strictEmployeesOnly = users.filter((user) => {
       // Validate that user has all required fields
       if (!user.firstName || !user.lastName || !user.email || !user.position) {
         console.warn(`User ${user._id} missing required fields, excluding from employee list`);
         return false;
       }
-      
+
       // Strict position check - must be exactly "Employee"
       const userPosition = user.position.toString().trim();
       if (userPosition !== "Employee") {
-        console.warn(`User ${user._id} has position "${userPosition}", not "Employee". Excluding from list.`);
+        console.warn(
+          `User ${user._id} has position "${userPosition}", not "Employee". Excluding from list.`,
+        );
         return false;
       }
-      
+
       return true;
     });
 
@@ -669,7 +590,7 @@ export const getAllTeammembers = async (req, res) => {
       return res.status(404).json({
         message: "No employees found for team member selection",
         count: 0,
-        data: []
+        data: [],
       });
     }
 
@@ -679,14 +600,14 @@ export const getAllTeammembers = async (req, res) => {
         try {
           // Find task assignment for this user
           const assignment = await TaskAssignment.findOne({ userId: user._id });
-          
+
           return {
             userId: user._id, // Include userId for selection
             fullName: `${user.firstName} ${user.lastName}`,
             email: user.email,
             phoneNumber: user.phoneNumber,
             position: user.position, // Include position for frontend verification
-            bucketName: assignment?.bucketName || null
+            bucketName: assignment?.bucketName || null,
           };
         } catch (assignmentError) {
           console.warn(`Error fetching assignment for user ${user._id}:`, assignmentError.message);
@@ -697,16 +618,18 @@ export const getAllTeammembers = async (req, res) => {
             email: user.email,
             phoneNumber: user.phoneNumber,
             position: user.position,
-            bucketName: null
+            bucketName: null,
           };
         }
-      })
+      }),
     );
 
     // Final validation - ensure all returned users are employees
-    const finalValidatedEmployees = usersWithBuckets.filter(user => {
+    const finalValidatedEmployees = usersWithBuckets.filter((user) => {
       if (user.position !== "Employee") {
-        console.error(`CRITICAL: Non-employee ${user.fullName} found in final results. This should not happen!`);
+        console.error(
+          `CRITICAL: Non-employee ${user.fullName} found in final results. This should not happen!`,
+        );
         return false;
       }
       return true;
@@ -720,24 +643,23 @@ export const getAllTeammembers = async (req, res) => {
       meta: {
         totalQueried: users.length,
         filteredOut: users.length - finalValidatedEmployees.length,
-        companyId: companyId
-      }
+        companyId: companyId,
+      },
     });
-
   } catch (error) {
     console.error("Error fetching employee details for team selection:", error);
-    
+
     // Handle specific database errors
-    if (error.name === 'CastError') {
+    if (error.name === "CastError") {
       return res.status(400).json({
         message: "Invalid company ID format",
-        error: "Bad Request"
+        error: "Bad Request",
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       message: "Internal Server Error while fetching employees",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -746,41 +668,40 @@ export const getAllTeammembers = async (req, res) => {
 export const validateEmployeeAccess = async (req, res, next) => {
   try {
     const { employeeId } = req.body; // Assuming you're sending employeeId when adding to project
-    
+
     if (!employeeId) {
       return next(); // Skip validation if no employeeId provided
     }
-    
+
     // Verify the selected user is actually an employee
-    const user = await User.findById(employeeId, 'position companyId');
-    
+    const user = await User.findById(employeeId, "position companyId");
+
     if (!user) {
       return res.status(404).json({
-        message: "Selected user not found"
+        message: "Selected user not found",
       });
     }
-    
+
     if (user.position !== "Employee") {
       return res.status(403).json({
         message: "Access denied. Only employees can be added to projects.",
-        userPosition: user.position
+        userPosition: user.position,
       });
     }
-    
+
     // Verify user belongs to same company
     if (user.companyId.toString() !== req.user.companyId.toString()) {
       return res.status(403).json({
-        message: "Access denied. User from different company."
+        message: "Access denied. User from different company.",
       });
     }
-    
+
     next();
   } catch (error) {
     console.error("Error in employee validation middleware:", error);
     res.status(500).json({
       message: "Validation error",
-      error: error.message
+      error: error.message,
     });
   }
 };
-

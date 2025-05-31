@@ -123,15 +123,12 @@ const handleControllerError = (res, error) => {
 
 export const createCalendarEntryAdmin = async (req, res) => {
     try {
-        // Extract adminId and companyId from authenticated user
         const { adminId, companyId } = req.user;
 
-        // Validate required IDs
         if (!adminId || !companyId) {
             return res.status(400).json({ error: "Missing adminId or companyId in request" });
         }
 
-        // Validate ObjectId format
         if (!mongoose.Types.ObjectId.isValid(adminId) || !mongoose.Types.ObjectId.isValid(companyId)) {
             return res.status(400).json({ error: "Invalid ID format" });
         }
@@ -144,9 +141,21 @@ export const createCalendarEntryAdmin = async (req, res) => {
             }
         });
 
-        // Force adminId and companyId from authenticated user
+        // Force adminId and companyId
         data.adminId = adminId;
         data.companyId = companyId;
+
+        // Handle participants (userId in req.body)
+        if (req.body.userId) {
+            const participants = Array.isArray(req.body.userId) ? req.body.userId : [req.body.userId];
+
+            const invalidIds = participants.filter(id => !mongoose.Types.ObjectId.isValid(id));
+            if (invalidIds.length > 0) {
+                return res.status(400).json({ error: "One or more participant IDs are invalid", invalidIds });
+            }
+
+            data.participants = participants.map(id => new mongoose.Types.ObjectId(id));
+        }
 
         // Custom validation
         const validationErrors = validateEntryData(data);
@@ -154,7 +163,7 @@ export const createCalendarEntryAdmin = async (req, res) => {
             return res.status(400).json({ errors: validationErrors });
         }
 
-        // Validate and parse date
+        // Parse and assign date
         const parsedDate = new Date(data.date);
         if (isNaN(parsedDate)) {
             return res.status(400).json({ error: "Invalid date format" });
