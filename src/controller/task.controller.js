@@ -24,7 +24,13 @@ export const createTaskAssignment = async (req, res) => {
     const { companyId, adminId } = req.user;
 
     // Basic validation
-    if (!bucketName || !assignedTo || !assignDate || !deadline || !taskDescription) {
+    if (
+      !bucketName ||
+      !assignedTo ||
+      !assignDate ||
+      !deadline ||
+      !taskDescription
+    ) {
       return res.status(400).json({
         message: "Required fields are missing",
       });
@@ -63,7 +69,12 @@ export const createTaskAssignment = async (req, res) => {
 };
 
 // Helper function to check if a project overlaps with the given time period
-const doesProjectOverlapWithPeriod = (assignDate, deadline, periodStart, periodEnd) => {
+const doesProjectOverlapWithPeriod = (
+  assignDate,
+  deadline,
+  periodStart,
+  periodEnd,
+) => {
   const projectStart = new Date(assignDate);
   const projectEnd = new Date(deadline);
 
@@ -91,7 +102,15 @@ const getDateRangeForFilter = (filter) => {
     case "month":
       // Get start of current month
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      endDate = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
       break;
 
     case "year":
@@ -151,16 +170,28 @@ export const getTaskAssignments = async (req, res) => {
 
           // Filter tasks that overlap with the specified period
           taskAssignments = taskAssignments.filter((task) =>
-            doesProjectOverlapWithPeriod(task.assignDate, task.deadline, startDate, endDate),
+            doesProjectOverlapWithPeriod(
+              task.assignDate,
+              task.deadline,
+              startDate,
+              endDate,
+            ),
           );
         }
       } else if (fromDate || toDate) {
         // Use explicit fromDate and toDate if provided
-        const filterStart = fromDate ? new Date(fromDate) : new Date("1970-01-01");
+        const filterStart = fromDate
+          ? new Date(fromDate)
+          : new Date("1970-01-01");
         const filterEnd = toDate ? new Date(toDate) : new Date("2099-12-31");
 
         taskAssignments = taskAssignments.filter((task) =>
-          doesProjectOverlapWithPeriod(task.assignDate, task.deadline, filterStart, filterEnd),
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            filterStart,
+            filterEnd,
+          ),
         );
       }
     }
@@ -190,7 +221,9 @@ export const getUnassignedEmployeesForProject = async (req, res) => {
     const { bucketName } = req.query;
 
     if (!bucketName) {
-      return res.status(400).json({ message: "Project (bucketName) is required" });
+      return res
+        .status(400)
+        .json({ message: "Project (bucketName) is required" });
     }
 
     // Step 1: Get all assigned user IDs for this bucket (project)
@@ -203,7 +236,9 @@ export const getUnassignedEmployeesForProject = async (req, res) => {
 
     assignedTasks.forEach((task) => {
       assignedUserIds.add(task.assignedTo.toString());
-      task.tagMembers.forEach((member) => assignedUserIds.add(member.toString()));
+      task.tagMembers.forEach((member) =>
+        assignedUserIds.add(member.toString()),
+      );
     });
 
     // Step 2: Fetch users from the same company NOT in assignedUserIds
@@ -216,7 +251,6 @@ export const getUnassignedEmployeesForProject = async (req, res) => {
       count: unassignedEmployees.length,
       data: unassignedEmployees,
     });
-
   } catch (error) {
     console.error("Error fetching unassigned employees:", error);
     res.status(500).json({
@@ -224,7 +258,6 @@ export const getUnassignedEmployeesForProject = async (req, res) => {
     });
   }
 };
-
 
 export const updateTaskTagMembers = async (req, res) => {
   try {
@@ -244,10 +277,12 @@ export const updateTaskTagMembers = async (req, res) => {
     }
 
     // Merge existing tagMembers with new ones and remove duplicates
-    const existingMembers = task.tagMembers.map(id => id.toString());
-    const newMembers = tagMembers.map(id => id.toString());
+    const existingMembers = task.tagMembers.map((id) => id.toString());
+    const newMembers = tagMembers.map((id) => id.toString());
 
-    const mergedMembers = Array.from(new Set([...existingMembers, ...newMembers]));
+    const mergedMembers = Array.from(
+      new Set([...existingMembers, ...newMembers]),
+    );
 
     // Update the document
     task.tagMembers = mergedMembers;
@@ -276,7 +311,7 @@ export const removeMemberFromTask = async (req, res) => {
     if (!taskId || !memberId) {
       return res.status(400).json({
         success: false,
-        message: 'Task ID and Member ID are required'
+        message: "Task ID and Member ID are required",
       });
     }
 
@@ -284,7 +319,7 @@ export const removeMemberFromTask = async (req, res) => {
     if (!task) {
       return res.status(404).json({
         success: false,
-        message: 'Task not found'
+        message: "Task not found",
       });
     }
 
@@ -292,7 +327,7 @@ export const removeMemberFromTask = async (req, res) => {
     if (memberIndex === -1) {
       return res.status(400).json({
         success: false,
-        message: 'Member is not assigned to this task'
+        message: "Member is not assigned to this task",
       });
     }
 
@@ -301,15 +336,15 @@ export const removeMemberFromTask = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Member removed successfully',
-      task: updatedTask
+      message: "Member removed successfully",
+      task: updatedTask,
     });
   } catch (error) {
-    console.error('Error removing member:', error);
+    console.error("Error removing member:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
@@ -324,7 +359,7 @@ export const getUserTaskAssignments = async (req, res) => {
     // Base query - tasks assigned to current user within their company
     let query = {
       companyId,
-      assignedTo: userId
+      assignedTo: userId,
     };
 
     // Apply filters if provided
@@ -429,7 +464,12 @@ export const getOngoingProjects = async (req, res) => {
 
         // Filter tasks that overlap with the specified period
         ongoingTasks = ongoingTasks.filter((task) =>
-          doesProjectOverlapWithPeriod(task.assignDate, task.deadline, startDate, endDate),
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            startDate,
+            endDate,
+          ),
         );
       }
     }
@@ -465,7 +505,10 @@ export const getAllUserEmails = async (req, res) => {
     const { companyId } = req.user;
 
     // Find all users in the company and return their ID, name and email
-    const users = await User.find({ companyId }, "firstName lastName email _id");
+    const users = await User.find(
+      { companyId },
+      "firstName lastName email _id",
+    );
 
     res.status(200).json(users);
   } catch (error) {
@@ -478,13 +521,23 @@ export const getAllUserEmails = async (req, res) => {
 export const closeTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { remarkDescription, fileUrl, filePublicId, fileResourceType, fileName } = req.body;
+    const {
+      remarkDescription,
+      fileUrl,
+      filePublicId,
+      fileResourceType,
+      fileName,
+    } = req.body;
     const { companyId, userId } = req.user;
 
     const task = await TaskAssignment.findOne({
       _id: taskId,
       companyId,
-      $or: [{ assignedTo: userId }, { assignedBy: userId }, { tagMembers: userId }],
+      $or: [
+        { assignedTo: userId },
+        { assignedBy: userId },
+        { tagMembers: userId },
+      ],
     });
 
     if (!task) {
@@ -530,10 +583,11 @@ export const closeTask = async (req, res) => {
       updateData.$push = { documents: uploadedFile };
     }
 
-    const updatedTask = await TaskAssignment.findByIdAndUpdate(taskId, updateData, {
-      new: true,
-      runValidators: true,
-    })
+    const updatedTask = await TaskAssignment.findByIdAndUpdate(
+      taskId,
+      updateData,
+      { new: true, runValidators: true },
+    )
       .populate("assignedTo", "firstName lastName email")
       .populate("assignedBy", "fullName email")
       .populate("tagMembers", "firstName lastName email");
@@ -575,7 +629,12 @@ export const getTaskStatistics = async (req, res) => {
 
         // Filter tasks that overlap with the specified period
         tasks = tasks.filter((task) =>
-          doesProjectOverlapWithPeriod(task.assignDate, task.deadline, startDate, endDate),
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            startDate,
+            endDate,
+          ),
         );
       }
     }
@@ -594,7 +653,8 @@ export const getTaskStatistics = async (req, res) => {
     const percentages = {};
     Object.keys(stats).forEach((key) => {
       if (key !== "total") {
-        percentages[key] = stats.total > 0 ? Math.round((stats[key] / stats.total) * 100) : 0;
+        percentages[key] =
+          stats.total > 0 ? Math.round((stats[key] / stats.total) * 100) : 0;
       }
     });
 

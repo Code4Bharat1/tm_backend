@@ -1,4 +1,3 @@
-
 import express from "express";
 import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/multer.middleware.js";
@@ -13,7 +12,7 @@ import {
   getUserTaskAssignments,
   getUnassignedEmployeesForProject,
   updateTaskTagMembers,
-  removeMemberFromTask
+  removeMemberFromTask,
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -34,16 +33,16 @@ router.get("/getAllUserEmails", protect, getAllUserEmails);
 router.get("/getOngoingProjects", protectAdmin, getOngoingProjects);
 
 // Close a task with optional file upload
-router.post("/:taskId/close", protect, upload.single("attachment"), closeTask);
+router.post("/:taskId/close", protect, upload.none(), closeTask);
 
 router.get("/projects", protectAdmin, getAdminTaskAssignments);
 
 router.get("/projectsuser", protect, getUserTaskAssignments);
 
-router.get("/getUnassignedUsers", protect, getUnassignedEmployeesForProject)
+router.get("/getUnassignedUsers", protect, getUnassignedEmployeesForProject);
 
-router.patch('/updateTagMembers/:taskId', protect, updateTaskTagMembers)
+router.patch("/updateTagMembers/:taskId", protect, updateTaskTagMembers);
 
-router.put('/:taskId/removeMember', removeMemberFromTask);
+router.put("/:taskId/removeMember", removeMemberFromTask);
 
 export default router;
