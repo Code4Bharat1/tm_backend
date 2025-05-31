@@ -37,6 +37,7 @@ import permissionsRoute from "./src/routes/permissions.route.js";
 import salesmanRoute from "./src/routes/salesman.route.js"
 import team from './src/routes/team.route.js';
 import { initSocketServer } from "./src/service/socket.js";
+import Sheets from './src/routes/sheet.route.js';
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -61,7 +62,7 @@ app.use(
     credentials: true,
   }),
 );
-
+app.use('/api/sheet', Sheets);
 app.use(cookieParser()); // Middleware to parse cookies
 
 app.use(express.json());
