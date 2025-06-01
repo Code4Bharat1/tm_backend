@@ -3,20 +3,37 @@ import User from '../models/user.model.js';
 
 const findSalesman = async (userId) => {
     const user = await User.findById(userId);
-    if (!user || user.role !== 'salesman') return null;
+    console.log(user)
+    if (!user || user.position !== 'Salesman') return null;
 
-    const salesman = await Salesman.findById(userId);
+    const salesman = true
+    console.log(salesman)
     return salesman;
 };
 
 // Punch In
 export const punchIn = async (req, res) => {
     try {
-        const userId = req.user.userId;
-        const { companyId, siteLocation, notes } = req.body;
-        const photoPath = req.file?.path || null;
+        const { userId, companyId } = req.user;
+        const {  siteLocation, notes, photo } = req.body;
+        console.log(req.body)
+        const selfieImage = req.file?.path || null;
 
         const salesman = await findSalesman(userId);
+        console.log(salesman)
+        if (salesman) {
+            const newVisit = new Salesman({
+                userId,
+                companyId,
+                siteLocation,
+                notes,
+                punchIn: new Date(),
+                punchInPhoto: photo,
+            });
+            console.log(newVisit)
+            await newVisit.save();
+        }
+
         if (!salesman) return res.status(403).json({ error: 'User is not a Salesman or not found' });
 
         salesman.visits.push({

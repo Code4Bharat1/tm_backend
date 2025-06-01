@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
-const visitSchema = new mongoose.Schema({
+
+
+const salesmanSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -33,25 +35,19 @@ const visitSchema = new mongoose.Schema({
         default: null,
     },
     siteLocation: {
-        type: String,
-        default: null,
-        index: true,
+        latitude: {
+            type: Number,
+            required: true,
+        },
+        longitude: {
+            type: Number,
+            required: true,
+        }
     },
     notes: {
         type: String,
         default: null,
     },
-});
-
-
-const salesmanSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: true,
-        unique: true,
-        index: true,
-    },
-    visits: [visitSchema],
 }, {
     timestamps: true,
 });
