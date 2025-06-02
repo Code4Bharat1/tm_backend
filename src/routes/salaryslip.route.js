@@ -7,8 +7,12 @@ import {
   getSalaryRecord,
   getAllSalaryRecords,
   deleteSalaryRecord,
-  getSalaryStatistics
+  getSalaryStatistics,
+  getSalaryByEmployeeAndDate
+ 
 } from '../controller/salaryslip.controller.js';
+
+import { getSalarySlip } from '../controller/fetchsalary.controller.js';
 
 // Get salary statistics (should be before /:employeeId to avoid conflicts)
 router.get('/statistics', getSalaryStatistics);
@@ -27,5 +31,8 @@ router.put('/:employeeId', updateSalaryRecord);
 
 // Delete salary record by employee ID
 router.delete('/:employeeId', deleteSalaryRecord);
+
+
+router.post('/fetchSalary', getSalaryByEmployeeAndDate);
 
 export default router;

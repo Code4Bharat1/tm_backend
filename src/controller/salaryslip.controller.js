@@ -278,11 +278,66 @@ const getSalaryStatistics = async (req, res) => {
   }
 };
 
+
+// adjust path as needed
+
+const getSalaryByEmployeeAndDate = async (req, res) => {
+  try {
+    const { employeeId, date } = req.body; // date = "May, 2025"
+
+    if (!employeeId || !date) {
+      return res.status(400).json({
+        success: false,
+        message: 'employeeId and date are required in the format: May, 2025'
+      });
+    }
+
+    // Convert input date string to lowercase for consistent matching
+    const formattedInputDate = date.trim().toLowerCase();
+
+    // Find matching record
+    const salaryRecord = await Salary.findOne({
+      employeeId,
+      $expr: {
+        $eq: [
+          {
+            $dateToString: { format: "%B, %Y", date: "$payDate" } // Converts to "May, 2025"
+          },
+          formattedInputDate.charAt(0).toUpperCase() + formattedInputDate.slice(1) // Ensures "may, 2025" -> "May, 2025"
+        ]
+      }
+    });
+
+    if (!salaryRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Salary record not found for the given employeeId and date'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: salaryRecord
+    });
+  } catch (error) {
+    console.error('Error fetching salary record:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch salary record',
+      error: error.message
+    });
+  }
+};
+
+
+
+
 export {
   createSalaryRecord,
   updateSalaryRecord,
   getSalaryRecord,
   getAllSalaryRecords,
   deleteSalaryRecord,
-  getSalaryStatistics
+  getSalaryStatistics,
+  getSalaryByEmployeeAndDate
 };
