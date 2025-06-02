@@ -329,7 +329,7 @@ export const sendMeetingNotification = async (req, res) => {
         // Find meetings where the user is a participant
         const meetings = await meetingModel.find({
             participants: userId
-        }).select("title date created_at participants");
+        }).select("title hostname time meetingLink duration date created_at participants");
 
         if (!meetings || meetings.length === 0) {
             return res.status(200).json({
@@ -363,6 +363,11 @@ export const sendMeetingNotification = async (req, res) => {
         // Format notifications
         const notifications = todaysMeetings.map(meeting => ({
             title: meeting.title,
+            date : meeting.date,
+            time: meeting.time,
+            duration: meeting.duration,
+            meetingLink: meeting.meetingLink,
+            hostname: meeting.hostname,
             date: new Date(meeting.date).toLocaleDateString("en-IN", {
                 timeZone: "Asia/Kolkata",
                 day: "2-digit",
