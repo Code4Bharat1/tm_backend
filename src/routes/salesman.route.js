@@ -2,9 +2,10 @@ import express from 'express';
 import {
     punchIn,
     punchOut,
-    getVisits
+    getVisits,
+    getVisitsByCompany,
 } from '../controller/salesman.controller.js';
-import {protect} from '../middleware/authMiddleware.js'
+import {protect, protectAdmin} from '../middleware/authMiddleware.js'
 import multer from 'multer';
 
 // Multer configuration
@@ -21,5 +22,6 @@ const router = express.Router();
 router.post('/salesman/punch-in', protect ,upload.single('photo'),punchIn);
 router.post('/salesman/punch-out',protect,upload.single('photo'), punchOut);
 router.get('/salesman/visits',protect, getVisits);
+router.get('/salesman/userVisits', protectAdmin, getVisitsByCompany);
 
 export default router;

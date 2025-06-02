@@ -115,3 +115,50 @@ export const getVisits = async (req, res) => {
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 };
+
+export const getVisitsByCompany = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, startDate, endDate } = req.query;
+    const { companyId } = req.user;
+
+    if (!companyId) {
+      return res.status(400).json({ error: 'companyId is required' });
+    }
+
+    const query = { companyId };
+
+    if (startDate && endDate) {
+      query.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const visits = await SalesmanVisit.find(query)
+      .populate({
+        path: 'userId',
+        select: 'name email',
+      })
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await SalesmanVisit.countDocuments(query);
+
+    res.json({
+      data: visits,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching visits:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
