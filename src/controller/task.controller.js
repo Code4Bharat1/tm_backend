@@ -222,7 +222,14 @@ export const getTaskAssignments = async (req, res) => {
     const { companyId, userId } = req.user;
 
     // Optional query parameters for filtering
-    const { status, assignedTo, fromDate, toDate, timeFilter } = req.query;
+    const {
+      status,
+      assignedTo,
+      fromDate,
+      toDate,
+      timeFilter,
+      projectCategory,
+    } = req.query;
 
     // Always filter by company ID and user ID for data isolation
     let query = {
@@ -242,10 +249,16 @@ export const getTaskAssignments = async (req, res) => {
       query.assignedTo = assignedTo;
     }
 
+    // Add project category filter
+    if (projectCategory) {
+      query.projectCategory = projectCategory;
+    }
+
     // Get all tasks first without date filtering for overlap logic
     let taskAssignments = await TaskAssignment.find(query)
       .populate("assignedTo", "firstName lastName email")
       .populate("assignedBy", "fullName email")
+      .populate("clientId", "name email") // Add client population
       .populate("tagMembers", "firstName lastName email")
       .sort({ assignDate: -1 })
       .lean();
@@ -295,6 +308,7 @@ export const getTaskAssignments = async (req, res) => {
         toDate,
         status,
         assignedTo,
+        projectCategory, // Include in response
       },
     });
   } catch (error) {
