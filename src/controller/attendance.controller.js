@@ -4,7 +4,7 @@ import Attendance from '../models/attendance.model.js';
 import LocationSetting from '../models/locationSetting.model.js';
 import User from '../models/user.model.js';
 import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
-
+import mongoose from 'mongoose'
 // Convert base64 image string to buffer
 const base64ToBuffer = (base64) => {
   const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
