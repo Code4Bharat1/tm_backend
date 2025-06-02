@@ -2,11 +2,40 @@
 import mongoose from "mongoose";
 import TaskAssignment from "../models/taskAssignment.model.js";
 import User from "../models/user.model.js";
+import Client from "../models/client.model.js";
 
+// Add this function to your existing task.controller.js
+
+// Get all clients for the current company
+export const getAllClientsForTask = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    const clients = await Client.find({ companyId })
+      .select("_id name email")
+      .sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      clients,
+    });
+  } catch (error) {
+    console.error("Error fetching clients:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch clients",
+      error: error.message,
+    });
+  }
+};
+
+// Update the existing createTaskAssignment function
 export const createTaskAssignment = async (req, res) => {
   try {
     const {
       bucketName,
+      projectCategory,
+      clientId,
       assignedTo,
       assignDate,
       deadline,
@@ -15,55 +44,116 @@ export const createTaskAssignment = async (req, res) => {
       status,
       tagMembers,
       attachmentRequired,
-      recurring,
       taskDescription,
-      remark,
     } = req.body;
 
-    // Get companyId and adminId from the JWT token
-    const { companyId, adminId } = req.user;
+    const { adminId, companyId } = req.user;
 
-    // Basic validation
+    // Validate required fields
     if (
       !bucketName ||
+      !projectCategory ||
       !assignedTo ||
       !assignDate ||
       !deadline ||
       !taskDescription
     ) {
       return res.status(400).json({
+        success: false,
         message: "Required fields are missing",
       });
     }
 
-    const newTaskAssignment = new TaskAssignment({
+    // Validate client selection for Client category
+    if (projectCategory === "Client" && !clientId) {
+      return res.status(400).json({
+        success: false,
+        message: "Client selection is required for Client category projects",
+      });
+    }
+
+    // Verify that the assignedTo user exists and belongs to the same company
+    const assignedUser = await User.findOne({ _id: assignedTo, companyId });
+    if (!assignedUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Assigned user not found or doesn't belong to your company",
+      });
+    }
+
+    // If clientId is provided, verify it exists and belongs to the same company
+    if (clientId) {
+      const client = await Client.findOne({ _id: clientId, companyId });
+      if (!client) {
+        return res.status(400).json({
+          success: false,
+          message: "Client not found or doesn't belong to your company",
+        });
+      }
+    }
+
+    // Validate tag members if provided
+    if (tagMembers && tagMembers.length > 0) {
+      const validTagMembers = await User.find({
+        _id: { $in: tagMembers },
+        companyId,
+      });
+
+      if (validTagMembers.length !== tagMembers.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Some tagged members are invalid",
+        });
+      }
+    }
+
+    // Create the task assignment
+    const taskAssignment = new TaskAssignment({
       bucketName,
+      projectCategory,
+      clientId: projectCategory === "Client" ? clientId : undefined,
       assignedTo,
-      assignedBy: adminId, // Use the adminId from JWT token
-      companyId, // Use the companyId from JWT token
+      assignedBy: adminId,
+      companyId,
       assignDate: new Date(assignDate),
       deadline: new Date(deadline),
-      dueTime: dueTime || undefined,
+      dueTime,
       priority: priority || "Medium",
       status: status || "Open",
-      tagMembers: tagMembers || [], // Store as array of user IDs
+      tagMembers: tagMembers || [],
       attachmentRequired: attachmentRequired || false,
       taskDescription,
     });
 
-    const savedTaskAssignment = await newTaskAssignment.save();
+    const savedTask = await taskAssignment.save();
+
+    // Update client's projectId array if it's a client project
+    if (projectCategory === "Client" && clientId) {
+      await Client.findByIdAndUpdate(
+        clientId,
+        { $addToSet: { projectId: savedTask._id } },
+        { new: true },
+      );
+    }
+
+    // Populate the saved task with user and client details
+    const populatedTask = await TaskAssignment.findById(savedTask._id)
+      .populate("assignedTo", "firstName lastName email")
+      .populate("assignedBy", "fullName email")
+      .populate("clientId", "name email")
+      .populate("tagMembers", "firstName lastName email");
 
     res.status(201).json({
-      message: "Task assignment created successfully",
-      data: savedTaskAssignment,
+      success: true,
+      message: "Task assigned successfully",
+      task: populatedTask,
     });
   } catch (error) {
     console.error("Error creating task assignment:", error);
-    if (error instanceof mongoose.Error.ValidationError) {
-      return res.status(400).json({ message: error.message });
-    }
     res.status(500).json({
-      message: "Server error while creating task assignment",
+      success: false,
+      message: "Failed to create task assignment",
+      error: error.message,
     });
   }
 };

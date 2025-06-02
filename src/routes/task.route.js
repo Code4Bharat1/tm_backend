@@ -13,6 +13,7 @@ import {
   getUnassignedEmployeesForProject,
   updateTaskTagMembers,
   removeMemberFromTask,
+  getAllClientsForTask, // New import
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -28,6 +29,9 @@ router.get("/getTaskStatistics", protectAdmin, getTaskStatistics);
 
 // Get all user emails for task assignment
 router.get("/getAllUserEmails", protect, getAllUserEmails);
+
+// Get all clients for task assignment (Admin only)
+router.get("/getAllClients", protectAdmin, getAllClientsForTask);
 
 // Get ongoing projects with time filtering
 router.get("/getOngoingProjects", protectAdmin, getOngoingProjects);

@@ -6,6 +6,20 @@ const taskAssignmentSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // New fields for project category and client
+  projectCategory: {
+    type: String,
+    enum: ["Self", "Client"],
+    required: true,
+    default: "Self",
+  },
+  clientId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Client",
+    required: function () {
+      return this.projectCategory === "Client";
+    },
+  },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -39,7 +53,7 @@ const taskAssignmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["Open", "In Progress", "Completed", "Deferred", "Closed"], // Added "Closed" status
+    enum: ["Open", "In Progress", "Completed", "Deferred", "Closed"],
     default: "Open",
   },
   tagMembers: [
@@ -69,7 +83,6 @@ const taskAssignmentSchema = new mongoose.Schema({
     type: String,
   },
   remarkDescription: {
-    // New field for closing remark description
     type: String,
   },
   createdAt: {
