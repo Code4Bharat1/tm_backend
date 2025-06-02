@@ -1,8 +1,10 @@
 import crypto from "crypto";
+import mongoose from "mongoose"; // Add mongoose import for ObjectId handling
 import Client from "../models/client.model.js";
 import bcrypt from "bcrypt";
 import { sendMail } from "../service/nodemailerConfig.js";
-import jwt from 'jsonwebtoken'
+import jwt from 'jsonwebtoken';
+
 // Create new client account
 export const registerClient = async (req, res) => {
   try {
@@ -27,12 +29,14 @@ export const registerClient = async (req, res) => {
     const randomNum = crypto.randomInt(1000, 9999);
     const rawPassword = `${name.split(" ")[0]}@${randomNum}`;
 
+    // Hash password before saving
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
     const emailHTML = `
       <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 30px;">
         <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-          <h2 style="color: #333333;">Welcome to Task Tracker, ${
-            name.split(" ")[0]
-          }!</h2>
+          <h2 style="color: #333333;">Welcome to Task Tracker, ${name.split(" ")[0]
+      }!</h2>
           <p style="font-size: 16px; color: #555555;">Your client account has been successfully created.</p>
           <p style="font-size: 16px; color: #555555;">Please use the credentials below to log in:</p>
           <table style="margin-top: 20px; font-size: 16px; color: #333;">
@@ -57,7 +61,7 @@ export const registerClient = async (req, res) => {
       name,
       companyId,
       email,
-      password: rawPassword,
+      password: hashedPassword, // Save hashed password
       phone,
       country,
     });
@@ -93,7 +97,6 @@ export const loginClient = async (req, res) => {
       });
     }
 
-    // 👇 Include password explicitly
     const client = await Client.findOne({ email }).select("+password");
     if (!client) {
       return res.status(404).json({
@@ -143,9 +146,9 @@ export const getAllClients = async (req, res) => {
   try {
     const { companyId } = req.user;
     const clients = await Client.find({ companyId })
-      .select("-password") // Exclude password field
-      .populate("companyId", "companyName") // Populate company name
-      .populate("projectId", "bucketName"); // Populate project names
+      .select("-password")
+      .populate("companyId", "companyName")
+      .populate("projectId", "bucketName");
 
     res.status(200).json({
       success: true,
@@ -191,6 +194,191 @@ export const getClientById = async (req, res) => {
       });
     }
 
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Update client details
+export const updateClient = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, country } = req.body;
+    const { companyId } = req.user;
+
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid client ID format",
+      });
+    }
+
+    // Build update object with allowed fields
+    const updateFields = {};
+    if (name) updateFields.name = name;
+    if (email) updateFields.email = email;
+    if (phone) updateFields.phone = phone;
+    if (country) updateFields.country = country;
+
+    // Prevent updating password through this route
+    if (req.body.password) {
+      return res.status(403).json({
+        success: false,
+        message: "Use password reset endpoint to change password",
+      });
+    }
+
+    // Find and update client with company validation
+    const updatedClient = await Client.findOneAndUpdate(
+      {
+        _id: id,
+        companyId // Ensure client belongs to user's company
+      },
+      updateFields,
+      {
+        new: true, // Return updated document
+        runValidators: true // Run model validators on update
+      }
+    ).select("-password");
+
+    if (!updatedClient) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found or access denied",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Client updated successfully",
+      client: updatedClient,
+    });
+  } catch (error) {
+    console.error("Update client error:", error);
+
+    // Handle duplicate key error (email conflict)
+    if (error.code === 11000 && error.keyPattern?.email) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already in use by another client",
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Delete client
+export const deleteClient = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid client ID format",
+      });
+    }
+
+    // Find and delete client with company validation
+    const client = await Client.findOneAndDelete({
+      _id: id,
+      companyId // Ensure client belongs to user's company
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found or access denied",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Client deleted successfully",
+      client: {
+        id: client._id,
+        name: client.name,
+        email: client.email,
+      },
+    });
+  } catch (error) {
+    console.error("Delete client error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Password reset controller (optional but recommended)
+export const resetClientPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    const { companyId } = req.user;
+
+    // Validate password length
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters",
+      });
+    }
+
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid client ID format",
+      });
+    }
+
+    // Find client with company validation
+    const client = await Client.findOne({
+      _id: id,
+      companyId
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found",
+      });
+    }
+
+    // Hash and save new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    client.password = hashedPassword;
+    await client.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
