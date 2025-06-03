@@ -18,16 +18,31 @@ const protect = (req, res, next) => {
 
 const protectAdmin = (req, res, next) => {
     try {
-        const admintoken = req.cookies.admintoken; // Assuming it's stored as 'token'
+        let admintoken = req.cookies.admintoken; // Assuming it's stored as 'token'
+        console.log('Received admintoken:', admintoken); // Log the token
+    console.log('Cookies:', req.cookies); // Log all cookies
+    console.log('Headers:', req.headers); // Log headers for Authorization
+
+
+    // If not found in cookies, check Authorization header
+        if (!admintoken && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            admintoken = req.headers.authorization.split(' ')[1];
+        }
+
+        console.log('Final token used:', admintoken);
+        console.log('Cookies:', req.cookies);
+        console.log('Headers:', req.headers);
 
         if (!admintoken) {
             return res.status(401).json({ message: 'No token, authorization denied' });
         }
 
         const decoded = jwt.verify(admintoken, process.env.JWT_SECRET);
+        console.log('Decoded token:', decoded); // Log decoded token
         req.user = decoded; // decoded should contain userId or other info
         next();
     } catch (error) {
+        console.error('Token verification error:', error.message);
         return res.status(401).json({ message: 'admintoken is not valid', error });
     }
 };

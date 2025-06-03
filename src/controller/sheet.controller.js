@@ -5,7 +5,7 @@ import {uploadFileToS3,getSignedUrl,deleteFilesFromS3} from "../utils/s3.utils.j
 
 const createSheet =async (req,res) =>{
     try {
-        const {assignedTo, canEdit,userId}= req.body;
+        const {assignedTo, canEdit}= req.body;
         const file =req.file;
         console.log("HII:", req.body);
         console.log("YO:", req.file);
@@ -14,17 +14,19 @@ const createSheet =async (req,res) =>{
             return res.status(400).json({message:"No file uploaded"});
 
            // Step 1: Get actual uploader ObjectId using custom userId (e.g. "ISR183231")
-    const user = await User.findOne({ userId });
-    if (!user)
-      return res.status(404).json({ message: "Uploader user not found" });
+    // const user = await User.findOne({ userId });
+    // if (!user)
+    //   return res.status(404).json({ message: "Uploader user not found" });
 
-    const uploaderId = user._id; // actual ObjectId
+
+// ✅ Admin uploader ID from token (set in protectAdmin middleware)
+    const uploaderId = req.user._id; // actual ObjectId
       // Step 2: Validate assignedTo user exists
-        const assignedUser = await User.findOne({ _id: assignedTo });
+        const assignedUser = await User.findOne({ userId: assignedTo });
         if (!assignedUser)
             return res.status(404).json({ message: "Assigned user not found" });
 
-        const assignedUserId = assignedUser._id;
+        // const assignedUserId = assignedUser._id;
 
          const s3Result = await uploadFileToS3(file); // returns { Location, Key }
 
@@ -32,7 +34,7 @@ const createSheet =async (req,res) =>{
             filename:file.originalname,
             s3url:s3Result.Location,
             uploadedBy:uploaderId,
-            assignedTo: assignedUserId,
+            assignedTo: assignedUser._id,
             canEdit: canEdit === 'true', // Convert to boolean
             lastUpdatedBy:uploaderId,
          });
@@ -55,7 +57,7 @@ const createSheet =async (req,res) =>{
 const getAllSheetsByUser =async (req,res) => {
         try{
             const userId = req.user._id;
-            const uploadSheets=await Sheet.find({uploadedBy:userId}).populate('assignedTo', 'firstName email')
+            const uploadedSheets=await Sheet.find({uploadedBy:userId}).populate('assignedTo', 'firstName email')
             const assignedSheets = await Sheet.find({ assignedTo: userId }).populate('uploadedBy', 'firstName email');
 
             res.status(200).json({
@@ -101,23 +103,25 @@ const deleteSheet = async (req, res) => {
         if (!sheet) return res.status(404).json({ message: 'Sheet not found' });
 
         await deleteFilesFromS3(sheet.s3url);
-        await sheet.remove();
+        await Sheet.findByIdAndDelete(sheetId);
         res.status(200).json({
             message:'Sheet Deleted Successfully',
         });
 
     }
     catch (err) {
+        console.error('deleted',err)
         res.status(500).json({ message: 'Failed deleting sheet' });
     }
 };
 const shareSheetwithEmployee = async (req, res) => {
     try{
-        const {sheetId,employeeId,canEdit} = req.body;
+        const {userId,canEdit} = req.body;
+        const { sheetId }=req.params;
         const sheet = await Sheet.findById(sheetId);
         if (!sheet) return res.status(404).json({message:'Sheet not found'});
 
-        sheet.assignedTo=employeeId;
+        sheet.assignedTo=userId;
         sheet.canEdit = canEdit;
         await sheet.save();
         res.status(200).json({
@@ -126,9 +130,11 @@ const shareSheetwithEmployee = async (req, res) => {
         });
     }
     catch (err) {
+        console.error('share nhi hui ',err)
         res.status(500).json({ message: 'Failed to share sheet' });
     }
 };
+
 const downloadSheet = async (req, res) => {
     try {
         const {sheetId}= req.params;
@@ -155,3 +161,4 @@ export {
     shareSheetwithEmployee,
     downloadSheet
 };
+//done with create,getall,delete,sharesheetwithemployee,downloadsheet

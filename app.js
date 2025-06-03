@@ -62,10 +62,10 @@ app.use(
     credentials: true,
   }),
 );
-app.use('/api/sheet', Sheets);
-app.use(cookieParser()); // Middleware to parse cookies
-
 app.use(express.json());
+app.use(cookieParser()); // Middleware to parse cookies
+app.use('/api/sheet', Sheets);
+
 
 app.get("/", (req, res) => res.send("API is working"));
 

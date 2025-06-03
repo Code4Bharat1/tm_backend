@@ -10,6 +10,7 @@ import {
 } from '../controller/sheet.controller.js';
 import { uploadFileToS3 } from '../utils/s3.utils.js';
 import multer from 'multer';
+import { protectAdmin } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 // // Create a new sheet (with file upload)
@@ -19,8 +20,8 @@ const router = express.Router();
 // // Get all sheets uploaded by a specific user
 
 
-router.post('/create',uploadS3.single('file'),createSheet);
-router.get('/user/:userId', getAllSheetsByUser);
+router.post('/create',protectAdmin,uploadS3.single('file'),createSheet);
+router.get('/user',protectAdmin, getAllSheetsByUser);
 // Update sheet metadata (e.g., title, description, etc.)
 router.put('/update/:sheetId', updateSheet);
 
