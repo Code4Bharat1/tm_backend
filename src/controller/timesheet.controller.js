@@ -4,40 +4,40 @@ import mongoose from "mongoose";
 import moment from "moment";
 
 const getApprovers = async (req, res) => {
-    try {
-        const { companyId } = req.user;
+  try {
+    const { companyId } = req.user;
 
-        if (!companyId) {
-            return res.status(401).json({ success: false, message: 'Unauthorized. Company ID missing.' });
-        }
-
-        // 1. Get all admins for this company
-        const admins = await Admin.find({ companyId }).select('_id fullName');
-
-        // 2. Get all managers from users for this company
-        // const managers = await User.find({ companyId, position: 'Manager' }).select('_id firstName lastName');
-
-        // 3. Format both results
-        const formattedAdmins = admins.map(admin => ({
-            id: admin._id,
-            name: admin.fullName,
-            role: 'admin',
-        }));
-
-        // const formattedManagers = managers.map(manager => ({
-        //     id: manager._id,
-        //     name: `${manager.firstName} ${manager.lastName}`,
-        //     role: 'manager',
-        // }));
-
-        // 4. Merge and send
-        // const approvers = [...formattedAdmins, ...formattedManagers];
-        const approvers = [...formattedAdmins];
-        res.status(200).json({ success: true, data: approvers });
-    } catch (error) {
-        console.error('Error fetching approvers:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
+    if (!companyId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized. Company ID missing.' });
     }
+
+    // 1. Get all admins for this company
+    const admins = await Admin.find({ companyId }).select('_id fullName');
+
+    // 2. Get all managers from users for this company
+    // const managers = await User.find({ companyId, position: 'Manager' }).select('_id firstName lastName');
+
+    // 3. Format both results
+    const formattedAdmins = admins.map(admin => ({
+      id: admin._id,
+      name: admin.fullName,
+      role: 'admin',
+    }));
+
+    // const formattedManagers = managers.map(manager => ({
+    //     id: manager._id,
+    //     name: `${manager.firstName} ${manager.lastName}`,
+    //     role: 'manager',
+    // }));
+
+    // 4. Merge and send
+    // const approvers = [...formattedAdmins, ...formattedManagers];
+    const approvers = [...formattedAdmins];
+    res.status(200).json({ success: true, data: approvers });
+  } catch (error) {
+    console.error('Error fetching approvers:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 };
 // Store Timesheet Controller
 const storeTimesheet = async (
@@ -202,8 +202,8 @@ const updateTimesheet = async (
       true
     ).isValid()
       ? moment(date).format(
-          "YYYY-MM-DD"
-        )
+        "YYYY-MM-DD"
+      )
       : null;
 
     if (!formattedDate) {
@@ -243,7 +243,7 @@ const updateTimesheet = async (
     // Find and update the existing timesheet
     const updated =
       await Timesheet.findOneAndUpdate(
-        { userId,companyId, date: formattedDate },
+        { userId, companyId, date: formattedDate },
         {
           projectName,
           items,
@@ -281,14 +281,15 @@ const getUserTimesheetsByCompany = async (req, res) => {
   const { companyId } = req.user;
 
   try {
-    const timesheets = await Timesheet.find({ companyId })
-      .populate("userId", "firstName lastName email position") // Pick fields to show
+    const timesheets = await Timesheet.find({ companyId, userId: { $ne: null } })
+      .populate("userId", "firstName lastName email position")
       .exec();
+
 
     if (!timesheets || timesheets.length === 0) {
       return res.status(200).json({ success: false, message: "No timesheets found." });
     }
-
+    //console.log(timesheets)
     res.status(200).json({
       success: true,
       count: timesheets.length,

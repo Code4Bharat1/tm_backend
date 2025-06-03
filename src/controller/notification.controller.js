@@ -18,7 +18,7 @@ export const sendLeaveNotification = async (req, res) => {
         const leaves = await Leave.find({ userId }).select("status updatedAt");
 
         if (!leaves || leaves.length === 0) {
-            return res.status(404).json({
+            return res.status(200).json({
                 message: "No leave records found for this user.",
             });
         }
