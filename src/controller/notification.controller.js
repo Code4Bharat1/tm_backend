@@ -318,8 +318,8 @@ export const sendCalendarNotification = async (req, res) => {
 
 export const sendMeetingNotification = async (req, res) => {
     try {
-        const { userId } = req.user;
-
+        const  userId  = req.user.userId || req.user.adminId;
+        console.log(userId)
         if (!userId) {
             return res.status(400).json({
                 message: "User ID is required",

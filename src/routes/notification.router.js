@@ -12,5 +12,6 @@ router.get("/meeting-notification", protect, sendMeetingNotification);
 router.get("/admin-leave-request", protectAdmin, adminSendNotification);
 router.get("/admin-expense-request", protectAdmin, adminExpenseNotification);
 router.get("/admin-calendar-reminder", protectAdmin, adminCalendarNotification);
+router.get("/admin-meeting-notification", protectAdmin, sendMeetingNotification);
 
 export default router;
