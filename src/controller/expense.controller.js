@@ -1,41 +1,7 @@
-import Expense from '../models/expense.model.js';
-import mongoose from 'mongoose';
-import { v2 as cloudinary } from 'cloudinary';
-/**
- * Create a new expense entry
- */
-// export const createExpense = async (req, res) => {
-//   try {
-//     const { expenses } = req.body;
-//     const { userId, companyId } = req.user;
+import Expense from "../models/expense.model.js";
+import mongoose from "mongoose";
+import { v2 as cloudinary } from "cloudinary";
 
-//     const newExpenses = expenses.map((exp) => ({
-//       userId,
-//       companyId,
-//       category: exp.category,
-//       amount: exp.amount,
-//       date: exp.date,
-//       paymentMethod: exp.paymentMethod,
-//       description: exp.description || '',
-//       documents: exp.documents?.map(doc => ({
-//         fileName: doc.fileName,
-//         fileUrl: doc.fileUrl,
-//         filePublicId: doc.filePublicId,
-//         fileResourceType: doc.fileResourceType // Explicitly map this field
-//       })) || []
-//     }));
-
-//     const savedExpenses = await Expense.insertMany(newExpenses);
-
-//     res.status(201).json({
-//       message: 'Expenses created successfully',
-//       data: savedExpenses
-//     });
-//   } catch (error) {
-//     console.error('Error creating expense:', error);
-//     res.status(500).json({ message: 'Internal server error' });
-//   }
-// };
 export const createExpense = async (req, res) => {
   try {
     const { expenses } = req.body;
@@ -48,69 +14,50 @@ export const createExpense = async (req, res) => {
       amount: exp.amount,
       date: exp.date,
       paymentMethod: exp.paymentMethod,
-      description: exp.description || '',
+      description: exp.description || "",
       documents:
         exp.documents?.map((doc) => ({
           fileName: doc.fileName,
           fileUrl: doc.fileUrl,
           filePublicId: doc.filePublicId,
-          fileResourceType: doc.fileResourceType, // Explicitly map this field
+          fileResourceType: doc.fileResourceType,
         })) || [],
-        
-    }
-  ));
+    }));
 
-    const savedExpenses =
-      await Expense.insertMany(newExpenses);
+    const savedExpenses = await Expense.insertMany(newExpenses);
 
     res.status(201).json({
-      message: 'Expenses created successfully',
+      message: "Expenses created successfully",
       data: savedExpenses,
     });
   } catch (error) {
-    console.error(
-      'Error creating expense:',
-      error,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal server error' });
+    console.error("Error creating expense:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
-export const approveExpense = async (
-  req,
-  res,
-) => {
+
+export const approveExpense = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const updated =
-      await Expense.findByIdAndUpdate(
-        id,
-        {
-          status: 'approved',
-          rejectionReason: '',
-        },
-        { new: true },
-      );
+    const updated = await Expense.findByIdAndUpdate(
+      id,
+      {
+        status: "approved",
+        rejectionReason: "",
+      },
+      { new: true },
+    );
 
-    if (!updated)
-      return res
-        .status(404)
-        .json({ message: 'Expense not found' });
+    if (!updated) return res.status(404).json({ message: "Expense not found" });
 
     res.status(200).json({
-      message: 'Expense approved',
+      message: "Expense approved",
       data: updated,
     });
   } catch (err) {
-    console.error(
-      'Error approving expense:',
-      err,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal server error' });
+    console.error("Error approving expense:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -119,39 +66,27 @@ export const rejectExpense = async (req, res) => {
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
-    if (
-      !rejectionReason ||
-      !rejectionReason.trim()
-    ) {
+    if (!rejectionReason || !rejectionReason.trim()) {
       return res.status(400).json({
-        message: 'Rejection reason is required',
+        message: "Rejection reason is required",
       });
     }
 
-    const updated =
-      await Expense.findByIdAndUpdate(
-        id,
-        { status: 'rejected', rejectionReason },
-        { new: true },
-      );
+    const updated = await Expense.findByIdAndUpdate(
+      id,
+      { status: "rejected", rejectionReason },
+      { new: true },
+    );
 
-    if (!updated)
-      return res
-        .status(404)
-        .json({ message: 'Expense not found' });
+    if (!updated) return res.status(404).json({ message: "Expense not found" });
 
     res.status(200).json({
-      message: 'Expense rejected',
+      message: "Expense rejected",
       data: updated,
     });
   } catch (err) {
-    console.error(
-      'Error rejecting expense:',
-      err,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal server error' });
+    console.error("Error rejecting expense:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -160,38 +95,26 @@ export const deleteExpense = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res
-        .status(400)
-        .json({ message: 'Invalid expense ID' });
+      return res.status(400).json({ message: "Invalid expense ID" });
     }
 
     const expense = await Expense.findById(id);
 
     if (!expense) {
-      return res
-        .status(404)
-        .json({ message: 'Expense not found' });
+      return res.status(404).json({ message: "Expense not found" });
     }
 
-    // 🔄 Loop through all attached documents and delete from Cloudinary
+    // Loop through all attached documents and delete from Cloudinary
     for (const doc of expense.documents || []) {
       if (doc.filePublicId) {
         try {
-          const result =
-            await cloudinary.uploader.destroy(
-              doc.filePublicId,
-              {
-                resource_type:
-                  doc.fileResourceType || 'image', // handles images, PDFs, etc.
-              },
-            );
+          const result = await cloudinary.uploader.destroy(doc.filePublicId, {
+            resource_type: doc.fileResourceType || "image",
+          });
 
-          console.log(
-            `Deleted Cloudinary file ${doc.filePublicId}:`,
-            result,
-          );
+          console.log(`Deleted Cloudinary file ${doc.filePublicId}:`, result);
 
-          if (result.result !== 'ok') {
+          if (result.result !== "ok") {
             console.warn(
               `Cloudinary deletion failed for ${doc.filePublicId}:`,
               result,
@@ -206,73 +129,80 @@ export const deleteExpense = async (req, res) => {
       }
     }
 
-    // ❌ Delete the expense from MongoDB
+    // Delete the expense from MongoDB
     await Expense.findByIdAndDelete(id);
 
     res.status(200).json({
-      message:
-        'Expense and associated files deleted successfully',
+      message: "Expense and associated files deleted successfully",
       data: { id: expense._id },
     });
   } catch (error) {
-    console.error(
-      'Error deleting expense:',
-      error,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal server error' });
+    console.error("Error deleting expense:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const getUserExpenses = async (
-  req,
-  res,
-) => {
+export const getUserExpenses = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
+    const { month, year } = req.query;
 
-    const expenses = await Expense.find({
-      userId,
-      companyId,
-    }).sort({ date: -1 });
+    let matchCondition = { userId, companyId };
+
+    // Add month/year filtering if provided
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+      matchCondition.date = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const expenses = await Expense.find(matchCondition).sort({ date: -1 });
 
     res.status(200).json({ data: expenses });
   } catch (error) {
-    console.error(
-      'Error fetching user expenses:',
-      error,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal server error' });
+    console.error("Error fetching user expenses:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
-export const getCompanyExpenses = async (
-  req,
-  res,
-) => {
+export const getCompanyExpenses = async (req, res) => {
   try {
     const { companyId } = req.user;
+    const { id, userId, month, year } = req.query;
 
-    const expenses = await Expense.find({
-      companyId,
-    })
+    // Build the query object
+    const query = { companyId };
+
+    if (id) {
+      query._id = id;
+    }
+
+    if (userId) {
+      query.userId = userId;
+    }
+
+    // Add month/year filtering if provided
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+      query.date = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const expenses = await Expense.find(query)
       .sort({ date: -1 })
-      .populate(
-        'userId',
-        'firstName lastName email',
-      ); // Populate user details
+      .populate("userId", "firstName lastName email");
 
     res.status(200).json({ data: expenses });
   } catch (error) {
-    console.error(
-      'Error fetching company expenses:',
-      error,
-    );
-    res
-      .status(500)
-      .json({ message: 'Internal server error' });
+    console.error("Error fetching company expenses:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };

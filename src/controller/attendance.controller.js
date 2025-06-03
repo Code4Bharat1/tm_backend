@@ -1,19 +1,20 @@
 // controllers/attendanceController.js
-import sharp from 'sharp';
-import Attendance from '../models/attendance.model.js';
-import LocationSetting from '../models/locationSetting.model.js';
-import User from '../models/user.model.js';
-import { getStartOfDayUTC, calculateHours } from '../utils/attendance.utils.js';
-import mongoose from 'mongoose'
+import sharp from "sharp";
+import Attendance from "../models/attendance.model.js";
+import LocationSetting from "../models/locationSetting.model.js";
+import User from "../models/user.model.js";
+import { getStartOfDayUTC, calculateHours } from "../utils/attendance.utils.js";
+import mongoose from "mongoose";
+
 // Convert base64 image string to buffer
 const base64ToBuffer = (base64) => {
-  const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
-  return Buffer.from(base64Data, 'base64');
+  const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
+  return Buffer.from(base64Data, "base64");
 };
 
 // Convert buffer to base64 string with mime type
-const bufferToBase64 = (buffer, mime = 'image/jpeg') => {
-  return `data:${mime};base64,${buffer.toString('base64')}`;
+const bufferToBase64 = (buffer, mime = "image/jpeg") => {
+  return `data:${mime};base64,${buffer.toString("base64")}`;
 };
 
 // Calculate distance (meters) using Haversine formula
@@ -24,19 +25,25 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
 export const punchInController = async (req, res) => {
   try {
-    const { punchInTime, punchInLocation, selfieImage, userLocation } = req.body;
+    const { punchInTime, punchInLocation, selfieImage, userLocation } =
+      req.body;
     const { userId, companyId } = req.user;
 
-    if (!selfieImage || !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
-      return res.status(400).json({ message: 'Valid selfie image required in base64 format.' });
+    if (
+      !selfieImage ||
+      !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Valid selfie image required in base64 format." });
     }
 
     const inputBuffer = base64ToBuffer(selfieImage);
@@ -44,38 +51,55 @@ export const punchInController = async (req, res) => {
       .resize({ width: 300 })
       .jpeg({ quality: 60 })
       .toBuffer();
-    const compressedBase64 = bufferToBase64(compressedBuffer, 'image/jpeg');
+    const compressedBase64 = bufferToBase64(compressedBuffer, "image/jpeg");
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.position !== 'Manager') {
+    if (user.position !== "Manager") {
       if (!userLocation?.latitude || !userLocation?.longitude) {
-        return res.status(400).json({ message: 'User location is required for punch-in' });
+        return res
+          .status(400)
+          .json({ message: "User location is required for punch-in" });
       }
       const locationSetting = await LocationSetting.findOne({ companyId });
       if (!locationSetting) {
-        return res.status(400).json({ message: 'Company location settings not configured' });
+        return res
+          .status(400)
+          .json({ message: "Company location settings not configured" });
       }
       const { latitude, longitude, allowedRadius } = locationSetting;
-      const distance = calculateDistance(latitude, longitude, userLocation.latitude, userLocation.longitude);
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        userLocation.latitude,
+        userLocation.longitude,
+      );
       if (distance > allowedRadius) {
         return res.status(400).json({
-          message: `You are ${Math.round(distance)}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
-          locationError: true
+          message: `You are ${Math.round(
+            distance,
+          )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
+          locationError: true,
         });
       }
     }
 
     const today = new Date(getStartOfDayUTC());
-    const existingAttendance = await Attendance.findOne({ userId, companyId, date: today });
+    const existingAttendance = await Attendance.findOne({
+      userId,
+      companyId,
+      date: today,
+    });
     if (existingAttendance && existingAttendance.punchIn) {
-      return res.status(400).json({ message: 'You have already punched in today' });
+      return res
+        .status(400)
+        .json({ message: "You have already punched in today" });
     }
 
     const punchInDateTime = punchInTime ? new Date(punchInTime) : new Date();
     if (isNaN(punchInDateTime)) {
-      return res.status(400).json({ message: 'Invalid punch-in time' });
+      return res.status(400).json({ message: "Invalid punch-in time" });
     }
 
     const attendance = new Attendance({
@@ -83,31 +107,41 @@ export const punchInController = async (req, res) => {
       companyId,
       date: today,
       punchIn: punchInDateTime,
-      punchInLocation: punchInLocation || 'Office',
-      punchInPhoto: compressedBase64
+      punchInLocation: punchInLocation || "Office",
+      punchInPhoto: compressedBase64,
     });
 
     await attendance.save();
 
     res.status(200).json({
-      message: 'Punch-in successful',
+      message: "Punch-in successful",
       punchInTime: attendance.punchIn,
-      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + ' KB',
+      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + " KB",
     });
-
   } catch (error) {
-    console.error('Punch-in error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Punch-in error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 export const punchOutController = async (req, res) => {
   try {
-    const { punchOutTime, punchOutLocation, emergencyReason, selfieImage, userLocation } = req.body;
+    const {
+      punchOutTime,
+      punchOutLocation,
+      emergencyReason,
+      selfieImage,
+      userLocation,
+    } = req.body;
     const { userId, companyId } = req.user;
 
-    if (!selfieImage || !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)) {
-      return res.status(400).json({ message: 'Valid selfie image required in base64 format.' });
+    if (
+      !selfieImage ||
+      !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Valid selfie image required in base64 format." });
     }
 
     const inputBuffer = base64ToBuffer(selfieImage);
@@ -115,55 +149,74 @@ export const punchOutController = async (req, res) => {
       .resize({ width: 300 })
       .jpeg({ quality: 60 })
       .toBuffer();
-    const compressedBase64 = bufferToBase64(compressedBuffer, 'image/jpeg');
+    const compressedBase64 = bufferToBase64(compressedBuffer, "image/jpeg");
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.position !== 'Manager') {
+    if (user.position !== "Manager") {
       if (!userLocation?.latitude || !userLocation?.longitude) {
-        return res.status(400).json({ message: 'User location is required for punch-out' });
+        return res
+          .status(400)
+          .json({ message: "User location is required for punch-out" });
       }
       const locationSetting = await LocationSetting.findOne({ companyId });
       if (!locationSetting) {
-        return res.status(400).json({ message: 'Company location settings not configured' });
+        return res
+          .status(400)
+          .json({ message: "Company location settings not configured" });
       }
       const { latitude, longitude, allowedRadius } = locationSetting;
-      const distance = calculateDistance(latitude, longitude, userLocation.latitude, userLocation.longitude);
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        userLocation.latitude,
+        userLocation.longitude,
+      );
       if (distance > allowedRadius) {
         return res.status(400).json({
-          message: `You are ${Math.round(distance)}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
-          locationError: true
+          message: `You are ${Math.round(
+            distance,
+          )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
+          locationError: true,
         });
       }
     }
 
     const today = new Date(getStartOfDayUTC());
-    const attendance = await Attendance.findOne({ userId, companyId, date: today });
+    const attendance = await Attendance.findOne({
+      userId,
+      companyId,
+      date: today,
+    });
     if (!attendance || !attendance.punchIn) {
-      return res.status(400).json({ message: 'Punch-in required before punch-out' });
+      return res
+        .status(400)
+        .json({ message: "Punch-in required before punch-out" });
     }
     if (attendance.punchOut) {
-      return res.status(400).json({ message: 'You have already punched out today' });
+      return res
+        .status(400)
+        .json({ message: "You have already punched out today" });
     }
 
     const punchOutDateTime = punchOutTime ? new Date(punchOutTime) : new Date();
     if (isNaN(punchOutDateTime)) {
-      return res.status(400).json({ message: 'Invalid punch-out time' });
+      return res.status(400).json({ message: "Invalid punch-out time" });
     }
 
     const hoursWorked = calculateHours(attendance.punchIn, punchOutDateTime);
-    let status = 'Absent';
+    let status = "Absent";
     if (emergencyReason) {
-      status = 'Emergency';
+      status = "Emergency";
     } else if (hoursWorked >= 8) {
-      status = 'Present';
+      status = "Present";
     } else if (hoursWorked >= 4) {
-      status = 'Half-Day';
+      status = "Half-Day";
     }
 
     attendance.punchOut = punchOutDateTime;
-    attendance.punchOutLocation = punchOutLocation || 'Office';
+    attendance.punchOutLocation = punchOutLocation || "Office";
     attendance.punchOutPhoto = compressedBase64;
     attendance.hoursWorked = hoursWorked;
     attendance.status = status;
@@ -173,19 +226,17 @@ export const punchOutController = async (req, res) => {
     await attendance.save();
 
     res.status(200).json({
-      message: 'Punch-out successful',
+      message: "Punch-out successful",
       punchOutTime: attendance.punchOut,
-      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + ' KB',
+      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + " KB",
       hoursWorked,
-      status
+      status,
     });
-
   } catch (error) {
-    console.error('Punch-out error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error("Punch-out error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 
 export const getTodayAttendance = async (req, res) => {
   try {
@@ -202,7 +253,7 @@ export const getTodayAttendance = async (req, res) => {
       return res.status(200).json({
         punchedIn: false,
         punchedOut: false,
-        status: 'Absent',
+        status: "Absent",
       });
     }
 
@@ -213,15 +264,15 @@ export const getTodayAttendance = async (req, res) => {
       punchedOut: !!attendance.punchOut,
       punchOutTime: attendance.punchOut || null,
       punchOutLocation: attendance.punchOutLocation || null,
-      status: attendance.status || 'Pending',
+      status: attendance.status || "Pending",
       remark: attendance.remark || null,
       totalWorkedHours: attendance.totalWorkedHours || 0,
       overtime: attendance.overtime || 0,
     });
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    console.error("Error fetching attendance:", error);
     res.status(500).json({
-      message: 'Server error fetching attendance',
+      message: "Server error fetching attendance",
       error: error.message,
     });
   }
@@ -230,15 +281,31 @@ export const getTodayAttendance = async (req, res) => {
 export const getParticularUserAttendance = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
-    const attendance = await Attendance.find({ userId, companyId }).sort({ date: -1 });
+    const { month, year } = req.query;
+
+    let matchCondition = { userId, companyId };
+
+    // Add month/year filtering if provided
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+      matchCondition.date = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const attendance = await Attendance.find(matchCondition).sort({
+      date: -1,
+    });
 
     // Return empty array instead of 404 when no records found
     res.status(200).json(attendance || []);
-
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    console.error("Error fetching attendance:", error);
     res.status(500).json({
-      message: 'Server error fetching attendance',
+      message: "Server error fetching attendance",
       error: error.message,
     });
   }
@@ -247,16 +314,39 @@ export const getParticularUserAttendance = async (req, res) => {
 export const getAllAttendance = async (req, res) => {
   try {
     const companyId = req.user.companyId;
+    const { userId, month, year } = req.query;
 
     if (!companyId) {
       return res.status(400).json({ message: "Missing company ID in cookie" });
     }
 
+    // Build match condition
+    const matchCondition = {
+      companyId: new mongoose.Types.ObjectId(companyId),
+    };
+
+    if (userId) {
+      // Validate ObjectId format to prevent errors
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "Invalid userId format" });
+      }
+      matchCondition.userId = new mongoose.Types.ObjectId(userId);
+    }
+
+    // Add month/year filtering if provided
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+      matchCondition.date = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
     const attendanceRecords = await Attendance.aggregate([
       {
-        $match: {
-          companyId: new mongoose.Types.ObjectId(companyId),
-        },
+        $match: matchCondition,
       },
       {
         $lookup: {
@@ -287,14 +377,11 @@ export const getAllAttendance = async (req, res) => {
         },
       },
       {
-        $sort: { date: -1 }, // Most recent records first
+        $sort: { date: -1 },
       },
     ]);
-    // Return empty array instead of 404 when no records found
-    if (!attendanceRecords || attendanceRecords.length === 0) {
-      return res.status(200).json([]);
-    }
-    res.status(200).json(attendanceRecords);
+
+    res.status(200).json(attendanceRecords || []);
   } catch (error) {
     console.error("Error fetching attendance records:", error);
     res.status(500).json({
@@ -307,6 +394,7 @@ export const getAllAttendance = async (req, res) => {
 export const getPositionWiseAttendance = async (req, res) => {
   try {
     const { companyId, position, userId } = req.user;
+    const { month, year } = req.query;
 
     if (!companyId) {
       return res.status(400).json({ message: "Missing company ID in cookie" });
@@ -328,14 +416,30 @@ export const getPositionWiseAttendance = async (req, res) => {
       }
 
       // Use all team member IDs from tagMembers
-      const teamMemberIds = task.tagMembers.map((id) => new mongoose.Types.ObjectId(id));
+      const teamMemberIds = task.tagMembers.map(
+        (id) => new mongoose.Types.ObjectId(id),
+      );
+
+      // Build match condition for team members
+      const matchCondition = {
+        companyId: new mongoose.Types.ObjectId(companyId),
+        userId: { $in: teamMemberIds },
+      };
+
+      // Add month/year filtering if provided
+      if (month && year) {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+        matchCondition.date = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
 
       attendanceRecords = await Attendance.aggregate([
         {
-          $match: {
-            companyId: new mongoose.Types.ObjectId(companyId),
-            userId: { $in: teamMemberIds },
-          },
+          $match: matchCondition,
         },
         {
           $lookup: {
@@ -366,11 +470,25 @@ export const getPositionWiseAttendance = async (req, res) => {
         { $sort: { date: -1 } },
       ]);
     } else if (position === "Manager" || position === "HR") {
+      // Build match condition for all company employees
+      const matchCondition = {
+        companyId: new mongoose.Types.ObjectId(companyId),
+      };
+
+      // Add month/year filtering if provided
+      if (month && year) {
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+        matchCondition.date = {
+          $gte: startDate,
+          $lte: endDate,
+        };
+      }
+
       attendanceRecords = await Attendance.aggregate([
         {
-          $match: {
-            companyId: new mongoose.Types.ObjectId(companyId),
-          },
+          $match: matchCondition,
         },
         {
           $lookup: {
@@ -414,12 +532,11 @@ export const getPositionWiseAttendance = async (req, res) => {
   }
 };
 
-
-
-
 function getStartOfTodayUTC() {
   const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
 }
 
 export async function processAbsentees() {
@@ -439,16 +556,24 @@ export async function processAbsentees() {
           userId: user._id,
           companyId: user.companyId,
           date: todayStart,
-          status: 'Absent',
-          remark: 'Absent',
+          status: "Absent",
+          remark: "Absent",
         }).save();
 
-        console.log(`🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split('T')[0]}`);
+        console.log(
+          `🚫 Marked Absent: ${user._id} for ${
+            todayStart.toISOString().split("T")[0]
+          }`,
+        );
       }
     }
 
-    console.log(`✅ All absentees processed for ${todayStart.toISOString().split('T')[0]}`);
+    console.log(
+      `✅ All absentees processed for ${
+        todayStart.toISOString().split("T")[0]
+      }`,
+    );
   } catch (error) {
-    console.error('❌ Error running absentee cron job:', error.message);
+    console.error("❌ Error running absentee cron job:", error.message);
   }
 }

@@ -24,7 +24,6 @@ import notificationRouter from './src/routes/notification.router.js';
 import Performance from "./src/routes/performance.route.js";
 import ProfileRouter from "./src/routes/profile.route.js";
 import Ticket from './src/routes/raiseTicket.route.js';
-import salaryRoute from "./src/routes/salaryslip.route.js";
 import SignupRouter from "./src/routes/signup.route.js";
 import SuperAdminRouter from "./src/routes/superAdminAuth.route.js";
 import Task from "./src/routes/task.route.js";
@@ -38,6 +37,8 @@ import salesmanRoute from "./src/routes/salesman.route.js"
 import team from './src/routes/team.route.js';
 import { initSocketServer } from "./src/service/socket.js";
 import Sheets from './src/routes/sheet.route.js';
+import SalaryRoute from './src/routes/salary.route.js';
+
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -62,10 +63,10 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
-app.use(cookieParser()); // Middleware to parse cookies
 app.use('/api/sheet', Sheets);
+app.use(cookieParser()); // Middleware to parse cookies
 
+app.use(express.json());
 
 app.get("/", (req, res) => res.send("API is working"));
 
@@ -90,7 +91,7 @@ app.use("/api/upload", UploadRouter);
 app.use("/api/adddocument", adddocument);
 app.use("/api/permissions", permissionsRoute);
 app.use("/api/performance", Performance);
-app.use("/api/salary", salaryRoute);
+app.use("/api/salary", SalaryRoute);
 app.use('/api/ticket', Ticket)
 app.use("/api/admin/loc", loc);
 app.use("/api/meeting", meetingRoute);

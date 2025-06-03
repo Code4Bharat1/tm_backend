@@ -379,7 +379,7 @@ export const getIndividualWeeklyScore = async (req, res) => {
     }).populate("userId", "firstName");
 
     if (!performanceScore)
-      return res.status(404).json({ message: "Not found" });
+      return res.status(200).json({ message: "Not found" });
 
     res.status(200).json(performanceScore);
   } catch (error) {
@@ -464,7 +464,7 @@ export const getIndividualMonthlyScore = async (req, res) => {
     ]);
 
     if (!monthlyScores || monthlyScores.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: "No performance data found for this month",
         data: [],
       });
@@ -615,7 +615,7 @@ export const getIndividualYearlyScore = async (req, res) => {
     ]);
 
     if (!yearlyScores || yearlyScores.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: "No performance data found for this year",
         data: [],
       });
