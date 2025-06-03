@@ -11,7 +11,7 @@ const sheetSchema = new Schema({
     },
     uploadedBy:{
         type:Schema.Types.ObjectId,
-        ref: 'User',
+        ref: 'Admin',
         // required: true,
     },
     assignedTo:{
