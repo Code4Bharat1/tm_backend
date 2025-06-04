@@ -38,7 +38,7 @@ import team from './src/routes/team.route.js';
 import { initSocketServer } from "./src/service/socket.js";
 import Sheets from './src/routes/sheet.route.js';
 import SalaryRoute from './src/routes/salary.route.js';
-
+import EventRouter from './src/routes/event.route.js';
 dotenv.config();
 const Port = process.env.PORT;
 const app = express();
@@ -100,6 +100,7 @@ app.use("/api/admin/client", client);
 app.use("/api", notificationRouter);
 app.use("/api", salesmanRoute);
 app.use("/api/location", LocationRouter);
+app.use("/api/event", EventRouter);
 
 
 cron.schedule("29 18 * * *", async () => {
