@@ -25,33 +25,32 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
 export const punchInController = async (req, res) => {
   try {
-    const { punchInTime, punchInLocation, selfieImage, userLocation } =
-      req.body;
+    const {
+      punchInTime,
+      punchInLocation,
+      selfieImage,
+      selfiePublicId,
+      userLocation,
+    } = req.body;
     const { userId, companyId } = req.user;
 
+    // Updated validation to check for Cloudinary URL instead of base64
     if (
       !selfieImage ||
-      !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)
+      !selfieImage.startsWith("https://res.cloudinary.com/")
     ) {
       return res
         .status(400)
-        .json({ message: "Valid selfie image required in base64 format." });
+        .json({ message: "Valid selfie image URL required from Cloudinary." });
     }
-
-    const inputBuffer = base64ToBuffer(selfieImage);
-    const compressedBuffer = await sharp(inputBuffer)
-      .resize({ width: 300 })
-      .jpeg({ quality: 60 })
-      .toBuffer();
-    const compressedBase64 = bufferToBase64(compressedBuffer, "image/jpeg");
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -108,7 +107,8 @@ export const punchInController = async (req, res) => {
       date: today,
       punchIn: punchInDateTime,
       punchInLocation: punchInLocation || "Office",
-      punchInPhoto: compressedBase64,
+      punchInPhoto: selfieImage, // Store Cloudinary URL directly
+      punchInPhotoPublicId: selfiePublicId, // Store public ID for potential deletion
     });
 
     await attendance.save();
@@ -116,7 +116,7 @@ export const punchInController = async (req, res) => {
     res.status(200).json({
       message: "Punch-in successful",
       punchInTime: attendance.punchIn,
-      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + " KB",
+      photoUrl: selfieImage,
     });
   } catch (error) {
     console.error("Punch-in error:", error);
@@ -131,25 +131,20 @@ export const punchOutController = async (req, res) => {
       punchOutLocation,
       emergencyReason,
       selfieImage,
+      selfiePublicId,
       userLocation,
     } = req.body;
     const { userId, companyId } = req.user;
 
+    // Updated validation to check for Cloudinary URL instead of base64
     if (
       !selfieImage ||
-      !/^data:image\/(png|jpeg|jpg);base64,/.test(selfieImage)
+      !selfieImage.startsWith("https://res.cloudinary.com/")
     ) {
       return res
         .status(400)
-        .json({ message: "Valid selfie image required in base64 format." });
+        .json({ message: "Valid selfie image URL required from Cloudinary." });
     }
-
-    const inputBuffer = base64ToBuffer(selfieImage);
-    const compressedBuffer = await sharp(inputBuffer)
-      .resize({ width: 300 })
-      .jpeg({ quality: 60 })
-      .toBuffer();
-    const compressedBase64 = bufferToBase64(compressedBuffer, "image/jpeg");
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -217,7 +212,8 @@ export const punchOutController = async (req, res) => {
 
     attendance.punchOut = punchOutDateTime;
     attendance.punchOutLocation = punchOutLocation || "Office";
-    attendance.punchOutPhoto = compressedBase64;
+    attendance.punchOutPhoto = selfieImage; // Store Cloudinary URL directly
+    attendance.punchOutPhotoPublicId = selfiePublicId; // Store public ID for potential deletion
     attendance.hoursWorked = hoursWorked;
     attendance.status = status;
     attendance.remark = status;
@@ -228,7 +224,7 @@ export const punchOutController = async (req, res) => {
     res.status(200).json({
       message: "Punch-out successful",
       punchOutTime: attendance.punchOut,
-      photoSizeKB: (compressedBuffer.length / 1024).toFixed(2) + " KB",
+      photoUrl: selfieImage,
       hoursWorked,
       status,
     });
@@ -261,9 +257,11 @@ export const getTodayAttendance = async (req, res) => {
       punchedIn: !!attendance.punchIn,
       punchInTime: attendance.punchIn || null,
       punchInLocation: attendance.punchInLocation || null,
+      punchInPhoto: attendance.punchInPhoto || null, // Add this line
       punchedOut: !!attendance.punchOut,
       punchOutTime: attendance.punchOut || null,
       punchOutLocation: attendance.punchOutLocation || null,
+      punchOutPhoto: attendance.punchOutPhoto || null, // Add this line
       status: attendance.status || "Pending",
       remark: attendance.remark || null,
       totalWorkedHours: attendance.totalWorkedHours || 0,
@@ -370,7 +368,7 @@ export const getAllAttendance = async (req, res) => {
           overtime: 1,
           status: 1,
           remark: 1,
-          emergencyReason:1,
+          emergencyReason: 1,
           "userInfo.firstName": 1,
           "userInfo.lastName": 1,
           "userInfo.email": 1,
@@ -562,16 +560,14 @@ export async function processAbsentees() {
         }).save();
 
         console.log(
-          `🚫 Marked Absent: ${user._id} for ${
-            todayStart.toISOString().split("T")[0]
+          `🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split("T")[0]
           }`,
         );
       }
     }
 
     console.log(
-      `✅ All absentees processed for ${
-        todayStart.toISOString().split("T")[0]
+      `✅ All absentees processed for ${todayStart.toISOString().split("T")[0]
       }`,
     );
   } catch (error) {
