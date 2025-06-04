@@ -30,7 +30,7 @@ router.put(
 
 router.get('/admin/timesheets', protectAdmin, getUserTimesheetsByCompany);
 router.get('/user/timesheets', protect, getTeamTimesheet);
-router.get('/approvers', protect, getApprovers);
+router.get('/user/approvers', protect, getApprovers);
 // Route to get timesheet
 // router.get('/get', (req, res) => {
 //     // Logic to get timesheet
