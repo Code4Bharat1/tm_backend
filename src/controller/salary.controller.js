@@ -2,6 +2,7 @@
 import Salary from "../models/salary.model.js";
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
+import { decrypt } from "../utils/encryption.js";
 
 export const createSalary = async (req, res) => {
   try {
@@ -160,7 +161,8 @@ export const getSalaryDetails = async (req, res) => {
     // Build query object
     const query = { companyId, userId };
 
-    if(!userId) return res.status(400).json({message: "User id is required"})
+    if (!userId)
+      return res.status(400).json({ message: "User id is required" });
 
     if (month && year) {
       const payslipMonth = `${year}-${month.padStart(2, "0")}`;
@@ -168,7 +170,7 @@ export const getSalaryDetails = async (req, res) => {
     }
 
     const salaries = await Salary.find(query)
-      .populate("userId", "firstName lastName email")
+      .populate("userId", "firstName lastName email userId")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -285,6 +287,130 @@ export const deleteSalary = async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting salary:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+export const getAllSalaries = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    if (!companyId) {
+      return res.status(400).json({ message: "Company ID is required" });
+    }
+
+    const salaries = await Salary.find({ companyId })
+      .populate({
+        path: "userId",
+        select: "firstName lastName email userId position bankDetails",
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      data: salaries,
+    });
+  } catch (error) {
+    console.error("Error fetching all salary records:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Update salary status (for payment processing)
+export const updateSalaryStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { companyId } = req.user;
+    const { status } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid salary ID format" });
+    }
+
+    if (!status || !["draft", "processed", "paid"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    // Find existing salary
+    const existingSalary = await Salary.findOne({ _id: id, companyId });
+    if (!existingSalary) {
+      return res.status(404).json({ message: "Salary record not found" });
+    }
+
+    // Update salary status
+    const updatedSalary = await Salary.findByIdAndUpdate(
+      id,
+      {
+        status,
+        updatedBy: req.user.userId, // Assuming user ID is available in req.user
+      },
+      { new: true },
+    ).populate({
+      path: "userId",
+      select: "firstName lastName email userId position",
+    });
+
+    res.status(200).json({
+      message: `Salary status updated to ${status} successfully`,
+      data: updatedSalary,
+    });
+  } catch (error) {
+    console.error("Error updating salary status:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Enhanced getEmails to include bank details
+export const getEmployeesWithBankDetails = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    if (!companyId) {
+      return res.status(400).json({ message: "Company ID is required" });
+    }
+
+    const users = await User.find(
+      { companyId },
+      {
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        userId: 1,
+        position: 1,
+        bankDetails: 1,
+        _id: 1,
+      },
+    ).sort({ firstName: 1, lastName: 1 });
+
+    const decryptedUsers = users.map((user) => {
+      const decryptedBankDetails = (user.bankDetails || []).map((detail) => ({
+        accountNumber: detail.accountNumber
+          ? decrypt(detail.accountNumber)
+          : "",
+        accountHolderName: detail.accountHolderName
+          ? decrypt(detail.accountHolderName)
+          : "",
+        ifscCode: detail.ifscCode || "",
+        bankName: detail.bankName || "",
+      }));
+
+      return {
+        ...user.toObject(),
+        bankDetails: decryptedBankDetails,
+      };
+    });
+
+    res.status(200).json(decryptedUsers);
+  } catch (error) {
+    console.error("Error fetching users with bank details:", error);
     res.status(500).json({
       message: "Internal server error",
       error: error.message,

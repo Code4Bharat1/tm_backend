@@ -4,8 +4,11 @@ import {
   createSalary,
   checkExistingSalary,
   getEmails,
+  getEmployeesWithBankDetails, // New import
   getSalaryDetails,
+  getAllSalaries, // New import
   updateSalary,
+  updateSalaryStatus, // New import
   deleteSalary,
 } from "../controller/salary.controller.js";
 import { protect, protectAdmin } from "../middleware/authMiddleware.js";
@@ -30,4 +33,15 @@ router.put("/updateSalary/:id", protectAdmin, updateSalary);
 // Route to delete salary
 router.delete("/deleteSalary/:id", protectAdmin, deleteSalary);
 
+router.get("/getAllSalaries", protectAdmin, getAllSalaries);
+
+// Route to get employees with bank details
+router.get(
+  "/getEmployeesWithBankDetails",
+  protectAdmin,
+  getEmployeesWithBankDetails,
+);
+
+// Route to update salary status
+router.put("/updateStatus/:id", protectAdmin, updateSalaryStatus);
 export default router;
