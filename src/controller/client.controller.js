@@ -118,6 +118,7 @@ export const loginClient = async (req, res) => {
         clientId: client._id,
         email: client.email,
         companyId: client.companyId,
+        position: "Client"
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRATION },

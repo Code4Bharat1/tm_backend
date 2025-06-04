@@ -370,6 +370,7 @@ export const getAllAttendance = async (req, res) => {
           overtime: 1,
           status: 1,
           remark: 1,
+          emergencyReason:1,
           "userInfo.firstName": 1,
           "userInfo.lastName": 1,
           "userInfo.email": 1,
