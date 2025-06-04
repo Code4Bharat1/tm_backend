@@ -88,23 +88,23 @@ export const registerClient = async (req, res) => {
 
 export const loginClient = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
+    const { identifier, password } = req.body;
+    // console.log(req.body)
+    if (!identifier || !password) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
 
-    const client = await Client.findOne({ email }).select("+password");
+    const client = await Client.findOne({ email: identifier }).select("+password");
     if (!client) {
       return res.status(404).json({
         success: false,
         message: "Client not found",
       });
     }
-
+    // console.log(client)
     const isMatch = await bcrypt.compare(password, client.password);
     if (!isMatch) {
       return res.status(401).json({
