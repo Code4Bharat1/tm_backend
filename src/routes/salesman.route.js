@@ -1,27 +1,31 @@
-import express from 'express';
+import express from "express";
 import {
-    punchIn,
-    punchOut,
-    getVisits,
-    getVisitsByCompany,
-} from '../controller/salesman.controller.js';
-import {protect, protectAdmin} from '../middleware/authMiddleware.js'
-import multer from 'multer';
-
-// Multer configuration
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, "uploads/"),
-    filename: (req, file, cb) =>
-        cb(null, Date.now() + "-" + file.originalname),
-});
-
-const upload = multer({ storage });
+  punchIn,
+  punchOut,
+  getVisits,
+  getVisitsByCompany,
+} from "../controller/salesman.controller.js";
+import { protect, protectAdmin } from "../middleware/authMiddleware.js";
+import { uploadSalesmanPunch } from "../middleware/multer.middleware.js";
 
 const router = express.Router();
 
-router.post('/salesman/punch-in', protect ,upload.single('photo'),punchIn);
-router.post('/salesman/punch-out',protect,upload.single('photo'), punchOut);
-router.get('/salesman/visits',protect, getVisits);
-router.get('/salesman/userVisits', protectAdmin, getVisitsByCompany);
+// Updated routes with Cloudinary upload middleware
+router.post(
+  "/salesman/punch-in",
+  protect,
+  uploadSalesmanPunch.single("photo"),
+  punchIn,
+);
+router.post(
+  "/salesman/punch-out",
+  protect,
+  uploadSalesmanPunch.single("photo"),
+  punchOut,
+);
+
+// ... rest of the routes remain unchanged
+router.get("/salesman/visits", protect, getVisits);
+router.get("/salesman/userVisits", protectAdmin, getVisitsByCompany);
 
 export default router;

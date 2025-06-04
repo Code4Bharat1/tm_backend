@@ -198,7 +198,7 @@ export const getCompanyExpenses = async (req, res) => {
 
     const expenses = await Expense.find(query)
       .sort({ date: -1 })
-      .populate("userId", "firstName lastName email");
+      .populate("userId", "photoUrl firstName lastName email");
 
     res.status(200).json({ data: expenses });
   } catch (error) {

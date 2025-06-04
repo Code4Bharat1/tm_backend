@@ -1,9 +1,9 @@
-import SalesmanVisit from '../models/salesman.model.js';
-import User from '../models/user.model.js';
+import SalesmanVisit from "../models/salesman.model.js";
+import User from "../models/user.model.js";
 
 export const isSalesman = async (userId) => {
   const user = await User.findById(userId);
-  return user && user.position === 'Salesman';
+  return user && user.position === "Salesman";
 };
 
 // Punch In
@@ -11,19 +11,30 @@ export const punchIn = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
     const { latitude, longitude, notes } = req.body;
-    const photoPath = req.file?.path || req.body.photo;
+    const photoPath = req.file ? req.file.path : null; // Cloudinary URL
 
-    if (!await isSalesman(userId)) {
-      return res.status(403).json({ error: 'User is not a Salesman or not found' });
+    if (!(await isSalesman(userId))) {
+      return res
+        .status(403)
+        .json({ error: "User is not a Salesman or not found" });
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    let visitDoc = await SalesmanVisit.findOne({ userId, companyId, date: today });
+    let visitDoc = await SalesmanVisit.findOne({
+      userId,
+      companyId,
+      date: today,
+    });
 
     if (!visitDoc) {
-      visitDoc = new SalesmanVisit({ userId, companyId, date: today, visits: [] });
+      visitDoc = new SalesmanVisit({
+        userId,
+        companyId,
+        date: today,
+        visits: [],
+      });
     }
 
     visitDoc.visits.push({
@@ -35,36 +46,49 @@ export const punchIn = async (req, res) => {
 
     await visitDoc.save();
 
-    res.status(200).json({ message: 'Punch-in recorded successfully', visit: visitDoc });
+    res
+      .status(200)
+      .json({ message: "Punch-in recorded successfully", visit: visitDoc });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 };
-
 
 // Punch Out
 export const punchOut = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
     const { latitude, longitude } = req.body;
-    const photoPath = req.file?.path || null;
+    const photoPath = req.file ? req.file.path : null; // Cloudinary URL
 
-    if (!await isSalesman(userId)) {
-      return res.status(403).json({ error: 'User is not a Salesman or not found' });
+    if (!(await isSalesman(userId))) {
+      return res
+        .status(403)
+        .json({ error: "User is not a Salesman or not found" });
     }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const visitDoc = await SalesmanVisit.findOne({ userId, companyId, date: today });
+    const visitDoc = await SalesmanVisit.findOne({
+      userId,
+      companyId,
+      date: today,
+    });
 
     if (!visitDoc) {
-      return res.status(400).json({ error: 'No punch-in record found for today' });
+      return res
+        .status(400)
+        .json({ error: "No punch-in record found for today" });
     }
 
-    const lastVisit = [...visitDoc.visits].reverse().find(visit => !visit.punchOut);
+    const lastVisit = [...visitDoc.visits]
+      .reverse()
+      .find((visit) => !visit.punchOut);
     if (!lastVisit) {
-      return res.status(400).json({ error: 'No open punch-in found to punch-out' });
+      return res
+        .status(400)
+        .json({ error: "No open punch-in found to punch-out" });
     }
 
     lastVisit.punchOut = new Date();
@@ -73,28 +97,30 @@ export const punchOut = async (req, res) => {
 
     await visitDoc.save();
 
-    res.status(200).json({ message: 'Punch-out recorded successfully', visit: visitDoc });
+    res
+      .status(200)
+      .json({ message: "Punch-out recorded successfully", visit: visitDoc });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 };
-;
-
 // Get all visits
 export const getVisits = async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const user = await User.findById(userId).select('name position');
-    if (!user || user.position !== 'Salesman') {
-      return res.status(403).json({ error: 'User is not a Salesman or not found' });
+    const user = await User.findById(userId).select("name position");
+    if (!user || user.position !== "Salesman") {
+      return res
+        .status(403)
+        .json({ error: "User is not a Salesman or not found" });
     }
 
     // Get all visit documents for the salesman
     const visitsDocs = await SalesmanVisit.find({ userId }).sort({ date: -1 });
 
-    const visits = visitsDocs.flatMap(doc =>
-      doc.visits.map(visit => ({
+    const visits = visitsDocs.flatMap((doc) =>
+      doc.visits.map((visit) => ({
         date: doc.date,
         punchIn: visit.punchIn,
         punchInPhoto: visit.punchInPhoto,
@@ -103,7 +129,7 @@ export const getVisits = async (req, res) => {
         punchOutPhoto: visit.punchOutPhoto,
         punchOutLocation: visit.punchOutLocation,
         notes: visit.notes,
-      }))
+      })),
     );
 
     res.status(200).json({
@@ -112,7 +138,7 @@ export const getVisits = async (req, res) => {
       visits,
     });
   } catch (err) {
-    res.status(500).json({ error: 'Server error', details: err.message });
+    res.status(500).json({ error: "Server error", details: err.message });
   }
 };
 
@@ -122,7 +148,7 @@ export const getVisitsByCompany = async (req, res) => {
     const { companyId } = req.user;
 
     if (!companyId) {
-      return res.status(400).json({ error: 'companyId is required' });
+      return res.status(400).json({ error: "companyId is required" });
     }
 
     const query = { companyId };
@@ -138,8 +164,8 @@ export const getVisitsByCompany = async (req, res) => {
 
     const visits = await SalesmanVisit.find(query)
       .populate({
-        path: 'userId',
-        select: 'name email',
+        path: "userId",
+        select: "name email",
       })
       .sort({ date: -1 })
       .skip(skip)
@@ -158,7 +184,7 @@ export const getVisitsByCompany = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching visits:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Error fetching visits:", error);
+    res.status(500).json({ error: "Server error" });
   }
 };

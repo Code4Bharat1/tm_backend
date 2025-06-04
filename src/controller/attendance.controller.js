@@ -361,6 +361,8 @@ export const getAllAttendance = async (req, res) => {
         $project: {
           userId: 1,
           date: 1,
+          punchInPhoto: 1,
+          punchOutPhoto: 1,
           punchIn: 1,
           punchInLocation: 1,
           punchOut: 1,
@@ -369,6 +371,7 @@ export const getAllAttendance = async (req, res) => {
           status: 1,
           remark: 1,
           emergencyReason: 1,
+          "userInfo.photoUrl": 1,
           "userInfo.firstName": 1,
           "userInfo.lastName": 1,
           "userInfo.email": 1,
