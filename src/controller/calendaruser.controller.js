@@ -122,7 +122,7 @@ const handleControllerError = (res, error) => {
 
 export const createCalendarEntry = async (req, res) => {
     try {
-        console.log("Received request body:", req.body); // Debugging line
+       //console.log("Received request body:", req.body); // Debugging line
 
         req.body.userId = req.user.userId;
         const role = 'User';
@@ -132,7 +132,7 @@ export const createCalendarEntry = async (req, res) => {
         const data = Object.fromEntries(
             Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
         );
-        console.log("Filtered and validated data:", data); // Debugging line
+        //console.log("Filtered and validated data:", data); // Debugging line
 
         // Custom validation
         const validationErrors = validateEntryData(data);
@@ -155,11 +155,11 @@ export const createCalendarEntry = async (req, res) => {
         }
 
         // Create and save entry
-        console.log("Creating calendar entry with data:", data); // Debugging line
+       // console.log("Creating calendar entry with data:", data); // Debugging line
         const newEntry = new CalendarEntry(data);
         const savedEntry = await newEntry.save();
 
-        console.log("Successfully saved calendar entry:", savedEntry); // Debugging line
+        //console.log("Successfully saved calendar entry:", savedEntry); // Debugging line
         res.status(201).json(savedEntry);
     } catch (error) {
         console.error("Error in createCalendarEntry:", error); // Debugging line
