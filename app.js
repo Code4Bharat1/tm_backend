@@ -40,6 +40,7 @@ import Sheets from './src/routes/sheet.route.js';
 import SalaryRoute from './src/routes/salary.route.js';
 import EventRouter from './src/routes/event.route.js';
 import gameRegistrationRoutes  from './src/routes/gameRegistration.route.js';
+import TodoRoute from './src/routes/todo.route.js'
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -104,6 +105,7 @@ app.use("/api", salesmanRoute);
 app.use("/api/location", LocationRouter);
 app.use("/api/event", EventRouter);
 app.use('/api/registration', gameRegistrationRoutes);
+app.use('/api/todo',TodoRoute);
 
 
 cron.schedule("29 18 * * *", async () => {
