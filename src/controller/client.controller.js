@@ -3,7 +3,7 @@ import mongoose from "mongoose"; // Add mongoose import for ObjectId handling
 import Client from "../models/client.model.js";
 import bcrypt from "bcrypt";
 import { sendMail } from "../service/nodemailerConfig.js";
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 // Create new client account
 export const registerClient = async (req, res) => {
@@ -97,7 +97,9 @@ export const loginClient = async (req, res) => {
       });
     }
 
-    const client = await Client.findOne({ email: identifier }).select("+password");
+    const client = await Client.findOne({ email: identifier }).select(
+      "+password",
+    );
     if (!client) {
       return res.status(404).json({
         success: false,
@@ -113,24 +115,42 @@ export const loginClient = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
+    // const token = jwt.sign(
+    //   {
+    //     clientId: client._id,
+    //     email: client.email,
+    //     companyId: client.companyId,
+    //     position: "Client"
+    //   },
+    //   process.env.JWT_SECRET,
+    //   { expiresIn: process.env.JWT_EXPIRATION },
+    // );
+    const clientToken = jwt.sign(
       {
         clientId: client._id,
         email: client.email,
         companyId: client.companyId,
-        position: "Client"
+        position: "Client",
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRATION },
+      {
+        expiresIn: process.env.JWT_EXPIRATION,
+      },
     );
 
+    res.cookie("clientToken", clientToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
     const clientData = client.toObject();
     delete clientData.password;
 
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
+      clientToken,
       client: clientData,
     });
   } catch (error) {
@@ -237,13 +257,13 @@ export const updateClient = async (req, res) => {
     const updatedClient = await Client.findOneAndUpdate(
       {
         _id: id,
-        companyId // Ensure client belongs to user's company
+        companyId, // Ensure client belongs to user's company
       },
       updateFields,
       {
         new: true, // Return updated document
-        runValidators: true // Run model validators on update
-      }
+        runValidators: true, // Run model validators on update
+      },
     ).select("-password");
 
     if (!updatedClient) {
@@ -271,7 +291,7 @@ export const updateClient = async (req, res) => {
 
     // Handle validation errors
     if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map(err => err.message);
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
         message: "Validation failed",
@@ -304,7 +324,7 @@ export const deleteClient = async (req, res) => {
     // Find and delete client with company validation
     const client = await Client.findOneAndDelete({
       _id: id,
-      companyId // Ensure client belongs to user's company
+      companyId, // Ensure client belongs to user's company
     });
 
     if (!client) {
@@ -359,7 +379,7 @@ export const resetClientPassword = async (req, res) => {
     // Find client with company validation
     const client = await Client.findOne({
       _id: id,
-      companyId
+      companyId,
     });
 
     if (!client) {
