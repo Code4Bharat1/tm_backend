@@ -28,7 +28,7 @@ router.get("/getTasks", protect, getTaskAssignments);
 router.get("/getTaskStatistics", protectAdmin, getTaskStatistics);
 
 // Get all user emails for task assignment
-router.get("/getAllUserEmails", protect, getAllUserEmails);
+router.get("/getAllUserEmails", protectAdmin, getAllUserEmails);
 
 // Get all clients for task assignment (Admin only)
 router.get("/getAllClients", protectAdmin, getAllClientsForTask);
