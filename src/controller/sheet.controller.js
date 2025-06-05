@@ -21,7 +21,7 @@ export const createSheet = async (req, res) => {
 
     // 🔍 Check if a sheet with the same name already exists
     const checkQuery = `
-      SELECT id FROM sheets
+      SELECT id FROM "TaskTracker".sheets
       WHERE name = $1 AND org_id = $2 AND createdby_id = $3
       LIMIT 1;
     `;
@@ -39,7 +39,7 @@ export const createSheet = async (req, res) => {
 
     // ✅ Proceed to insert
     const insertQuery = `
-      INSERT INTO sheets (name, createdby_id, org_id, collaborators)
+      INSERT INTO "TaskTracker".sheets (name, createdby_id, org_id, collaborators)
       VALUES ($1, $2, $3, $4::jsonb)
       RETURNING *;
     `;
@@ -74,7 +74,7 @@ export const getSheets = async (req, res) => {
       values = [org_id, user_id];
     } else if (filter === "shared") {
       getSheetsQuery = `
-        SELECT * FROM sheets
+        SELECT * FROM "TaskTracker".sheets
         WHERE org_id = $1
           AND EXISTS (
             SELECT 1 FROM jsonb_array_elements(collaborators) AS coll
@@ -85,7 +85,7 @@ export const getSheets = async (req, res) => {
     } else {
       // Get both owned and shared
       getSheetsQuery = `
-        SELECT * FROM sheets
+        SELECT * FROM "TaskTracker".sheets
         WHERE org_id = $1
           AND (
             createdby_id = $2
@@ -137,7 +137,7 @@ export const createCells = async (req, res) => {
     // Step 1: Fetch sheet owner and collaborators (collaborators is JSON array of objects)
     const accessQuery = `
       SELECT createdby_id, collaborators
-      FROM sheets
+      FROM "TaskTracker".sheets
       WHERE id = $1
     `;
     const accessResult = await pool.query(accessQuery, [sheet_id]);
@@ -184,9 +184,9 @@ export const createCells = async (req, res) => {
       return res.status(400).json({ message: "No valid cell data provided" });
     }
 
-    // Step 4: Upsert cells (insert or update)
+    // Step 4: Upsert "TaskTracker".cells (insert or update)
     const query = `
-      INSERT INTO cells (
+      INSERT INTO "TaskTracker".cells (
         sheet_id, row_index, column_index, value, formula, last_edited_by
       )
       VALUES ${placeholders.join(", ")}
@@ -225,7 +225,7 @@ export const getCells = async (req, res) => {
     // Step 1: Check if user has access to this sheet
     const accessQuery = `
       SELECT createdby_id, collaborators
-      FROM sheets
+      FROM "TaskTracker".sheets
       WHERE id = $1
     `;
     const accessResult = await pool.query(accessQuery, [sheet_id]);
@@ -246,7 +246,7 @@ export const getCells = async (req, res) => {
     }
 
     // Step 2: Build dynamic cell query
-    let query = `SELECT * FROM cells WHERE sheet_id = $1`;
+    let query = `SELECT * FROM "TaskTracker".cells WHERE sheet_id = $1`;
     const values = [sheet_id];
     let index = 2;
 
