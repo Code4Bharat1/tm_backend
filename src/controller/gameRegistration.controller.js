@@ -1,6 +1,6 @@
 import GameRegistration from '../models/gameRegistration.model.js';
 
-const toggleRegistration = async (req, res) => {
+export const toggleRegistration = async (req, res) => {
   const { eventId, registeredGames } = req.body;
 
   try {
@@ -32,4 +32,42 @@ const toggleRegistration = async (req, res) => {
   }
 };
 
-export default toggleRegistration;
+export const registeredUser = async (req, res) => {
+  try {
+    const userId = req.user.userId; // coming from protect middleware (token decoded)
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required to fetch registered games",
+      });
+    }
+
+    const user = await GameRegistration.findOne({ userId });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found or no games registered",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "User's registered games fetched successfully",
+      data: user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user's registered games",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
+
+
