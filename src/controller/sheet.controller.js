@@ -1,167 +1,285 @@
-import Sheet from "../models/sheet.model.js";
+import pool from "../init/pgConnection.js";
 import User from "../models/user.model.js";
-import { uploadFileToS3, getSignedUrl, deleteFilesFromS3 } from "../utils/s3.utils.js";
+import Admin from "../models/admin.model.js";
 
+// Create new sheet with unique name check for particular user in particular organization
+export const createSheet = async (req, res) => {
+  try {
+    const org_id = req.user.companyId;
+    const createdby_id = req.user.userId || req.user.adminId;
 
-const createSheet = async (req, res) => {
-    try {
-        const { assignedTo, canEdit } = req.body;
-        const file = req.file;
-        console.log("HII:", req.body);
-        console.log("YO:", req.file);
-
-        if (!file)
-            return res.status(400).json({ message: "No file uploaded" });
-
-        // Step 1: Get actual uploader ObjectId using custom userId (e.g. "ISR183231")
-        // const user = await User.findOne({ userId });
-        // if (!user)
-        //   return res.status(404).json({ message: "Uploader user not found" });
-
-
-        // ✅ Admin uploader ID from token (set in protectAdmin middleware)
-        const uploaderId = req.user.adminId; // actual ObjectId
-        // Step 2: Validate assignedTo user exists
-        const assignedUser = await User.findOne({ userId: assignedTo });
-        if (!assignedUser)
-            return res.status(404).json({ message: "Assigned user not found" });
-
-        // const assignedUserId = assignedUser._id;
-
-        const s3Result = await uploadFileToS3(file); // returns { Location, Key }
-
-        const newSheet = new Sheet({
-            filename: file.originalname,
-            s3url: s3Result.Location,
-            uploadedBy: uploaderId,
-            assignedTo: assignedUser._id,
-            canEdit: canEdit === 'true', // Convert to boolean
-            lastUpdatedBy: uploaderId,
-        });
-
-        await newSheet.save();
-        res.status(201).json({
-            message: "Sheet Created Successfully",
-            sheet: newSheet
-        });
-        console.log('aagayai', uploaderId);
-        console.log('sheet created ', newSheet);
-    }
-    catch (error) {
-        console.error("Sheet creation error:", error);
-        res.status(500).json({
-            message: "Failed to upload sheet" || error.message,
-        });
+    if (!org_id || !createdby_id) {
+      return res
+        .status(401)
+        .json({ message: "CompanyId or userId is missing" });
     }
 
+    const { name, collaborators = [] } = req.body;
+
+    if (!name)
+      return res.status(400).json({ message: "Missing required fields" });
+
+    // 🔍 Check if a sheet with the same name already exists
+    const checkQuery = `
+      SELECT id FROM sheets
+      WHERE name = $1 AND org_id = $2 AND createdby_id = $3
+      LIMIT 1;
+    `;
+    const checkResult = await pool.query(checkQuery, [
+      name,
+      org_id,
+      createdby_id,
+    ]);
+
+    if (checkResult.rows.length > 0) {
+      return res
+        .status(409)
+        .json({ message: "Sheet with the same name already exists" });
+    }
+
+    // ✅ Proceed to insert
+    const insertQuery = `
+      INSERT INTO sheets (name, createdby_id, org_id, collaborators)
+      VALUES ($1, $2, $3, $4::jsonb)
+      RETURNING *;
+    `;
+    const values = [name, createdby_id, org_id, JSON.stringify(collaborators)];
+    const result = await pool.query(insertQuery, values);
+
+    res
+      .status(201)
+      .json({ result: result.rows[0], message: "Sheet created successfully" });
+  } catch (error) {
+    console.error(`Error creating sheet: ${error}`);
+    res
+      .status(500)
+      .json({ message: "Internal server error in creating spreadsheet" });
+  }
 };
 
-const getAllSheetsByUser = async (req, res) => {
-    try {
-        const adminId = req.user.adminId;
-        console.log("ye h admin ki id ",adminId);
-        const uploadedSheets = await Sheet.find({ uploadedBy: adminId }).populate('assignedTo', 'firstName email')
-        // const assignedSheets = await Sheet.find({ assignedTo: userId }).populate('uploadedBy', 'firstName email');
+export const getSheets = async (req, res) => {
+  try {
+    const org_id = req.user.companyId;
+    const user_id = req.user.userId || req.user.adminId;
+    const filter = req.query.filter || "all"; // 'owned', 'shared', or 'all'
 
-        res.status(200).json({
-            uploadedSheets
-        });
+    let getSheetsQuery = "";
+    let values = [];
+
+    if (filter === "owned") {
+      getSheetsQuery = `
+        SELECT * FROM sheets
+        WHERE org_id = $1 AND createdby_id = $2;
+      `;
+      values = [org_id, user_id];
+    } else if (filter === "shared") {
+      getSheetsQuery = `
+        SELECT * FROM sheets
+        WHERE org_id = $1
+          AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(collaborators) AS coll
+            WHERE coll->>'id' = $2
+          );
+      `;
+      values = [org_id, user_id];
+    } else {
+      // Get both owned and shared
+      getSheetsQuery = `
+        SELECT * FROM sheets
+        WHERE org_id = $1
+          AND (
+            createdby_id = $2
+            OR EXISTS (
+              SELECT 1 FROM jsonb_array_elements(collaborators) AS coll
+              WHERE coll->>'id' = $2
+            )
+          );
+      `;
+      values = [org_id, user_id];
     }
-    catch (err) {
-        res.status(500).json({
-            message: "Failed to fetch sheets",
-            error: err.message
-        });
-    }
+
+    const result = await pool.query(getSheetsQuery, values);
+    const sheets = result.rows;
+
+    // 🧠 Determine if user is admin or normal user
+    const isUser = !!req.user.userId;
+    const creator = isUser
+      ? await User.findById(user_id).select("firstName lastName").lean()
+      : await Admin.findById(user_id).select("fullName").lean();
+
+    const createdByName = isUser
+      ? `${creator?.firstName || ""} ${creator?.lastName || ""}`.trim()
+      : creator?.fullName || "Unknown";
+
+    const populatedSheets = sheets.map((sheet) => ({
+      ...sheet,
+      createdByName,
+    }));
+
+    res.status(200).json({ result: populatedSheets });
+  } catch (error) {
+    console.error(`❌ Error getting sheets: ${error}`);
+    res.status(500).json({
+      message: "Internal server error in getting sheets",
+    });
+  }
 };
 
-const updateSheet = async (req, res) => {
-    try {
-        const { sheetId } = req.params;
-        const { canEdit } = req.body;
+export const createCells = async (req, res) => {
+  try {
+    const { sheet_id, cells } = req.body;
+    const requesterId = req.user.userId || req.user.adminId;
 
-        const sheet = await Sheet.findById(sheetId);
-        if (!sheet) return res.status(404).json({ message: 'Sheet not found' });
-
-        // Only allow update if current user is allowed
-        if (String(sheet.assignedTo) !== String(req.user._id) && String(sheet.uploadedBy) !== String(req.user._id)) {
-            return res.status(403).json({ message: 'Not authorized to update this sheet' });
-        }
-
-        sheet.canEdit = canEdit || sheet.canEdit;
-        sheet.version += 1;
-        sheet.lastUpdatedBy = req.user._id;
-        await sheet.save();
-
-        res.status(200).json({ message: 'Sheet updated', sheet });
-    } catch (err) {
-        res.status(500).json({ message: 'Error updating sheet' });
+    if (!sheet_id || !Array.isArray(cells) || cells.length === 0) {
+      return res.status(400).json({ message: "Missing or invalid input" });
     }
+
+    // Step 1: Fetch sheet owner and collaborators (collaborators is JSON array of objects)
+    const accessQuery = `
+      SELECT createdby_id, collaborators
+      FROM sheets
+      WHERE id = $1
+    `;
+    const accessResult = await pool.query(accessQuery, [sheet_id]);
+
+    if (accessResult.rowCount === 0) {
+      return res.status(404).json({ message: "Sheet not found" });
+    }
+
+    const { createdby_id, collaborators } = accessResult.rows[0];
+
+    // Step 2: Check if requester is owner or collaborator with "editor" role
+    const isOwner = createdby_id === requesterId;
+
+    // collaborators is expected as JSON array: [{ id: string, role: "editor"|"viewer" }]
+    const isEditorCollaborator =
+      Array.isArray(collaborators) &&
+      collaborators.some((c) => c.id === requesterId && c.role === "editor");
+
+    if (!isOwner && !isEditorCollaborator) {
+      return res.status(403).json({
+        message:
+          "Access denied: only owner or collaborators with editor role can modify cells",
+      });
+    }
+
+    // Step 3: Prepare insert values
+    const values = [];
+    const placeholders = [];
+
+    cells.forEach((cell, index) => {
+      const { row_index, column_index, value = null, formula = null } = cell;
+
+      if (typeof row_index !== "number" || typeof column_index !== "number")
+        return;
+
+      const i = index * 6;
+      placeholders.push(
+        `($${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6})`,
+      );
+      values.push(sheet_id, row_index, column_index, value, formula, requesterId);
+    });
+
+    if (values.length === 0) {
+      return res.status(400).json({ message: "No valid cell data provided" });
+    }
+
+    // Step 4: Upsert cells (insert or update)
+    const query = `
+      INSERT INTO cells (
+        sheet_id, row_index, column_index, value, formula, last_edited_by
+      )
+      VALUES ${placeholders.join(", ")}
+      ON CONFLICT (sheet_id, row_index, column_index)
+      DO UPDATE SET 
+        value = EXCLUDED.value,
+        formula = EXCLUDED.formula,
+        last_edited_by = EXCLUDED.last_edited_by,
+        updated_at = NOW()
+      RETURNING *;
+    `;
+
+    const result = await pool.query(query, values);
+
+    res.status(201).json({
+      message: `${result.rowCount} cells created/updated successfully`,
+      cells: result.rows,
+    });
+  } catch (error) {
+    console.error("❌ Error creating cells:", error.message);
+    res.status(500).json({
+      message: "Internal server error while creating cells",
+    });
+  }
 };
 
-const deleteSheet = async (req, res) => {
-    try {
-        const { sheetId } = req.params;
-        const sheet = await Sheet.findById(sheetId);
-        if (!sheet) return res.status(404).json({ message: 'Sheet not found' });
+export const getCells = async (req, res) => {
+  try {
+    const { sheet_id, min_row, max_row, min_col, max_col } = req.query;
+    const requesterId = req.user.userId || req.user.adminId;
 
-        await deleteFilesFromS3(sheet.s3url);
-        await Sheet.findByIdAndDelete(sheetId);
-        res.status(200).json({
-            message: 'Sheet Deleted Successfully',
-        });
+    if (!sheet_id) {
+      return res.status(400).json({ message: "Missing sheet_id" });
+    }
 
-    }
-    catch (err) {
-        console.error('deleted', err)
-        res.status(500).json({ message: 'Failed deleting sheet' });
-    }
-};
-const shareSheetwithEmployee = async (req, res) => {
-    try {
-        const { userId, canEdit } = req.body;
-        const { sheetId } = req.params;
-        const sheet = await Sheet.findById(sheetId);
-        if (!sheet) return res.status(404).json({ message: 'Sheet not found' });
+    // Step 1: Check if user has access to this sheet
+    const accessQuery = `
+      SELECT createdby_id, collaborators
+      FROM sheets
+      WHERE id = $1
+    `;
+    const accessResult = await pool.query(accessQuery, [sheet_id]);
 
-        sheet.assignedTo = userId;
-        sheet.canEdit = canEdit;
-        await sheet.save();
-        res.status(200).json({
-            message: 'Sheet shared successfully',
-            sheet
-        });
+    if (accessResult.rowCount === 0) {
+      return res.status(404).json({ message: "Sheet not found" });
     }
-    catch (err) {
-        console.error('share nhi hui ', err)
-        res.status(500).json({ message: 'Failed to share sheet' });
+
+    const { createdby_id, collaborators } = accessResult.rows[0];
+
+    const hasAccess =
+      createdby_id === requesterId ||
+      (Array.isArray(collaborators) &&
+        collaborators.some((c) => c.id === requesterId));
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this sheet" });
     }
+
+    // Step 2: Build dynamic cell query
+    let query = `SELECT * FROM cells WHERE sheet_id = $1`;
+    const values = [sheet_id];
+    let index = 2;
+
+    if (min_row !== undefined) {
+      query += ` AND row_index >= $${index++}`;
+      values.push(Number(min_row));
+    }
+    if (max_row !== undefined) {
+      query += ` AND row_index <= $${index++}`;
+      values.push(Number(max_row));
+    }
+    if (min_col !== undefined) {
+      query += ` AND column_index >= $${index++}`;
+      values.push(Number(min_col));
+    }
+    if (max_col !== undefined) {
+      query += ` AND column_index <= $${index++}`;
+      values.push(Number(max_col));
+    }
+
+    query += ` ORDER BY row_index ASC, column_index ASC`;
+
+    const result = await pool.query(query, values);
+
+    res.status(200).json({
+      message: "Cells fetched successfully",
+      cells: result.rows,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching cells:", error.message);
+    res.status(500).json({
+      message: "Internal server error while fetching cells",
+    });
+  }
 };
 
-const downloadSheet = async (req, res) => {
-    try {
-        const { sheetId } = req.params;
-        const sheet = await Sheet.findById(sheetId);
-        if (!sheet) return res.status(404).json({
-            message: 'Sheet not found'
-        })
-        const signedUrl = await getSignedUrl(sheet.s3url);
-        res.status(200).json({
-            url: signedUrl
-        });
-    }
-    catch (err) {
-        res.status(500).json({
-            message: 'Failed to download sheet',
-        })
-    }
-};
-export {
-    createSheet,
-    getAllSheetsByUser,
-    updateSheet,
-    deleteSheet,
-    shareSheetwithEmployee,
-    downloadSheet
-};
-//done with create,getall,delete,sharesheetwithemployee,downloadsheet

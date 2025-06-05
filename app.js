@@ -4,9 +4,12 @@ import dotenv from "dotenv";
 import express from "express";
 import http from "http";
 import cron from "node-cron";
-import { processAbsentees } from "./src/controller/attendance.controller.js";
-import { logout } from "./src/controller/logout.controller.js";
+
 import connectDB from "./src/init/dbConnection.js";
+import pool from "./src/init/pgConnection.js";
+
+import { logout } from "./src/controller/logout.controller.js";
+import { processAbsentees } from "./src/controller/attendance.controller.js";
 import adddocument from "./src/routes/adddocument.route.js";
 import AdminRouter from "./src/routes/adminAuth.route.js";
 import AttendanceRouter from "./src/routes/attendance.route.js";
@@ -40,7 +43,6 @@ import Sheets from './src/routes/sheet.route.js';
 import SalaryRoute from './src/routes/salary.route.js';
 import EventRouter from './src/routes/event.route.js';
 import gameRegistrationRoutes  from './src/routes/gameRegistration.route.js';
-import TodoRoute from './src/routes/todo.route.js'
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -66,7 +68,6 @@ app.use(
     credentials: true,
   }),
 );
-app.use('/api/sheet', Sheets);
 app.use(cookieParser()); // Middleware to parse cookies
 
 app.use(express.json());
@@ -105,8 +106,9 @@ app.use("/api", salesmanRoute);
 app.use("/api/location", LocationRouter);
 app.use("/api/event", EventRouter);
 app.use('/api/registration', gameRegistrationRoutes);
-app.use('/api/todo',TodoRoute);
 
+//Spreadsheet route
+app.use('/api/sheets', Sheets)
 
 cron.schedule("29 18 * * *", async () => {
   try {
