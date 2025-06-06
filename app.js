@@ -43,7 +43,7 @@ import { initSocketServer } from "./src/service/socket.js";
 import Sheets from './src/routes/sheet.route.js';
 import SalaryRoute from './src/routes/salary.route.js';
 import EventRouter from './src/routes/event.route.js';
-import gameRegistrationRoutes from './src/routes/gameRegistration.route.js';
+import gameScoreRouter from './src/routes/gameScore.route.js';
 
 dotenv.config();
 const Port = process.env.PORT || 4110;
@@ -111,8 +111,8 @@ const startServer = async () => {
     app.use("/api", salesmanRoute);
     app.use("/api/location", LocationRouter);
     app.use("/api/event", EventRouter);
-    app.use('/api/registration', gameRegistrationRoutes);
     app.use('/api/sheets', Sheets);
+    app.use('/api/gamescore', gameScoreRouter);
 
     cron.schedule("29 18 * * *", async () => {
       try {
