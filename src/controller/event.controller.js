@@ -1,22 +1,25 @@
 import Event from '../models/event.model.js';
 import User from '../models/user.model.js';
 // Save a new event
-export const createEvent = async (req, res) => {
-    try {
-        const { title, date, description, games } = req.body;
+// Example: event.controller.js
 
-        const event = new Event({
-            title,
-            date,
-            games,
-        });
+const createEvent = async (req, res) => {
+  try {
+    const { title, date, time, games } = req.body;
 
-        await event.save();
+    const newEvent = new Event({
+      title,
+      date,
+      time,
+      games
+    });
 
-        res.status(201).json({ message: 'Event created successfully', event });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to create event', error: error.message });
-    }
+    await newEvent.save();
+    res.status(201).json(newEvent);
+  } catch (error) {
+    console.error("Create event error:", error);
+    res.status(500).json({ message: "Failed to create event" });
+  }
 };
 
 export const getAllEvents = async (req, res) => {
@@ -62,7 +65,7 @@ export const getAllEventUserName = async (req, res) => {
     // Fetch users with required fields including position
     const users = await User.find(
       { companyId },
-      "firstName lastName email _id position"  // Added position field
+      "firstName lastName email _id position"
     ).sort({ firstName: 1 });
 
     // Map to desired format including position

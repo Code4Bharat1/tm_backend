@@ -14,7 +14,7 @@ const eventSchema = new mongoose.Schema({
     required:true
   },
   games: [{
-    type: String // store game names or IDs
+    type: String
   }]
 }, { timestamps: true });
 

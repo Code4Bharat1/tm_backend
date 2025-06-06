@@ -36,7 +36,7 @@ export const initSocketServer = async (server) => {
     if (userId) {
       userSocketMap.set(userId, socket.id);
       console.log(`🔌 User ${userId} connected with socket ID: ${socket.id}`);
-    }
+      }
 
     socket.on("disconnect", () => {
       if (userId) {
