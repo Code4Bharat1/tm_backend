@@ -42,12 +42,14 @@ import {
   createSheet,
   getCells,
   getSheets,
+  updateCollaborators,
 } from "../controller/sheet.controller.js";
 
 const router = express.Router();
 
 router.post("/createSheet", protectUserOrAdmin, createSheet);
+router.patch("/updateCollaborators", protectUserOrAdmin, updateCollaborators);
 router.get("/getSheets", protectUserOrAdmin, getSheets);
 router.post("/createCells", protectUserOrAdmin, createCells);
-router.get('/getCells', protectUserOrAdmin, getCells);
+router.get("/getCells", protectUserOrAdmin, getCells);
 export default router;

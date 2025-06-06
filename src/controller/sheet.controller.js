@@ -57,6 +57,75 @@ export const createSheet = async (req, res) => {
   }
 };
 
+// controller to updated collaborators and access (ensures only creator should be able to update)
+export const updateCollaborators = async (req, res) => {
+  try {
+    const { sheet_id, collaboratorId, role } = req.body;
+    const requesterId = req.user.userId || req.user.adminId;
+
+    if (!sheet_id || !collaboratorId || !["editor", "viewer"].includes(role)) {
+      return res.status(400).json({ message: "Missing or invalid input" });
+    }
+
+    // 🔍 Fetch sheet with collaborators
+    const sheetQuery = `
+      SELECT createdby_id, collaborators
+      FROM "TaskTracker".sheets
+      WHERE id = $1;
+    `;
+    const sheetResult = await pool.query(sheetQuery, [sheet_id]);
+
+    if (sheetResult.rowCount === 0) {
+      return res.status(404).json({ message: "Sheet not found" });
+    }
+
+    const { createdby_id, collaborators = [] } = sheetResult.rows[0];
+
+    // 🔐 Only owner can update collaborators
+    if (createdby_id !== requesterId) {
+      return res
+        .status(403)
+        .json({ message: "Only the owner can update collaborators" });
+    }
+
+    // 🧠 Update or add collaborator
+    const updatedCollaborators = Array.isArray(collaborators)
+      ? [...collaborators]
+      : [];
+
+    const existingIndex = updatedCollaborators.findIndex(
+      (c) => c.id === collaboratorId,
+    );
+    if (existingIndex !== -1) {
+      updatedCollaborators[existingIndex].role = role; // update role
+    } else {
+      updatedCollaborators.push({ id: collaboratorId, role });
+    }
+
+    // 📝 Update collaborators in DB
+    const updateQuery = `
+      UPDATE "TaskTracker".sheets
+      SET collaborators = $1::jsonb, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *;
+    `;
+    const updateResult = await pool.query(updateQuery, [
+      JSON.stringify(updatedCollaborators),
+      sheet_id,
+    ]);
+
+    res.status(200).json({
+      message: "Collaborator updated successfully",
+      sheet: updateResult.rows[0],
+    });
+  } catch (error) {
+    console.error("❌ Error updating collaborator:", error.message);
+    res
+      .status(500)
+      .json({ message: "Internal server error while updating collaborator" });
+  }
+};
+
 export const getSheets = async (req, res) => {
   try {
     const org_id = req.user.companyId;
@@ -177,7 +246,14 @@ export const createCells = async (req, res) => {
       placeholders.push(
         `($${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6})`,
       );
-      values.push(sheet_id, row_index, column_index, value, formula, requesterId);
+      values.push(
+        sheet_id,
+        row_index,
+        column_index,
+        value,
+        formula,
+        requesterId,
+      );
     });
 
     if (values.length === 0) {
@@ -282,4 +358,3 @@ export const getCells = async (req, res) => {
     });
   }
 };
-
