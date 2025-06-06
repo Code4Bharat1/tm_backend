@@ -31,3 +31,19 @@ export async function invalidateCellsCache(sheetId) {
   const key = `cells:${sheetId}`;
   await redisClient.del(key);
 }
+
+export async function cacheWorkbooks(orgId, userId, data) {
+  const key = `workbooks:${orgId}:${userId}`;
+  await redisClient.set(key, JSON.stringify(data), "EX", 300); // cache for 5 min
+}
+
+export async function getCachedWorkbooks(orgId, userId) {
+  const key = `workbooks:${orgId}:${userId}`;
+  const data = await redisClient.get(key);
+  return data ? JSON.parse(data) : null;
+}
+
+export async function invalidateWorkbooksCache(orgId, userId) {
+  const key = `workbooks:${orgId}:${userId}`;
+  await redisClient.del(key);
+}
