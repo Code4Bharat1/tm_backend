@@ -1,5 +1,5 @@
 import Event from '../models/event.model.js';
-
+import User from '../models/user.model.js';
 // Save a new event
 export const createEvent = async (req, res) => {
     try {
@@ -53,4 +53,36 @@ export const updateEvent = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: "Failed to update event", error: error.message });
     }
+};
+
+export const getAllEventUserName = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    // Fetch users with required fields including position
+    const users = await User.find(
+      { companyId },
+      "firstName lastName email _id position"  // Added position field
+    ).sort({ firstName: 1 });
+
+    // Map to desired format including position
+    const updatedUsers = users.map((user) => ({
+      fullName: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      userId: user._id,
+      position: user.position  // Added position field
+    }));
+
+    res.status(200).json({
+      message: "User details retrieved successfully",
+      count: updatedUsers.length,
+      data: updatedUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
 };

@@ -1,11 +1,11 @@
 import express from 'express';
-import { createEvent, getAllEvents, deleteEvent, updateEvent } from '../controller/event.controller.js';
-
+import { getAllEvents, deleteEvent, updateEvent, getAllEventUserName } from '../controller/event.controller.js';
+import { protect } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
-router.post('/create', createEvent);
 router.get('/all', getAllEvents);
 router.delete('/:id', deleteEvent);
 router.put('/:id', updateEvent);
+router.get("/user", protect, getAllEventUserName);
 
 export default router;
