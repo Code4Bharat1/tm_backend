@@ -84,11 +84,28 @@ const protectUserOrAdmin = (req, res, next) => {
     }
 };
 
+const protectClient = (req, res, next) => {
+    try {
+        const token = req.cookies.clientToken;
+
+        if (!token) {
+            return res.status(401).json({ message: 'No token, authorization denied' });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Token is not valid', error: error.message });
+    }
+};
+
 export {
     protect,
     protectAdmin,
     protectSuperAdmin,
-    protectUserOrAdmin
+    protectUserOrAdmin,
+    protectClient
 };
 // This middleware checks for a JWT token in the request cookies, verifies it, and attaches the decoded user information to the request object.
 //  If the token is missing or invalid, it sends a 401 Unauthorized response.

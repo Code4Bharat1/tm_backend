@@ -7,6 +7,7 @@ import cron from "node-cron";
 
 import connectDB from "./src/init/dbConnection.js";
 import pool from "./src/init/pgConnection.js";
+import { createSchemaAndTables } from "./src/models/sheet.schema.js"; // <-- update path accordingly
 
 import { logout } from "./src/controller/logout.controller.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
@@ -42,92 +43,97 @@ import { initSocketServer } from "./src/service/socket.js";
 import Sheets from './src/routes/sheet.route.js';
 import SalaryRoute from './src/routes/salary.route.js';
 import EventRouter from './src/routes/event.route.js';
-import gameRegistrationRoutes  from './src/routes/gameRegistration.route.js';
+import gameRegistrationRoutes from './src/routes/gameRegistration.route.js';
 
 dotenv.config();
-const Port = process.env.PORT;
+const Port = process.env.PORT || 4110;
 const app = express();
 
 const router = express.Router();
 
-connectDB();
-
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      "https://task-tracker.code4bharat.com",
-      "https://task-tracker-admin.code4bharat.com",
-      "https://task-tracker-superadmin.code4bharat.com",
-      "https://www.task-tracker.code4bharat.com",
-      "https://www.task-tracker-admin.code4bharat.com",
-      "https://www.task-tracker-superadmin.code4bharat.com",
-    ], // Frontend origin
-    credentials: true,
-  }),
-);
-app.use(cookieParser()); // Middleware to parse cookies
-
-app.use(express.json());
-
-app.get("/", (req, res) => res.send("API is working"));
-
-app.use("/api/user", SignupRouter);
-app.use("/api/user", LoginRouter);
-app.use("/api/user", CalendarRouter);
-app.use("/api/user", BankDetailsRouter);
-app.use("/api/forgotpassword", ForgotPasswordRouter);
-app.use("/api/timesheet", TimesheetRouter);
-app.use("/api/attendance", AttendanceRouter);
-app.use("/api/leave", LeaveRouter);
-app.use("/api/profile", ProfileRouter);
-app.use("/api/admin", AdminRouter);
-app.use("/api/logout", logout);
-app.use("/api/superadmin", SuperAdminRouter);
-app.use("/api/companyRegister", companyRegister);
-app.use("/api/admin", CalendarAdminRouter);
-app.use("/api/admin", CreatePost);
-app.use("/api/tasks", Task);
-app.use("/api/expense", Expenses);
-app.use("/api/upload", UploadRouter);
-app.use("/api/adddocument", adddocument);
-app.use("/api/permissions", permissionsRoute);
-app.use("/api/performance", Performance);
-app.use("/api/salary", SalaryRoute);
-app.use('/api/ticket', Ticket)
-app.use("/api/admin/loc", loc);
-app.use("/api/meeting", meetingRoute);
-app.use("/api/admin/member", team);
-app.use("/api/admin/client", client);
-app.use("/api", notificationRouter);
-app.use("/api", salesmanRoute);
-app.use("/api/location", LocationRouter);
-app.use("/api/event", EventRouter);
-app.use('/api/registration', gameRegistrationRoutes);
-
-//Spreadsheet route
-app.use('/api/sheets', Sheets)
-
-cron.schedule("29 18 * * *", async () => {
+const startServer = async () => {
   try {
-    console.log("✅ Cron job is runns at 11:59 pm IST");
+    // Connect to MongoDB or any other DB if needed
+    await connectDB();
 
-    // Call your actual logic
-    await processAbsentees();
+    // Initialize PostgreSQL schema and tables
+    await createSchemaAndTables();
+
+    app.use(
+      cors({
+        origin: [
+          "http://localhost:3000",
+          "http://localhost:3001",
+          "http://localhost:3002",
+          "https://task-tracker.code4bharat.com",
+          "https://task-tracker-admin.code4bharat.com",
+          "https://task-tracker-superadmin.code4bharat.com",
+          "https://www.task-tracker.code4bharat.com",
+          "https://www.task-tracker-admin.code4bharat.com",
+          "https://www.task-tracker-superadmin.code4bharat.com",
+        ],
+        credentials: true,
+      }),
+    );
+    app.use(cookieParser());
+    app.use(express.json());
+
+    app.get("/", (req, res) => res.send("API is working"));
+
+    app.use("/api/user", SignupRouter);
+    app.use("/api/user", LoginRouter);
+    app.use("/api/user", CalendarRouter);
+    app.use("/api/user", BankDetailsRouter);
+    app.use("/api/forgotpassword", ForgotPasswordRouter);
+    app.use("/api/timesheet", TimesheetRouter);
+    app.use("/api/attendance", AttendanceRouter);
+    app.use("/api/leave", LeaveRouter);
+    app.use("/api/profile", ProfileRouter);
+    app.use("/api/admin", AdminRouter);
+    app.use("/api/logout", logout);
+    app.use("/api/superadmin", SuperAdminRouter);
+    app.use("/api/companyRegister", companyRegister);
+    app.use("/api/admin", CalendarAdminRouter);
+    app.use("/api/admin", CreatePost);
+    app.use("/api/tasks", Task);
+    app.use("/api/expense", Expenses);
+    app.use("/api/upload", UploadRouter);
+    app.use("/api/adddocument", adddocument);
+    app.use("/api/permissions", permissionsRoute);
+    app.use("/api/performance", Performance);
+    app.use("/api/salary", SalaryRoute);
+    app.use('/api/ticket', Ticket);
+    app.use("/api/admin/loc", loc);
+    app.use("/api/meeting", meetingRoute);
+    app.use("/api/admin/member", team);
+    app.use("/api/admin/client", client);
+    app.use("/api", notificationRouter);
+    app.use("/api", salesmanRoute);
+    app.use("/api/location", LocationRouter);
+    app.use("/api/event", EventRouter);
+    app.use('/api/registration', gameRegistrationRoutes);
+    app.use('/api/sheets', Sheets);
+
+    cron.schedule("29 18 * * *", async () => {
+      try {
+        console.log("✅ Cron job is running at 11:59 pm IST");
+        await processAbsentees();
+      } catch (err) {
+        console.error("❌ Cron job error:", err.message);
+      }
+    });
+
+    const server = http.createServer(app);
+    initSocketServer(server);
+
+    server.listen(Port, () => {
+      console.log(`🚀Socket Server running at http://localhost:${Port}`);
+    });
+
   } catch (err) {
-    console.error("❌ Cron job error:", err.message);
+    console.error("❌ Server failed to start:", err);
+    process.exit(1);
   }
-});
+};
 
-const server = http.createServer(app);
-initSocketServer(server); // pass HTTP server to socket setup
-
-server.listen(Port, () => {
-  console.log(`🚀Socket Server running at http://localhost:${Port}`);
-});
-
-app.listen(Port, () => {
-  console.log(`Server running on http://localhost:${Port}`);
-});
+startServer();
