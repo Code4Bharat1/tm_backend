@@ -3,37 +3,35 @@ import GameScore from '../models/gameScore.model.js';
 // gameScore.controller.js
 export const submitScore = async (req, res) => {
   try {
-    // eventId,
-    const {  gameName, score } = req.body;
-
-    // Get userId from the authenticated user (set by protect middleware)
+    const { gameName, score, time } = req.body;
     // const userId = req.user._id;
-    // userId,
-      // eventId,
-      // !eventId ||
+
+    // ✅ Validate first
+    if (!gameName || typeof score !== 'number' || typeof time !== 'number') {
+      return res.status(400).json({ message: 'Missing or invalid required fields' });
+    }
 
     const newScore = new GameScore({
       gameName,
-      score
+      score,
+      time,
     });
-    // In gameScore.controller.js
-    if ( !gameName || typeof score !== 'number') {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
 
     await newScore.save();
+
     res.status(201).json({
       message: 'Score submitted successfully',
-      data: newScore
+      data: newScore,
     });
   } catch (error) {
     console.error('Score submission error:', error);
     res.status(500).json({
       message: 'Error submitting score',
-      error: error.message
+      error: error.message,
     });
   }
 };
+
 
 export const getScores = async (req, res) => {
   try {
