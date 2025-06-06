@@ -1,6 +1,16 @@
 import pool from "../init/pgConnection.js";
 import User from "../models/user.model.js";
 import Admin from "../models/admin.model.js";
+import { emitToSheetParticipants } from "../utils/sheetEventEmit.utils.js";
+import { redlock } from "../service/redisClient.service.js";
+import {
+  cacheSheet,
+  getCachedSheet,
+  invalidateSheetCache,
+  cacheCells,
+  getCachedCells,
+  invalidateCellsCache,
+} from "../service/redisCacheHelper.service.js";
 
 // Create new sheet with unique name check for particular user in particular organization
 export const createSheet = async (req, res) => {
@@ -19,7 +29,7 @@ export const createSheet = async (req, res) => {
     if (!name)
       return res.status(400).json({ message: "Missing required fields" });
 
-    // 🔍 Check if a sheet with the same name already exists
+    // Check if a sheet with the same name already exists
     const checkQuery = `
       SELECT id FROM "TaskTracker".sheets
       WHERE name = $1 AND org_id = $2 AND createdby_id = $3
@@ -37,7 +47,7 @@ export const createSheet = async (req, res) => {
         .json({ message: "Sheet with the same name already exists" });
     }
 
-    // ✅ Proceed to insert
+    // Insert new sheet
     const insertQuery = `
       INSERT INTO "TaskTracker".sheets (name, createdby_id, org_id, collaborators)
       VALUES ($1, $2, $3, $4::jsonb)
@@ -46,9 +56,20 @@ export const createSheet = async (req, res) => {
     const values = [name, createdby_id, org_id, JSON.stringify(collaborators)];
     const result = await pool.query(insertQuery, values);
 
+    const createdSheet = result.rows[0];
+
+    // Cache the newly created sheet
+    await cacheSheet(createdSheet.id, createdSheet);
+
+    // Emit event to creator and collaborators about new sheet
+    emitToSheetParticipants(createdSheet, "sheet_created", {
+      sheet: createdSheet,
+      message: "New sheet created",
+    });
+
     res
       .status(201)
-      .json({ result: result.rows[0], message: "Sheet created successfully" });
+      .json({ result: createdSheet, message: "Sheet created successfully" });
   } catch (error) {
     console.error(`Error creating sheet: ${error}`);
     res
@@ -57,7 +78,7 @@ export const createSheet = async (req, res) => {
   }
 };
 
-// controller to updated collaborators and access (ensures only creator should be able to update)
+// Update collaborators and access (only creator allowed)
 export const updateCollaborators = async (req, res) => {
   try {
     const { sheet_id, collaboratorId, role } = req.body;
@@ -67,9 +88,9 @@ export const updateCollaborators = async (req, res) => {
       return res.status(400).json({ message: "Missing or invalid input" });
     }
 
-    // 🔍 Fetch sheet with collaborators
+    // Fetch sheet with collaborators
     const sheetQuery = `
-      SELECT createdby_id, collaborators
+      SELECT *
       FROM "TaskTracker".sheets
       WHERE id = $1;
     `;
@@ -79,16 +100,17 @@ export const updateCollaborators = async (req, res) => {
       return res.status(404).json({ message: "Sheet not found" });
     }
 
-    const { createdby_id, collaborators = [] } = sheetResult.rows[0];
+    const sheet = sheetResult.rows[0];
+    const { createdby_id, collaborators = [] } = sheet;
 
-    // 🔐 Only owner can update collaborators
+    // Only owner can update collaborators
     if (createdby_id !== requesterId) {
       return res
         .status(403)
         .json({ message: "Only the owner can update collaborators" });
     }
 
-    // 🧠 Update or add collaborator
+    // Update or add collaborator
     const updatedCollaborators = Array.isArray(collaborators)
       ? [...collaborators]
       : [];
@@ -102,7 +124,7 @@ export const updateCollaborators = async (req, res) => {
       updatedCollaborators.push({ id: collaboratorId, role });
     }
 
-    // 📝 Update collaborators in DB
+    // Update collaborators in DB
     const updateQuery = `
       UPDATE "TaskTracker".sheets
       SET collaborators = $1::jsonb, updated_at = NOW()
@@ -114,9 +136,20 @@ export const updateCollaborators = async (req, res) => {
       sheet_id,
     ]);
 
+    const updatedSheet = updateResult.rows[0];
+
+    // Invalidate sheet cache since collaborators changed
+    await invalidateSheetCache(sheet_id);
+
+    // Emit event to sheet participants about collaborator update
+    emitToSheetParticipants(updatedSheet, "sheet_collaborators_updated", {
+      sheet: updatedSheet,
+      message: "Sheet collaborators updated",
+    });
+
     res.status(200).json({
       message: "Collaborator updated successfully",
-      sheet: updateResult.rows[0],
+      sheet: updatedSheet,
     });
   } catch (error) {
     console.error("❌ Error updating collaborator:", error.message);
@@ -126,18 +159,22 @@ export const updateCollaborators = async (req, res) => {
   }
 };
 
+// Get sheets (owned/shared/all)
 export const getSheets = async (req, res) => {
   try {
     const org_id = req.user.companyId;
     const user_id = req.user.userId || req.user.adminId;
     const filter = req.query.filter || "all"; // 'owned', 'shared', or 'all'
 
+    // Note: We can't cache the whole list easily per filter and user with this code as is
+    // Instead, after fetching from DB, cache individual sheets separately to improve later access.
+
     let getSheetsQuery = "";
     let values = [];
 
     if (filter === "owned") {
       getSheetsQuery = `
-        SELECT * FROM sheets
+        SELECT * FROM "TaskTracker".sheets
         WHERE org_id = $1 AND createdby_id = $2;
       `;
       values = [org_id, user_id];
@@ -170,7 +207,10 @@ export const getSheets = async (req, res) => {
     const result = await pool.query(getSheetsQuery, values);
     const sheets = result.rows;
 
-    // 🧠 Determine if user is admin or normal user
+    // Cache each sheet individually
+    await Promise.all(sheets.map((sheet) => cacheSheet(sheet.id, sheet)));
+
+    // Determine if user is admin or normal user
     const isUser = !!req.user.userId;
     const creator = isUser
       ? await User.findById(user_id).select("firstName lastName").lean()
@@ -195,92 +235,121 @@ export const getSheets = async (req, res) => {
 };
 
 export const createCells = async (req, res) => {
+  const { sheet_id, cells } = req.body;
+  const requesterId = req.user.userId || req.user.adminId;
+
+  if (!sheet_id || !Array.isArray(cells) || cells.length === 0) {
+    return res.status(400).json({ message: "Missing or invalid input" });
+  }
+
   try {
-    const { sheet_id, cells } = req.body;
-    const requesterId = req.user.userId || req.user.adminId;
+    // Validate access
+    const sheetResult = await pool.query(
+      `SELECT * FROM "TaskTracker".sheets WHERE id = $1`,
+      [sheet_id],
+    );
 
-    if (!sheet_id || !Array.isArray(cells) || cells.length === 0) {
-      return res.status(400).json({ message: "Missing or invalid input" });
-    }
-
-    // Step 1: Fetch sheet owner and collaborators (collaborators is JSON array of objects)
-    const accessQuery = `
-      SELECT createdby_id, collaborators
-      FROM "TaskTracker".sheets
-      WHERE id = $1
-    `;
-    const accessResult = await pool.query(accessQuery, [sheet_id]);
-
-    if (accessResult.rowCount === 0) {
+    if (sheetResult.rowCount === 0) {
       return res.status(404).json({ message: "Sheet not found" });
     }
 
-    const { createdby_id, collaborators } = accessResult.rows[0];
+    const sheet = sheetResult.rows[0];
+    const { createdby_id, collaborators } = sheet;
 
-    // Step 2: Check if requester is owner or collaborator with "editor" role
     const isOwner = createdby_id === requesterId;
-
-    // collaborators is expected as JSON array: [{ id: string, role: "editor"|"viewer" }]
-    const isEditorCollaborator =
+    const isEditor =
       Array.isArray(collaborators) &&
       collaborators.some((c) => c.id === requesterId && c.role === "editor");
 
-    if (!isOwner && !isEditorCollaborator) {
+    if (!isOwner && !isEditor) {
       return res.status(403).json({
-        message:
-          "Access denied: only owner or collaborators with editor role can modify cells",
+        message: "Only owner or editor collaborators can modify cells",
       });
     }
 
-    // Step 3: Prepare insert values
-    const values = [];
-    const placeholders = [];
+    // Create Redis lock keys per cell
+    const ttl = 5000; // 5s lock time
+    const lockKeys = cells.map(
+      ({ row_index, column_index }) =>
+        `locks:sheet:${sheet_id}:row:${row_index}:col:${column_index}`,
+    );
 
-    cells.forEach((cell, index) => {
-      const { row_index, column_index, value = null, formula = null } = cell;
+    let locks = [];
+    try {
+      locks = await redlock.acquire(lockKeys, ttl);
 
-      if (typeof row_index !== "number" || typeof column_index !== "number")
-        return;
+      // Upsert cells
+      const values = [];
+      const placeholders = [];
 
-      const i = index * 6;
-      placeholders.push(
-        `($${i + 1}, $${i + 2}, $${i + 3}, $${i + 4}, $${i + 5}, $${i + 6})`,
-      );
-      values.push(
-        sheet_id,
-        row_index,
-        column_index,
-        value,
-        formula,
-        requesterId,
-      );
-    });
+      cells.forEach((cell, i) => {
+        const { row_index, column_index, value = null, formula = null } = cell;
+        if (typeof row_index !== "number" || typeof column_index !== "number")
+          return;
 
-    if (values.length === 0) {
-      return res.status(400).json({ message: "No valid cell data provided" });
+        const idx = i * 6;
+        placeholders.push(
+          `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${
+            idx + 6
+          })`,
+        );
+        values.push(
+          sheet_id,
+          row_index,
+          column_index,
+          value,
+          formula,
+          requesterId,
+        );
+      });
+
+      const upsertQuery = `
+        INSERT INTO "TaskTracker".cells (
+          sheet_id, row_index, column_index, value, formula, last_edited_by
+        )
+        VALUES ${placeholders.join(", ")}
+        ON CONFLICT (sheet_id, row_index, column_index)
+        DO UPDATE SET 
+          value = EXCLUDED.value,
+          formula = EXCLUDED.formula,
+          last_edited_by = EXCLUDED.last_edited_by,
+          updated_at = NOW()
+        RETURNING *;
+      `;
+
+      const result = await pool.query(upsertQuery, values);
+
+      // Invalidate cells cache since we modified cell data
+      await invalidateCellsCache(sheet_id);
+
+      emitToSheetParticipants(sheet, "cells_updated", {
+        sheetId: sheet_id,
+        updatedCells: result.rows,
+        message: `${result.rowCount} cells created/updated`,
+      });
+
+      res.status(201).json({
+        message: `${result.rowCount} cells created/updated successfully`,
+        cells: result.rows,
+      });
+    } catch (lockErr) {
+      console.error("🔒 Cell lock error:", lockErr);
+      return res.status(423).json({
+        message:
+          "Some cells are currently being edited. Please try again in a moment.",
+      });
+    } finally {
+      // Release all acquired locks
+      try {
+        if (Array.isArray(locks)) {
+          for (const lock of locks) await lock.release();
+        } else {
+          await locks.release();
+        }
+      } catch (releaseErr) {
+        console.warn("⚠️ Failed to release one or more locks:", releaseErr);
+      }
     }
-
-    // Step 4: Upsert "TaskTracker".cells (insert or update)
-    const query = `
-      INSERT INTO "TaskTracker".cells (
-        sheet_id, row_index, column_index, value, formula, last_edited_by
-      )
-      VALUES ${placeholders.join(", ")}
-      ON CONFLICT (sheet_id, row_index, column_index)
-      DO UPDATE SET 
-        value = EXCLUDED.value,
-        formula = EXCLUDED.formula,
-        last_edited_by = EXCLUDED.last_edited_by,
-        updated_at = NOW()
-      RETURNING *;
-    `;
-
-    const result = await pool.query(query, values);
-
-    res.status(201).json({
-      message: `${result.rowCount} cells created/updated successfully`,
-      cells: result.rows,
-    });
   } catch (error) {
     console.error("❌ Error creating cells:", error.message);
     res.status(500).json({
@@ -289,6 +358,7 @@ export const createCells = async (req, res) => {
   }
 };
 
+// Get cells with optional filtering and caching
 export const getCells = async (req, res) => {
   try {
     const { sheet_id, min_row, max_row, min_col, max_col } = req.query;
@@ -298,7 +368,7 @@ export const getCells = async (req, res) => {
       return res.status(400).json({ message: "Missing sheet_id" });
     }
 
-    // Step 1: Check if user has access to this sheet
+    // Check if user has access to this sheet
     const accessQuery = `
       SELECT createdby_id, collaborators
       FROM "TaskTracker".sheets
@@ -321,7 +391,19 @@ export const getCells = async (req, res) => {
       return res.status(403).json({ message: "Access denied to this sheet" });
     }
 
-    // Step 2: Build dynamic cell query
+    // If no filters, try cache first
+    const noFilters = !min_row && !max_row && !min_col && !max_col;
+    if (noFilters) {
+      const cachedCells = await getCachedCells(sheet_id);
+      if (cachedCells) {
+        return res.status(200).json({
+          message: "Cells fetched successfully (from cache)",
+          cells: cachedCells,
+        });
+      }
+    }
+
+    // Build dynamic cell query
     let query = `SELECT * FROM "TaskTracker".cells WHERE sheet_id = $1`;
     const values = [sheet_id];
     let index = 2;
@@ -347,9 +429,16 @@ export const getCells = async (req, res) => {
 
     const result = await pool.query(query, values);
 
+    const cells = result.rows;
+
+    // Cache only if no filters (full sheet cells)
+    if (noFilters) {
+      await cacheCells(sheet_id, cells);
+    }
+
     res.status(200).json({
       message: "Cells fetched successfully",
-      cells: result.rows,
+      cells,
     });
   } catch (error) {
     console.error("❌ Error fetching cells:", error.message);
