@@ -7,7 +7,7 @@ import cron from "node-cron";
 
 import connectDB from "./src/init/dbConnection.js";
 import pool from "./src/init/pgConnection.js";
-import { createSchemaAndTables } from "./src/models/sheet.schema.js"; // <-- update path accordingly
+import { createSchemaAndTables } from "./src/models/sheet.schema.js";
 
 import { logout } from "./src/controller/logout.controller.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
@@ -46,10 +46,8 @@ import EventRouter from './src/routes/event.route.js';
 import gameScoreRouter from './src/routes/gameScore.route.js';
 
 dotenv.config();
-const Port = process.env.PORT || 4110;
+const Port = process.env.PORT;
 const app = express();
-
-const router = express.Router();
 
 const startServer = async () => {
   try {
@@ -76,7 +74,7 @@ const startServer = async () => {
       }),
     );
     app.use(cookieParser());
-    app.use(express.json());
+    app.use(express.json({ limit: '20mb' }));
 
     app.get("/", (req, res) => res.send("API is working"));
 
@@ -114,14 +112,22 @@ const startServer = async () => {
     app.use('/api/sheets', Sheets);
     app.use('/api/gamescore', gameScoreRouter);
 
-    cron.schedule("29 18 * * *", async () => {
-      try {
-        console.log("✅ Cron job is running at 11:59 pm IST");
-        await processAbsentees();
-      } catch (err) {
-        console.error("❌ Cron job error:", err.message);
+    //automate the absenting who din't punchin at 11:59pm 
+    cron.schedule(
+      "59 23 * * *", // 11:59 PM
+      async () => {
+        try {
+          console.log("✅ Cron job is running at 11:59 PM IST");
+          await processAbsentees();
+        } catch (err) {
+          console.error("❌ Cron job error:", err.message);
+        }
+      },
+      {
+        timezone: "Asia/Kolkata", // IST timezone
+        scheduled: true,
       }
-    });
+    );
 
     const server = http.createServer(app);
     initSocketServer(server);
