@@ -25,7 +25,7 @@ export const loginAdmin = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email/phone or password' });
     }
 
-    const admintoken = jwt.sign({ adminId: admin._id, email: admin.email, companyId: admin.companyId }, process.env.JWT_SECRET, {
+    const admintoken = jwt.sign({ adminId: admin._id, email: admin.email, position: "admin", companyId: admin.companyId }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRATION,
     });
 
