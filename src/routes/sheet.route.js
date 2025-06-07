@@ -44,6 +44,7 @@ import {
   getCells,
   getSheets,
   updateCollaborators,
+  updateSheetName,
 } from "../controller/sheet.controller.js";
 
 const router = express.Router();
@@ -54,4 +55,5 @@ router.delete("/deleteSheet/:sheet_id", protectUserOrAdmin, deleteSheet);
 router.get("/getSheets", protectUserOrAdmin, getSheets);
 router.post("/createCells", protectUserOrAdmin, createCells);
 router.get("/getCells/:sheet_id", protectUserOrAdmin, getCells);
+router.patch("/updateSheetName", protectUserOrAdmin, updateSheetName);
 export default router;

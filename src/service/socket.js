@@ -32,7 +32,7 @@ export const initSocketServer = async (server) => {
   io.adapter(createAdapter(pubClient, subClient));
 
   io.on("connection", (socket) => {
-    const { userId } = socket.handshake.auth;
+    const { userId } =socket.handshake.query || socket.handshake.auth;
     socket.data.userId = userId; // ✅ Persist userId across events
 
     if (userId) {
