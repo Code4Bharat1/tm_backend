@@ -3,24 +3,63 @@ import User from '../models/user.model.js';
 // Save a new event
 // Example: event.controller.js
 
-const createEvent = async (req, res) => {
+export const createEvent = async (req, res) => {
   try {
-    const { title, date, time, games } = req.body;
+    console.log("Received request body:", req.body);
+    console.log("Participants:", req.body.participants);
+    console.log("Participants type:", typeof req.body.participants);
+    console.log("Is participants array:", Array.isArray(req.body.participants));
+
+    const { title, date, time, game, participants } = req.body;
+
+    // Validate required fields
+    if (!title || !date || !time) {
+      return res.status(400).json({ 
+        message: "Title, date, and time are required" 
+      });
+    }
+
+    // Ensure participants is an array
+    let participantIds = [];
+    if (participants) {
+      if (Array.isArray(participants)) {
+        participantIds = participants;
+      } else if (typeof participants === 'string') {
+        // If it's a string, try to parse it as JSON
+        try {
+          participantIds = JSON.parse(participants);
+        } catch (e) {
+          console.error("Failed to parse participants string:", participants);
+          return res.status(400).json({ 
+            message: "Invalid participants format" 
+          });
+        }
+      }
+    }
+
+    console.log("Processed participant IDs:", participantIds);
 
     const newEvent = new Event({
       title,
-      date,
+      date: new Date(date),
       time,
-      games
+      game,
+      participants: participantIds
     });
 
-    await newEvent.save();
-    res.status(201).json(newEvent);
+    const savedEvent = await newEvent.save();
+    console.log("Event saved successfully:", savedEvent);
+    
+    res.status(201).json(savedEvent);
   } catch (error) {
     console.error("Create event error:", error);
-    res.status(500).json({ message: "Failed to create event" });
+    res.status(500).json({ 
+      message: "Failed to create event",
+      error: error.message 
+    });
   }
 };
+
 
 export const getAllEvents = async (req, res) => {
     try {

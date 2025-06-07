@@ -6,16 +6,17 @@ const eventSchema = new mongoose.Schema({
     required: true
   },
   date: {
-    type: String, 
+    type: Date, 
     required: true
   },
   time:{
     type:String,
     required:true
   },
-  games: [{
+  game: {
     type: String
-  }]
+  },
+  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 }, { timestamps: true });
 
 export default mongoose.model('Event', eventSchema);

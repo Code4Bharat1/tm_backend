@@ -40,6 +40,7 @@ import permissionsRoute from "./src/routes/permissions.route.js";
 import salesmanRoute from "./src/routes/salesman.route.js"
 import team from './src/routes/team.route.js';
 import { initSocketServer } from "./src/service/socket.js";
+import { gameSocketService } from "./src/service/gameService.js";
 import Sheets from './src/routes/sheet.route.js';
 import SalaryRoute from './src/routes/salary.route.js';
 import EventRouter from './src/routes/event.route.js';
@@ -125,6 +126,7 @@ const startServer = async () => {
 
     const server = http.createServer(app);
     initSocketServer(server);
+    gameSocketService(server);
 
     server.listen(Port, () => {
       console.log(`🚀Socket Server running at http://localhost:${Port}`);
