@@ -468,7 +468,7 @@ export const createSheet = async (req, res) => {
   try {
     const org_id = req.user.companyId;
     const createdby_id = req.user.userId || req.user.adminId;
-
+    console.log("Creating sheet for org:", org_id, "by user:", createdby_id);
     if (!org_id || !createdby_id) {
       return res.status(401).json({ message: "CompanyId or userId is missing" });
     }
@@ -708,9 +708,10 @@ export const createCells = async (req, res) => {
         `locks:sheet:${sheet_id}:row:${row_index}:col:${column_index}`
     );
 
-    let locks = [];
+    let locks;
     try {
       locks = await redlock.acquire(lockKeys, ttl);
+      locks = Array.isArray(locks) ? locks : [locks]; // Ensure array
 
       // Prepare upsert query
       const values = [];
@@ -728,7 +729,9 @@ export const createCells = async (req, res) => {
       });
 
       if (placeholders.length === 0) {
-        await Promise.all(locks.map((lock) => lock.release()));
+        await Promise.all(
+          locks.map((lock) => lock.release().catch(() => null))
+        );
         return res.status(400).json({ message: "No valid cell data provided" });
       }
 
@@ -749,33 +752,39 @@ export const createCells = async (req, res) => {
       await invalidateSheetCache(sheet_id);
       await invalidateCellsCache(sheet_id);
 
-      // Get updated cells for sheet (fresh)
+      // Get updated cells
       const updatedCellsResult = await pool.query(
         `SELECT * FROM "TaskTracker".cells WHERE sheet_id = $1 ORDER BY row_index, column_index`,
         [sheet_id]
       );
       const updatedCells = updatedCellsResult.rows;
 
-      // Cache updated cells
+      // Cache and notify
       await cacheCells(sheet_id, updatedCells);
 
-      // Emit event to participants
       emitToSheetParticipants(sheet, "cells_updated", {
         sheet_id,
         cells: updatedCells,
         message: "Cells updated",
       });
 
-      // Release all locks
-      await Promise.all(locks.map((lock) => lock.release()));
+      // Release locks
+      await Promise.all(
+        locks.map((lock) => lock.release().catch(() => null))
+      );
 
       return res.status(200).json({
         message: "Cells updated successfully",
         cells: updatedCells,
       });
     } catch (lockError) {
-      // Release any acquired locks if error occurs
-      await Promise.all(locks.map((lock) => lock.release()).catch(() => null));
+      // Release acquired locks if any
+      if (locks) {
+        locks = Array.isArray(locks) ? locks : [locks];
+        await Promise.all(
+          locks.map((lock) => lock.release().catch(() => null))
+        );
+      }
 
       console.error("❌ Redis lock error:", lockError);
       return res.status(423).json({
@@ -789,6 +798,7 @@ export const createCells = async (req, res) => {
     });
   }
 };
+
 
 // Get cells for a sheet with caching
 export const getCells = async (req, res) => {
@@ -821,6 +831,76 @@ export const getCells = async (req, res) => {
     console.error(`❌ Error fetching cells: ${error}`);
     return res.status(500).json({
       message: "Internal server error while fetching cells",
+    });
+  }
+};
+
+export const deleteSheet = async (req, res) => {
+  const { sheet_id } = req.params;
+  const requesterId = req.user.userId || req.user.adminId;
+console.log("Requester ID:", requesterId);
+  if (!sheet_id) {
+    return res.status(400).json({ message: "Missing sheet_id parameter" });
+  }
+
+  if (!requesterId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    // Fetch sheet from DB
+    const sheetResult = await pool.query(
+      `SELECT * FROM "TaskTracker".sheets WHERE id = $1`,
+      [sheet_id]
+    );
+
+    if (sheetResult.rowCount === 0) {
+      return res.status(404).json({ message: "Sheet not found" });
+    }
+
+    const sheet = sheetResult.rows[0];
+
+    // Only owner can delete
+    if (sheet.createdby_id !== requesterId) {
+      return res.status(403).json({
+        message: "Only the sheet owner can delete it",
+      });
+    }
+
+    // Start transaction
+    await pool.query("BEGIN");
+
+    // Delete cells first
+    await pool.query(
+      `DELETE FROM "TaskTracker".cells WHERE sheet_id = $1`,
+      [sheet_id]
+    );
+
+    // Delete sheet
+    await pool.query(
+      `DELETE FROM "TaskTracker".sheets WHERE id = $1`,
+      [sheet_id]
+    );
+
+    // Commit transaction
+    await pool.query("COMMIT");
+
+    // Invalidate Redis cache
+    await invalidateSheetCache(sheet_id);
+    await invalidateCellsCache(sheet_id);
+
+    // Emit event to participants
+    emitToSheetParticipants(sheet, "sheet_deleted", {
+      sheet_id,
+      message: "Sheet deleted",
+    });
+
+    return res.status(200).json({ message: "Sheet deleted successfully" });
+  } catch (error) {
+    await pool.query("ROLLBACK");
+    console.error(`❌ Error deleting sheet: ${error}`);
+    return res.status(500).json({
+      message: "Internal server error while deleting sheet",
     });
   }
 };

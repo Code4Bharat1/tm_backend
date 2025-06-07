@@ -40,6 +40,7 @@ import { protectUserOrAdmin } from "../middleware/authMiddleware.js";
 import {
   createCells,
   createSheet,
+  deleteSheet,
   getCells,
   getSheets,
   updateCollaborators,
@@ -49,7 +50,8 @@ const router = express.Router();
 
 router.post("/createSheet", protectUserOrAdmin, createSheet);
 router.patch("/updateCollaborators", protectUserOrAdmin, updateCollaborators);
+router.delete("/deleteSheet/:sheet_id", protectUserOrAdmin, deleteSheet);
 router.get("/getSheets", protectUserOrAdmin, getSheets);
 router.post("/createCells", protectUserOrAdmin, createCells);
-router.get("/getCells", protectUserOrAdmin, getCells);
+router.get("/getCells/:sheet_id", protectUserOrAdmin, getCells);
 export default router;
