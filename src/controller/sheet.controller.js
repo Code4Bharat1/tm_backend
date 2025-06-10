@@ -11,6 +11,71 @@ import {
   getCachedCells,
   invalidateCellsCache,
 } from "../service/redisCacheHelper.service.js";
+import Users from "../models/user.model.js";
+import Admins from "../models/admin.model.js";
+
+export const getEmails = async (req, res) => {
+  try {
+    const { sheet_id } = req.params; // Expecting sheet_id in route param
+    const { companyId } = req.user;
+
+    if (!sheet_id || !companyId) {
+      return res
+        .status(400)
+        .json({ message: "Sheet ID and Company ID are required" });
+    }
+
+    // 1. Fetch sheet from PostgreSQL
+    const sheetResult = await pool.query(
+      `SELECT createdby_id, collaborators FROM "TaskTracker".sheets WHERE id = $1`,
+      [sheet_id],
+    );
+
+    if (sheetResult.rowCount === 0) {
+      return res.status(404).json({ message: "Sheet not found" });
+    }
+
+    const sheet = sheetResult.rows[0];
+    const { createdby_id, collaborators } = sheet;
+
+    // Extract list of collaborator IDs (array of strings)
+    const collaboratorIds = Array.isArray(collaborators)
+      ? collaborators.map((c) => c.id || c)
+      : [];
+
+    // Combine IDs to exclude (creator + collaborators)
+    const excludedIds = [...collaboratorIds, createdby_id];
+
+    // 2. Fetch Users not in collaborators or creator
+    const users = await Users.find(
+      {
+        companyId,
+        _id: { $nin: excludedIds },
+      },
+      { firstName: 1, lastName: 1, email: 1, _id: 1 },
+    ).sort({ firstName: 1, lastName: 1 });
+
+    // 3. Fetch Admins not in collaborators or creator
+    const admins = await Admins.find(
+      {
+        companyId,
+        _id: { $nin: excludedIds },
+      },
+      { firstName: 1, lastName: 1, email: 1, _id: 1 },
+    ).sort({ firstName: 1, lastName: 1 });
+
+    // 4. Merge both and return
+    const all = [...users, ...admins];
+
+    res.status(200).json(all);
+  } catch (error) {
+    console.error("Error fetching filtered emails:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 // Create new sheet with unique name check for user in org
 export const createSheet = async (req, res) => {
@@ -19,7 +84,9 @@ export const createSheet = async (req, res) => {
     const createdby_id = req.user.userId || req.user.adminId;
     console.log("Creating sheet for org:", org_id, "by user:", createdby_id);
     if (!org_id || !createdby_id) {
-      return res.status(401).json({ message: "CompanyId or userId is missing" });
+      return res
+        .status(401)
+        .json({ message: "CompanyId or userId is missing" });
     }
 
     const { name, collaborators = [] } = req.body;
@@ -34,10 +101,16 @@ export const createSheet = async (req, res) => {
       WHERE name = $1 AND org_id = $2 AND createdby_id = $3
       LIMIT 1;
     `;
-    const checkResult = await pool.query(checkQuery, [name, org_id, createdby_id]);
+    const checkResult = await pool.query(checkQuery, [
+      name,
+      org_id,
+      createdby_id,
+    ]);
 
     if (checkResult.rowCount > 0) {
-      return res.status(409).json({ message: "Sheet with the same name already exists" });
+      return res
+        .status(409)
+        .json({ message: "Sheet with the same name already exists" });
     }
 
     // Insert new sheet
@@ -101,10 +174,14 @@ export const updateCollaborators = async (req, res) => {
     }
 
     // Clone current collaborators array
-    const updatedCollaborators = Array.isArray(collaborators) ? [...collaborators] : [];
+    const updatedCollaborators = Array.isArray(collaborators)
+      ? [...collaborators]
+      : [];
 
     // Find if collaborator exists
-    const existingIndex = updatedCollaborators.findIndex(c => c.id === collaboratorId);
+    const existingIndex = updatedCollaborators.findIndex(
+      (c) => c.id === collaboratorId,
+    );
 
     if (existingIndex !== -1) {
       updatedCollaborators[existingIndex].role = role; // update role
@@ -119,7 +196,10 @@ export const updateCollaborators = async (req, res) => {
       WHERE id = $2
       RETURNING *;
     `;
-    const updateResult = await pool.query(updateQuery, [JSON.stringify(updatedCollaborators), sheet_id]);
+    const updateResult = await pool.query(updateQuery, [
+      JSON.stringify(updatedCollaborators),
+      sheet_id,
+    ]);
 
     const updatedSheet = updateResult.rows[0];
 
@@ -190,7 +270,7 @@ export const getSheets = async (req, res) => {
     const sheets = result.rows;
 
     // Cache each sheet individually
-    await Promise.all(sheets.map(sheet => cacheSheet(sheet.id, sheet)));
+    await Promise.all(sheets.map((sheet) => cacheSheet(sheet.id, sheet)));
 
     // Populate createdByName based on user/admin
     const isUser = !!req.user.userId;
@@ -202,7 +282,7 @@ export const getSheets = async (req, res) => {
       ? `${creator?.firstName || ""} ${creator?.lastName || ""}`.trim()
       : creator?.fullName || "Unknown";
 
-    const populatedSheets = sheets.map(sheet => ({
+    const populatedSheets = sheets.map((sheet) => ({
       ...sheet,
       createdByName,
     }));
@@ -230,7 +310,7 @@ export const createCells = async (req, res) => {
     // Check sheet existence and collaborators
     const sheetResult = await pool.query(
       `SELECT * FROM "TaskTracker".sheets WHERE id = $1`,
-      [sheet_id]
+      [sheet_id],
     );
 
     if (sheetResult.rowCount === 0) {
@@ -255,7 +335,7 @@ export const createCells = async (req, res) => {
     const ttl = 5000; // 5 seconds lock duration
     const lockKeys = cells.map(
       ({ row_index, column_index }) =>
-        `locks:sheet:${sheet_id}:row:${row_index}:col:${column_index}`
+        `locks:sheet:${sheet_id}:row:${row_index}:col:${column_index}`,
     );
 
     let locks;
@@ -269,18 +349,28 @@ export const createCells = async (req, res) => {
 
       cells.forEach((cell, i) => {
         const { row_index, column_index, value = null, formula = null } = cell;
-        if (typeof row_index !== "number" || typeof column_index !== "number") return;
+        if (typeof row_index !== "number" || typeof column_index !== "number")
+          return;
 
         const idx = i * 6;
         placeholders.push(
-          `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6})`
+          `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${
+            idx + 6
+          })`,
         );
-        values.push(sheet_id, row_index, column_index, value, formula, requesterId);
+        values.push(
+          sheet_id,
+          row_index,
+          column_index,
+          value,
+          formula,
+          requesterId,
+        );
       });
 
       if (placeholders.length === 0) {
         await Promise.all(
-          locks.map((lock) => lock.release().catch(() => null))
+          locks.map((lock) => lock.release().catch(() => null)),
         );
         return res.status(400).json({ message: "No valid cell data provided" });
       }
@@ -305,7 +395,7 @@ export const createCells = async (req, res) => {
       // Get updated cells
       const updatedCellsResult = await pool.query(
         `SELECT * FROM "TaskTracker".cells WHERE sheet_id = $1 ORDER BY row_index, column_index`,
-        [sheet_id]
+        [sheet_id],
       );
       const updatedCells = updatedCellsResult.rows;
 
@@ -319,9 +409,7 @@ export const createCells = async (req, res) => {
       });
 
       // Release locks
-      await Promise.all(
-        locks.map((lock) => lock.release().catch(() => null))
-      );
+      await Promise.all(locks.map((lock) => lock.release().catch(() => null)));
 
       return res.status(200).json({
         message: "Cells updated successfully",
@@ -332,7 +420,7 @@ export const createCells = async (req, res) => {
       if (locks) {
         locks = Array.isArray(locks) ? locks : [locks];
         await Promise.all(
-          locks.map((lock) => lock.release().catch(() => null))
+          locks.map((lock) => lock.release().catch(() => null)),
         );
       }
 
@@ -367,7 +455,7 @@ export const getCells = async (req, res) => {
     // Else fetch from DB
     const result = await pool.query(
       `SELECT * FROM "TaskTracker".cells WHERE sheet_id = $1 ORDER BY row_index, column_index`,
-      [sheet_id]
+      [sheet_id],
     );
 
     const cells = result.rows;
@@ -383,7 +471,7 @@ export const getCells = async (req, res) => {
     });
   }
 };
-  
+
 // Update sheet name (only creator allowed)
 export const updateSheetName = async (req, res) => {
   try {
@@ -395,20 +483,29 @@ export const updateSheetName = async (req, res) => {
     // Check if sheet exists and requester is the owner
     const sheetResult = await pool.query(
       `SELECT * FROM "TaskTracker".sheets WHERE id = $1`,
-      [sheet_id]
+      [sheet_id],
     );
     if (sheetResult.rowCount === 0) {
       return res.status(404).json({ message: "Sheet not found" });
     }
     const sheet = sheetResult.rows[0];
     if (sheet.createdby_id !== requesterId) {
-      return res.status(403).json({ message: "Only the owner can rename the sheet" });
+      return res
+        .status(403)
+        .json({ message: "Only the owner can rename the sheet" });
     }
     // Check for duplicate name for this user/org
     const checkQuery = `SELECT id FROM "TaskTracker".sheets WHERE name = $1 AND org_id = $2 AND createdby_id = $3 AND id != $4 LIMIT 1;`;
-    const checkResult = await pool.query(checkQuery, [name, sheet.org_id, requesterId, sheet_id]);
+    const checkResult = await pool.query(checkQuery, [
+      name,
+      sheet.org_id,
+      requesterId,
+      sheet_id,
+    ]);
     if (checkResult.rowCount > 0) {
-      return res.status(409).json({ message: "Sheet with the same name already exists" });
+      return res
+        .status(409)
+        .json({ message: "Sheet with the same name already exists" });
     }
     // Update name
     const updateQuery = `UPDATE "TaskTracker".sheets SET name = $1, updated_at = NOW() WHERE id = $2 RETURNING *;`;
@@ -420,10 +517,17 @@ export const updateSheetName = async (req, res) => {
       sheet: updatedSheet,
       message: "Sheet name updated",
     });
-    return res.status(200).json({ message: "Sheet name updated successfully", sheet: updatedSheet });
+    return res
+      .status(200)
+      .json({
+        message: "Sheet name updated successfully",
+        sheet: updatedSheet,
+      });
   } catch (error) {
     console.error("❌ Error updating sheet name:", error);
-    return res.status(500).json({ message: "Internal server error while updating sheet name" });
+    return res
+      .status(500)
+      .json({ message: "Internal server error while updating sheet name" });
   }
 };
 
@@ -443,7 +547,7 @@ export const deleteSheet = async (req, res) => {
     // Fetch sheet from DB
     const sheetResult = await pool.query(
       `SELECT * FROM "TaskTracker".sheets WHERE id = $1`,
-      [sheet_id]
+      [sheet_id],
     );
 
     if (sheetResult.rowCount === 0) {
@@ -463,16 +567,14 @@ export const deleteSheet = async (req, res) => {
     await pool.query("BEGIN");
 
     // Delete cells first
-    await pool.query(
-      `DELETE FROM "TaskTracker".cells WHERE sheet_id = $1`,
-      [sheet_id]
-    );
+    await pool.query(`DELETE FROM "TaskTracker".cells WHERE sheet_id = $1`, [
+      sheet_id,
+    ]);
 
     // Delete sheet
-    await pool.query(
-      `DELETE FROM "TaskTracker".sheets WHERE id = $1`,
-      [sheet_id]
-    );
+    await pool.query(`DELETE FROM "TaskTracker".sheets WHERE id = $1`, [
+      sheet_id,
+    ]);
 
     // Commit transaction
     await pool.query("COMMIT");
@@ -496,4 +598,3 @@ export const deleteSheet = async (req, res) => {
     });
   }
 };
-

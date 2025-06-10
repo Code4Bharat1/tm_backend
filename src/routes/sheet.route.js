@@ -36,12 +36,13 @@
 // export default router;
 // src/routes/sheet.route.js
 import express from "express";
-import { protectUserOrAdmin } from "../middleware/authMiddleware.js";
+import { protect, protectUserOrAdmin } from "../middleware/authMiddleware.js";
 import {
   createCells,
   createSheet,
   deleteSheet,
   getCells,
+  getEmails,
   getSheets,
   updateCollaborators,
   updateSheetName,
@@ -49,6 +50,7 @@ import {
 
 const router = express.Router();
 
+router.get('/getEmails/:sheet_id', protectUserOrAdmin, getEmails)
 router.post("/createSheet", protectUserOrAdmin, createSheet);
 router.patch("/updateCollaborators", protectUserOrAdmin, updateCollaborators);
 router.delete("/deleteSheet/:sheet_id", protectUserOrAdmin, deleteSheet);
