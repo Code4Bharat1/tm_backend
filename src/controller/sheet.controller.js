@@ -146,6 +146,8 @@ export const createSheet = async (req, res) => {
 };
 
 // Update collaborators and access (only creator allowed)
+
+// Update collaborators and access (only creator allowed)
 export const updateCollaborators = async (req, res) => {
   try {
     const { sheet_id, collaboratorId, role } = req.body;
@@ -173,6 +175,39 @@ export const updateCollaborators = async (req, res) => {
       });
     }
 
+    // Fetch collaborator details from MongoDB
+    let collaboratorData = null;
+
+    // Try to find in Users collection first
+    collaboratorData = await Users.findById(collaboratorId)
+      .select("firstName lastName email photoUrl")
+      .lean();
+
+    // If not found in Users, try Admins collection
+    if (!collaboratorData) {
+      collaboratorData = await Admins.findById(collaboratorId)
+        .select("fullName email photoUrl")
+        .lean();
+    }
+
+    if (!collaboratorData) {
+      return res.status(404).json({ message: "Collaborator not found" });
+    }
+
+    // Prepare collaborator object with additional data
+    const collaboratorInfo = {
+      id: collaboratorId,
+      role: role,
+      email: collaboratorData.email,
+      photoUrl: collaboratorData.photoUrl || null,
+      // Handle name difference between Users and Admins
+      name:
+        collaboratorData.fullName ||
+        `${collaboratorData.firstName || ""} ${
+          collaboratorData.lastName || ""
+        }`.trim(),
+    };
+
     // Clone current collaborators array
     const updatedCollaborators = Array.isArray(collaborators)
       ? [...collaborators]
@@ -184,9 +219,11 @@ export const updateCollaborators = async (req, res) => {
     );
 
     if (existingIndex !== -1) {
-      updatedCollaborators[existingIndex].role = role; // update role
+      // Update existing collaborator with new role and refreshed data
+      updatedCollaborators[existingIndex] = collaboratorInfo;
     } else {
-      updatedCollaborators.push({ id: collaboratorId, role });
+      // Add new collaborator
+      updatedCollaborators.push(collaboratorInfo);
     }
 
     // Update collaborators in DB
@@ -223,7 +260,6 @@ export const updateCollaborators = async (req, res) => {
     });
   }
 };
-
 // Get sheets (owned, shared, all)
 export const getSheets = async (req, res) => {
   try {
@@ -517,12 +553,10 @@ export const updateSheetName = async (req, res) => {
       sheet: updatedSheet,
       message: "Sheet name updated",
     });
-    return res
-      .status(200)
-      .json({
-        message: "Sheet name updated successfully",
-        sheet: updatedSheet,
-      });
+    return res.status(200).json({
+      message: "Sheet name updated successfully",
+      sheet: updatedSheet,
+    });
   } catch (error) {
     console.error("❌ Error updating sheet name:", error);
     return res
