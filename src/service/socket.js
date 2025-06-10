@@ -33,7 +33,10 @@ export const initSocketServer = async (server) => {
   io.adapter(createAdapter(pubClient, subClient));
 
   io.on("connection", (socket) => {
-    const { userId } = socket.handshake.query || socket.handshake.auth;
+    const userId =
+      socket.handshake.auth?.userId ||
+      socket.handshake.query?.userId ||
+      null;
     socket.data.userId = userId;
 
     if (userId) {
@@ -43,6 +46,7 @@ export const initSocketServer = async (server) => {
 
     socket.on("tictactoe-join", ({ roomId, userName }) => {
       const userId = socket.data.userId;
+
       if (!roomId || !userName || !userId) {
         socket.emit("tictactoe-error", { message: "Invalid join data" });
         return;
@@ -73,13 +77,15 @@ export const initSocketServer = async (server) => {
             game.gameStarted = true;
             io.to(roomId).emit("tictactoe-joined", {
               roomId,
-              players: game.players.length,
+              players: game.players,
+              playerNames: game.playerNames,
               gameStarted: true,
             });
           } else {
             socket.emit("tictactoe-waiting", {
               roomId,
-              players: game.players.length,
+              players: game.players,
+              playerNames: game.playerNames,
             });
           }
         } else {
@@ -98,6 +104,7 @@ export const initSocketServer = async (server) => {
         winner: null,
       });
     });
+    
 
     socket.on("tictactoe-move", ({ roomId, index }) => {
       const userId = socket.data.userId;
@@ -112,8 +119,8 @@ export const initSocketServer = async (server) => {
           message: !game
             ? "Game not found"
             : !game.gameStarted
-            ? "Game hasn't started"
-            : "Game is over",
+              ? "Game hasn't started"
+              : "Game is over",
         });
         return;
       }
@@ -308,8 +315,8 @@ export const initSocketServer = async (server) => {
           message: !game
             ? "Game not found"
             : !game.gameStarted
-            ? "Game hasn't started"
-            : "Game is over",
+              ? "Game hasn't started"
+              : "Game is over",
         });
         return;
       }
