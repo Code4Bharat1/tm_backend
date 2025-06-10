@@ -21,7 +21,7 @@ router.get(
   protect,
   getUserProfile,
 );
-router.put(
+router.put( 
   '/updateProfile',
   protect,
   updateProfile,

@@ -49,7 +49,7 @@ const deleteFromCloudinary = async (imageUrl) => {
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.userId; // from JWT
-    console.log('User ID from token:', userId); // Debugging line
+    console.log('User ID from token:', userId);
     const user = await User.findOne({
       _id: userId,
     }).select(

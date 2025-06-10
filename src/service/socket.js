@@ -24,7 +24,6 @@ export const initSocketServer = async (server) => {
     },
   });
 
-  // Redis setup
   const pubClient = createClient({ url: process.env.REDIS_URL });
   const subClient = pubClient.duplicate();
   await pubClient.connect();
@@ -32,8 +31,8 @@ export const initSocketServer = async (server) => {
   io.adapter(createAdapter(pubClient, subClient));
 
   io.on("connection", (socket) => {
-    const { userId } =socket.handshake.query || socket.handshake.auth;
-    socket.data.userId = userId; // ✅ Persist userId across events
+    const { userId } = socket.handshake.auth ;
+    socket.data.userId = userId;
 
     if (userId) {
       userSocketMap.set(userId, socket.id);
