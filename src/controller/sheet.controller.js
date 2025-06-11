@@ -377,7 +377,7 @@ export const createCells = async (req, res) => {
     let locks;
     try {
       locks = await redlock.acquire(lockKeys, ttl);
-      locks = Array.isArray(locks) ? locks : [locks]; // Ensure array
+      locks = Array.isArray(locks) ? locks : [locks];
 
       // Prepare upsert query
       const values = [];
@@ -390,9 +390,7 @@ export const createCells = async (req, res) => {
 
         const idx = i * 6;
         placeholders.push(
-          `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${
-            idx + 6
-          })`,
+          `($${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6})`,
         );
         values.push(
           sheet_id,
@@ -424,18 +422,15 @@ export const createCells = async (req, res) => {
 
       await pool.query(upsertQuery, values);
 
-      // Invalidate cache for sheet and cells
       await invalidateSheetCache(sheet_id);
       await invalidateCellsCache(sheet_id);
 
-      // Get updated cells
       const updatedCellsResult = await pool.query(
         `SELECT * FROM "TaskTracker".cells WHERE sheet_id = $1 ORDER BY row_index, column_index`,
         [sheet_id],
       );
       const updatedCells = updatedCellsResult.rows;
 
-      // Cache and notify
       await cacheCells(sheet_id, updatedCells);
 
       emitToSheetParticipants(sheet, "cells_updated", {
@@ -444,7 +439,6 @@ export const createCells = async (req, res) => {
         message: "Cells updated",
       });
 
-      // Release locks
       await Promise.all(locks.map((lock) => lock.release().catch(() => null)));
 
       return res.status(200).json({
@@ -452,7 +446,6 @@ export const createCells = async (req, res) => {
         cells: updatedCells,
       });
     } catch (lockError) {
-      // Release acquired locks if any
       if (locks) {
         locks = Array.isArray(locks) ? locks : [locks];
         await Promise.all(
