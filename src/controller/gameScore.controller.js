@@ -5,134 +5,45 @@ import mongoose from 'mongoose';
 
 export const submitScore = async (req, res) => {
   try {
-    const { gameName, score, time, roomId, gameType, players, winnerUserId } = req.body;
+    const {userId}=req.user;
 
-    console.log("Received score submission request:", {
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized: user not found in session" });
+    }
+
+    const user = await User.findById(userId);
+
+
+    const { gameName, score, time, roomId, gameType, players, winnerUserId, eventId } = req.body;
+
+    if (!gameName || score == null || time == null) {
+      return res.status(400).json({ message: "Missing required fields: gameName, score, or time" });
+    }
+
+    // Single-player fallback (no players array, no winner needed)
+    const newScore = new GameScore({
       gameName,
       score,
       time,
-      roomId,
-      gameType,
-      players,
-      winnerUserId
+      userId,
+      eventId: eventId || null,
+      roomId: roomId || null,
+      gameType: gameType || 'single',
+      isWinner: false,
+      playerName: user?.firstName || 'Unknown',
     });
 
-    // Enhanced validation
-    if (!gameName) {
-      return res.status(400).json({ message: "Game name is required" });
-    }
-
-    if (!roomId) {
-      return res.status(400).json({ message: "Room ID is required" });
-    }
-
-    if (!Array.isArray(players) || players.length === 0) {
-      return res.status(400).json({ message: "No players provided" });
-    }
-
-    if (!winnerUserId) {
-      return res.status(400).json({ message: "Winner user ID is required" });
-    }
-
-    // Validate that winnerUserId exists in players array
-    const winnerExists = players.some(player => player.userId === winnerUserId);
-    if (!winnerExists) {
-      return res.status(400).json({ message: "Winner user ID not found in players list" });
-    }
-
-    console.log("Processing score submission:", {
-      gameName,
-      roomId,
-      gameType,
-      players: players.map(p => ({ userId: p.userId, name: p.name, symbol: p.symbol })),
-      winnerUserId
-    });
-
-    // Create or find users for each player
-    const processedPlayers = [];
-
-    for (const player of players) {
-      let userId = player.userId;
-
-      // If userId is not a valid ObjectId, try to find/create user
-      if (!mongoose.Types.ObjectId.isValid(userId)) {
-        console.log(`Invalid ObjectId for user: ${userId}, attempting to find/create user`);
-
-        // Try to find user by name or create a new one
-        let user = await User.findOne({ name: player.name });
-
-        if (!user) {
-          // Create a new user if not found
-          user = new User({
-            name: player.name,
-            email: `${player.userId}@temp.com`, // Temporary email
-            // Add any other required fields for your User model
-          });
-          await user.save();
-          console.log(`Created new user: ${user._id} for ${player.name}`);
-        }
-
-        userId = user._id;
-      } else {
-        // Verify that the ObjectId exists in the database
-        const userExists = await User.findById(userId);
-        if (!userExists) {
-          // Create a new user with the provided ObjectId if it doesn't exist
-          const newUser = new User({
-            _id: userId,
-            name: player.name,
-            email: `${player.userId}@temp.com`,
-          });
-          await newUser.save();
-          console.log(`Created user with provided ID: ${userId}`);
-        }
-      }
-
-      processedPlayers.push({
-        ...player,
-        userId: userId
-      });
-    }
-
-    // Update winnerUserId if it was changed during processing
-    let processedWinnerUserId = winnerUserId;
-    const winnerPlayer = processedPlayers.find(p => p.userId.toString() === winnerUserId || p.userId === winnerUserId);
-    if (winnerPlayer) {
-      processedWinnerUserId = winnerPlayer.userId;
-    }
-
-    // Create documents for each player
-    const docs = processedPlayers.map((player) => ({
-      gameName,
-      score: player.userId.toString() === processedWinnerUserId.toString() ? (score || 1) : 0,
-      time: time || 0,
-      roomId,
-      userId: player.userId,
-      playerName: player.name,
-      gameType: gameType || 'multiplayer',
-      isWinner: player.userId.toString() === processedWinnerUserId.toString(),
-      createdAt: new Date()
-    }));
-
-    console.log("Documents to insert:", docs);
-
-    // Insert all documents
-    const savedScores = await GameScore.insertMany(docs);
-
-    console.log("Successfully saved scores:", savedScores.length, "documents");
+    await newScore.save();
 
     return res.status(201).json({
-      message: "Scores saved successfully",
-      savedCount: savedScores.length,
-      scores: savedScores
+      message: "Score saved successfully",
+      score: newScore
     });
-
   } catch (error) {
-    console.error("Failed to save game scores:", error);
+    console.error("Failed to save game score:", error);
     return res.status(500).json({
-      message: "Failed to save scores",
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: "Failed to save score",
+      error: error.message
     });
   }
 };

@@ -137,17 +137,71 @@ export const deleteEvent = async (req, res) => {
 export const updateEvent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, date, games } = req.body;
-    const updated = await Event.findByIdAndUpdate(
+
+    console.log("Received update body:", req.body);
+    console.log("Participants:", req.body.participants);
+    console.log("Participants type:", typeof req.body.participants);
+    console.log("Is participants array:", Array.isArray(req.body.participants));
+
+    const { title, date, time, game, participants } = req.body;
+
+    // Validate required fields
+    if (!title || !date || !time) {
+      return res.status(400).json({
+        message: "Title, date, and time are required"
+      });
+    }
+
+    // Ensure participants is an array
+    let participantIds = [];
+    if (participants) {
+      if (Array.isArray(participants)) {
+        participantIds = participants;
+      } else if (typeof participants === 'string') {
+        try {
+          participantIds = JSON.parse(participants);
+        } catch (e) {
+          console.error("Failed to parse participants string:", participants);
+          return res.status(400).json({
+            message: "Invalid participants format"
+          });
+        }
+      }
+    }
+
+    console.log("Processed participant IDs:", participantIds);
+
+    const updatedEvent = await Event.findByIdAndUpdate(
       id,
-      { title, date, games },
+      {
+        title,
+        date: new Date(date),
+        time,
+        game,
+        participants: participantIds
+      },
       { new: true }
     );
-    res.json({ message: "Event updated successfully", event: updated });
+
+    if (!updatedEvent) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    console.log("Event updated successfully:", updatedEvent);
+
+    res.json({
+      message: "Event updated successfully",
+      event: updatedEvent
+    });
   } catch (error) {
-    res.status(500).json({ message: "Failed to update event", error: error.message });
+    console.error("Update event error:", error);
+    res.status(500).json({
+      message: "Failed to update event",
+      error: error.message
+    });
   }
 };
+
 
 export const getAllEventUserName = async (req, res) => {
   try {
