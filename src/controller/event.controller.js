@@ -1,5 +1,6 @@
 import Event from '../models/event.model.js';
 import User from '../models/user.model.js';
+import GameScore from "../models/gameScore.model.js"
 import mongoose from 'mongoose';
 
 export const createEvent = async (req, res) => {
@@ -60,7 +61,7 @@ export const createEvent = async (req, res) => {
 
 export const getUserGames = async (req, res) => {
   try {
-    const userId = req.user._id || req.user.userId || req.user.id;
+    const userId = req.user.userId || req.user.userId || req.user.id;
     const { eventId } = req.query;
 
     if (!userId) {
@@ -230,5 +231,55 @@ export const getAllEventUserName = async (req, res) => {
       message: "Internal Server Error",
       error: error.message,
     });
+  }
+};
+
+
+export const getHistory = async (req, res) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 });
+
+    const historyWithWinners = await Promise.all(
+      events.map(async (event) => {
+        // Step 1: Fetch participant details
+        const participantDetails = await User.find({
+          _id: { $in: event.participants },
+        }).select("firstName email");
+
+        // Step 2: Get all scores for this event
+        const scores = await GameScore.find({
+          eventId: event._id,
+        }).sort({ score: -1 });
+
+        const topScore = scores[0];
+
+        // Step 3: Get winner details
+        let winner = null;
+        if (topScore) {
+          const user = await User.findById(topScore.userId);
+          winner = {
+            userId: user._id,
+            name: user.firstName || "Unknown",
+            email: user.email || "",
+            score: topScore.score,
+          };
+        }
+
+        return {
+          ...event.toObject(),
+          participants: participantDetails.map((user) => ({
+            userId: user._id,
+            name: user.firstName,
+            email: user.email,
+          })),
+          winner,
+        };
+      })
+    );
+
+    res.status(200).json(historyWithWinners);
+  } catch (error) {
+    console.error("Error fetching event history with scores:", error);
+    res.status(500).json({ message: "Failed to fetch event history" });
   }
 };
