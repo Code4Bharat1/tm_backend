@@ -5,10 +5,36 @@ import { defaultFeatures, maxFeature } from '../constants/defaultFeatures.js';
 import { sendMail } from "../service/nodemailerConfig.js";
 import mongoose from 'mongoose';
 
+const generateRandomPassword = (length = 10) => {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const digits = '0123456789';
+  const specialChars = '!@#$%^&*()-_+=<>?';
+
+  const allChars = uppercase + lowercase + digits + specialChars;
+
+  let password = '';
+  // Ensure at least one from each set
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += digits[Math.floor(Math.random() * digits.length)];
+  password += specialChars[Math.floor(Math.random() * specialChars.length)];
+
+  for (let i = 4; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+
+  // Shuffle to avoid predictable placement
+  return password
+    .split('')
+    .sort(() => 0.5 - Math.random())
+    .join('');
+};
+
 const createUser = async (req, res) => {
   try {
     const { firstName, lastName, phoneNumber, email, position, gender, dateOfJoining } = req.body;
-    const password = 'User@1234'; // Default password
+    const password = generateRandomPassword(12);// Default password
     const adminId = req.user.adminId; // Extracted from JWT by middleware
     const companyId = req.user.companyId; // Extracted from JWT by middleware
 
@@ -59,41 +85,41 @@ const createUser = async (req, res) => {
     }
     const session = await mongoose.startSession();
     session.startTransaction();
-    
+
     // Create user (userId will be auto-generated in the model)
-     const newUser = await User.create([{
-    firstName,
-    lastName,
-    phoneNumber,
-    email,
-    companyName,
-    password,
-    position,
-    gender,
-    dateOfJoining,
-    companyId: admin.companyId,
-  }], { session });
+    const newUser = await User.create([{
+      firstName,
+      lastName,
+      phoneNumber,
+      email,
+      companyName,
+      password,
+      position,
+      gender,
+      dateOfJoining,
+      companyId: admin.companyId,
+    }], { session });
 
-  if (position !== 'Employee') {
-    const features = defaultFeatures[position] || [];
-    const maxFeatures = maxFeature[position] || [];
+    if (position !== 'Employee') {
+      const features = defaultFeatures[position] || [];
+      const maxFeatures = maxFeature[position] || [];
 
-    if (!features.length) {
-      throw new Error("Role must have at least one feature.");
+      if (!features.length) {
+        throw new Error("Role must have at least one feature.");
+      }
+
+      await RoleFeatureAccess.create([{
+        userId: newUser[0]._id,
+        role: position,
+        companyId,
+        features,
+        maxFeatures,
+        addedBy: adminId,
+      }], { session });
     }
 
-    await RoleFeatureAccess.create([{
-      userId: newUser[0]._id,
-      role: position,
-      companyId,
-      features,
-      maxFeatures,
-      addedBy: adminId,
-    }], { session });
-  }
-
-  await session.commitTransaction();
-  session.endSession();
+    await session.commitTransaction();
+    session.endSession();
 
     await sendMail(
       newUser[0].email,
