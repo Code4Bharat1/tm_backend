@@ -70,6 +70,8 @@ const startServer = async () => {
           "https://www.task-tracker.code4bharat.com",
           "https://www.task-tracker-admin.code4bharat.com",
           "https://www.task-tracker-superadmin.code4bharat.com",
+          'https://tt-chatapp.code4bharat.com',
+          'https://www.tt-chatapp.code4bharat.com',
         ],
         credentials: true,
       }),
