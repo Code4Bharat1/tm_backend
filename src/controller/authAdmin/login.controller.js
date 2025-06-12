@@ -32,7 +32,7 @@ export const loginAdmin = async (req, res) => {
     res.cookie('admintoken', admintoken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-     sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // Allow cross-origin for production
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // Allow cross-origin for production
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
