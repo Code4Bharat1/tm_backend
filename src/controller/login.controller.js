@@ -33,6 +33,8 @@ const loginUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'Strict',
+      domain: '.code4bharat.com', 
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -55,7 +57,7 @@ const loginUser = async (req, res) => {
   }
 };
 
-const auth =async(req, res) =>{
+const auth = async (req, res) => {
   const token = req.cookies.token
   if (!token) return res.status(401).json({ message: 'Unauthorized' })
 
