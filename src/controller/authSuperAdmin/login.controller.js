@@ -44,8 +44,9 @@ export async function loginSuperAdmin(req, res) {
       httpOnly: true, // Ensures the cookie is not accessible via JavaScript
       secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
       maxAge: 24 * 60 * 60, // 1 day
-      path: '/', // Available throughout the site
-      sameSite: 'strict', // CSRF protection
+      sameSite: 'Strict',
+      domain: '.code4bharat.com', 
+      path: '/',
     }));
 
     // 6. Respond with user info (excluding password)
