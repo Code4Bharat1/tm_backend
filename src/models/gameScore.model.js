@@ -41,6 +41,11 @@ const gameScoreSchema = new mongoose.Schema({
   isWinner: {
     type: Boolean,
     default: false,
+  },
+  isPlayed: {
+    type: Boolean,
+    default: false,
+    requied: true
   }
 }, {
   timestamps: true, // adds createdAt and updatedAt

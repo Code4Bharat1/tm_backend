@@ -30,6 +30,7 @@ export const submitScore = async (req, res) => {
       roomId: roomId || null,
       gameType: gameType || 'single',
       isWinner: false,
+      isPlayed: true,
       playerName: user?.firstName || 'Unknown',
     });
 
