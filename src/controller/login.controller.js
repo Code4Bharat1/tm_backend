@@ -33,7 +33,7 @@ const loginUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'Strict',
-      domain: '.code4bharat.com', 
+      domain: '.code4bharat.com',
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
