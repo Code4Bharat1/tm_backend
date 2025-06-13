@@ -1,25 +1,56 @@
-import { CompanyRegistration } from '../models/companyregistration.model.js';
-import Admin from '../models/admin.model.js';
-import jwt from 'jsonwebtoken';
-import { sendMail } from '../service/nodemailerConfig.js';
+import { CompanyRegistration } from "../models/companyregistration.model.js";
+import Admin from "../models/admin.model.js";
+import jwt from "jsonwebtoken";
+import { sendMail } from "../service/nodemailerConfig.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+const generateRandomPassword = (length = 10) => {
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lowercase = "abcdefghijklmnopqrstuvwxyz";
+  const digits = "0123456789";
+  const specialChars = "!@#$%^&*()-_+=<>?";
+
+  const allChars = uppercase + lowercase + digits + specialChars;
+
+  let password = "";
+  // Ensure at least one from each set
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += digits[Math.floor(Math.random() * digits.length)];
+  password += specialChars[Math.floor(Math.random() * specialChars.length)];
+
+  for (let i = 4; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+
+  // Shuffle to avoid predictable placement
+  return password
+    .split("")
+    .sort(() => 0.5 - Math.random())
+    .join("");
+};
 
 // Register a new company
 export const registerCompany = async (req, res) => {
   try {
-    const { companyInfo, adminInfo, planPreferences, termsAccepted, status } = req.body;
+    const { companyInfo, adminInfo, planPreferences, termsAccepted, status } =
+      req.body;
 
     if (!termsAccepted) {
-      return res.status(400).json({ message: 'You must accept the terms and conditions.' });
+      return res
+        .status(400)
+        .json({ message: "You must accept the terms and conditions." });
     }
 
     // Check if admin email already exists
     const existing = await CompanyRegistration.findOne({
-      'adminInfo.officialEmail': adminInfo.officialEmail,
+      "adminInfo.officialEmail": adminInfo.officialEmail,
     });
     if (existing) {
-      return res.status(400).json({ message: 'Admin email already registered.' });
+      return res
+        .status(400)
+        .json({ message: "Admin email already registered." });
     }
 
     const newCompany = new CompanyRegistration({
@@ -34,9 +65,9 @@ export const registerCompany = async (req, res) => {
 
     sendMail(
       adminInfo.officialEmail,
-      'Task Manager Registration Received',
+      "Task Manager Registration Received",
       `
-  Dear ${adminInfo.fullName || 'Admin'},
+  Dear ${adminInfo.fullName || "Admin"},
 
   Thank you for registering your company on the Task Manager platform. We have received your application and it is currently under review by our Super Admin team.
 
@@ -46,14 +77,16 @@ export const registerCompany = async (req, res) => {
 
   Best regards,  
   Task Manager Support Team
-  `
+  `,
     );
 
-
-    res.status(201).json({ message: 'Company registered successfully', companyId: newCompany._id });
+    res.status(201).json({
+      message: "Company registered successfully",
+      companyId: newCompany._id,
+    });
   } catch (err) {
-    console.error('Registration Error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Registration Error:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -62,30 +95,32 @@ export const loginCompanyAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const company = await CompanyRegistration.findOne({ 'adminInfo.officialEmail': email });
+    const company = await CompanyRegistration.findOne({
+      "adminInfo.officialEmail": email,
+    });
     if (!company) {
-      return res.status(404).json({ message: 'Admin not found.' });
+      return res.status(404).json({ message: "Admin not found." });
     }
 
     const isMatch = await company.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials.' });
+      return res.status(401).json({ message: "Invalid credentials." });
     }
 
     const token = jwt.sign(
       { id: company._id, email: company.adminInfo.officialEmail },
       JWT_SECRET,
-      { expiresIn: '1d' },
+      { expiresIn: "1d" },
     );
 
     res.status(200).json({
-      message: 'Login successful',
+      message: "Login successful",
       token,
       companyId: company._id,
     });
   } catch (err) {
-    console.error('Login Error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Login Error:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -100,8 +135,8 @@ export const getAllCompanies = async (req, res) => {
       companies,
     });
   } catch (err) {
-    console.error('Get Companies Error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Get Companies Error:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -110,18 +145,18 @@ export const deleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
     await CompanyRegistration.findByIdAndDelete(id);
-    res.status(200).json({ message: 'Company deleted successfully' });
+    res.status(200).json({ message: "Company deleted successfully" });
   } catch (err) {
-    console.error('Delete Error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error("Delete Error:", err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
 export const getCompaniesByStatus = async (req, res) => {
   try {
     const { status } = req.query; // e.g. ?status=Pending
-    if (!['Pending', 'Active', 'Suspended'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+    if (!["Pending", "Active", "Suspended"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
     }
 
     const companies = await CompanyRegistration.find({ status });
@@ -135,12 +170,14 @@ export const getCompaniesByStatus = async (req, res) => {
 export const updateCompanyStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const Password = 'test@123';
+  const Password = generateRandomPassword(12);
   try {
     const company = await CompanyRegistration.findById(id);
 
     if (!company) {
-      return res.status(404).json({ success: false, message: 'Company not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Company not found" });
     }
 
     // Update company status
@@ -148,17 +185,20 @@ export const updateCompanyStatus = async (req, res) => {
 
     await company.save();
 
-    const { officialEmail, fullName, designation, phoneNumber } = company.adminInfo || {};
+    const { officialEmail, fullName, designation, phoneNumber } =
+      company.adminInfo || {};
     const { companyName } = company.companyInfo || {};
 
     if (!officialEmail || !Password) {
-      return res.status(400).json({ success: false, message: 'Missing admin info' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing admin info" });
     }
 
-    let emailSubject = '';
-    let emailBody = '';
+    let emailSubject = "";
+    let emailBody = "";
 
-    if (status === 'Active') {
+    if (status === "Active") {
       const existingAdmin = await Admin.findOne({
         $or: [{ email: officialEmail }, { phone: phoneNumber }],
       });
@@ -171,48 +211,104 @@ export const updateCompanyStatus = async (req, res) => {
           password: Password,
           position: designation,
           phone: phoneNumber,
-          companyId: company._id
+          companyId: company._id,
         };
 
         const newAdmin = new Admin(adminData);
         await newAdmin.save();
 
-        emailSubject = 'Welcome to Task Manager!';
+        emailSubject = "Welcome to Task Manager!";
 
         emailBody = `
-  Hello ${adminData.firstName || 'User'},
-
-  Welcome to Task Manager! Your account has been successfully created.
-
-  Here are your login details:
-
-  - **Login ID:** ${adminData.email} / ${adminData.phone}
-  - **Temporary Password:** ${Password}
-
-  For your security, please log in and change this password immediately.
-
-  If you do not change your password promptly, you may be at risk of unauthorized access, and the responsibility for any security issues will rest with you.
-
-  Our support team is always here to help if you need assistance.
-
-  Thank you for joining us!
-
-  Stay safe and secure,
-  The Task Manager Team
-`;
+        <!DOCTYPE html>
+        <html>
+          <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding: 20px 0;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <tr>
+                      <td align="center" style="border-bottom: 1px solid #e0e0e0; padding-bottom: 20px;">
+                        <h1 style="margin: 0; font-size: 24px; color: #2b6cb0;">Welcome to Task Manager!</h1>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding-top: 20px; font-size: 16px; color: #333333; line-height: 1.6;">
+                        <p style="margin: 0 0 16px;">Hello ${
+                          fullName || "User"
+                        },</p>
+                        <p style="margin: 0 0 16px;">
+                          We're excited to have you on board. Your account has been successfully created for <strong>${companyName}</strong>.
+                        </p>
+                        <p style="margin: 0 0 10px;"><strong>Here are your login credentials:</strong></p>
+                        <div style="background-color: #f0f4ff; padding: 10px 15px; border-radius: 5px; font-family: monospace; font-size: 15px; line-height: 1.5; margin-bottom: 16px;">
+                          Login ID: ${officialEmail} / ${phoneNumber}<br/>
+                          Temporary Password: ${Password}
+                        </div>
+                        <p style="margin: 0 0 16px;"><strong>Note:</strong> For your security, please log in and change your password immediately.</p>
+                        <p style="margin: 0 0 16px;">
+                          If you do not change your password promptly, you may be at risk of unauthorized access, and the responsibility for any security issues will rest with you.
+                        </p>
+                        <p style="margin: 0 0 16px;">Need help? Our support team is always here for you.</p>
+                        <p style="margin: 0 0 16px;">Thanks again and welcome!</p>
+                        <p style="margin: 0 0 0;">Stay safe and secure,<br/>— The Task Manager Team</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="center" style="padding-top: 30px; font-size: 14px; color: #777777;">
+                        © ${new Date().getFullYear()} Task Manager. All rights reserved.
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+        `;
       }
-
-
-
-    } else if (status === 'Suspended') {
-      emailSubject = 'Company Registration Rejected';
+    } else if (status === "Rejected") {
+      emailSubject = "Company Registration Rejected";
       emailBody = `
-        Hi ${fullName},<br/><br/>
-        We're sorry to inform you that your company <strong>${companyName}</strong> has been <strong>rejected</strong>.<br/>
-        For more information, please contact our support team.<br/><br/>
-        Regards,<br/>
-        - The Team
-      `;
+<!DOCTYPE html>
+<html>
+  <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding: 20px 0;">
+      <tr>
+        <td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+            <tr>
+              <td align="center" style="border-bottom: 1px solid #e0e0e0; padding-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 22px; color: #c53030;">Company Registration Rejected</h2>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top: 20px; font-size: 16px; color: #333333; line-height: 1.6;">
+                <p style="margin: 0 0 16px;">Hi ${fullName || "User"},</p>
+                <p style="margin: 0 0 16px;">
+                  We regret to inform you that your company <strong>${companyName}</strong> has been <strong>rejected</strong> after review.
+                </p>
+                <p style="margin: 0 0 16px;">
+                  If you believe this was a mistake or would like to discuss the reason, please contact our support team.
+                </p>
+                <p style="margin: 0 0 16px;">
+                  We appreciate your interest and encourage you to apply again in the future.
+                </p>
+                <p style="margin: 0;">Regards,<br/>— The Task Manager Team</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding-top: 30px; font-size: 14px; color: #777777;">
+                © ${new Date().getFullYear()} Task Manager. All rights reserved.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+  `;
     }
 
     if (officialEmail) {
@@ -221,7 +317,9 @@ export const updateCompanyStatus = async (req, res) => {
 
     res.json({ success: true, company });
   } catch (err) {
-    console.error('Error updating company status:', err);
-    res.status(500).json({ success: false, message: 'Failed to update status' });
+    console.error("Error updating company status:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update status" });
   }
 };
