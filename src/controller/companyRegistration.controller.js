@@ -185,7 +185,7 @@ export const deleteCompany = async (req, res) => {
 export const getCompaniesByStatus = async (req, res) => {
   try {
     const { status } = req.query; // e.g. ?status=Pending
-    if (!["Pending", "Active", "Suspended"].includes(status)) {
+    if (!["Pending", "Active", "Rejected"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
