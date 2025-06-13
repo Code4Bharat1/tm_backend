@@ -63,20 +63,50 @@ export const registerCompany = async (req, res) => {
 
     await newCompany.save();
 
-    sendMail(
+    await sendMail(
       adminInfo.officialEmail,
       "Task Manager Registration Received",
       `
-  Dear ${adminInfo.fullName || "Admin"},
-
-  Thank you for registering your company on the Task Manager platform. We have received your application and it is currently under review by our Super Admin team.
-
-  Once your registration is approved, you will receive your login credentials via email.
-
-  If you have any questions or need assistance in the meantime, feel free to contact our support team.
-
-  Best regards,  
-  Task Manager Support Team
+<!DOCTYPE html>
+<html>
+  <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding: 20px 0;">
+      <tr>
+        <td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+            <tr>
+              <td align="center" style="border-bottom: 1px solid #e0e0e0; padding-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 22px; color: #2b6cb0;">Task Manager Registration Received</h2>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top: 20px; font-size: 16px; color: #333333; line-height: 1.6;">
+                <p style="margin: 0 0 16px;">Dear ${
+                  adminInfo.fullName || "Admin"
+                },</p>
+                <p style="margin: 0 0 16px;">
+                  Thank you for registering your company on the <strong>Task Manager</strong> platform. We have successfully received your application, and it is currently under review by our Super Admin team.
+                </p>
+                <p style="margin: 0 0 16px;">
+                  Once your registration is approved, you will receive your login credentials via email.
+                </p>
+                <p style="margin: 0 0 16px;">
+                  If you have any questions or need assistance in the meantime, please don't hesitate to contact our support team.
+                </p>
+                <p style="margin: 0;">Best regards,<br/>— Task Manager Support Team</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding-top: 30px; font-size: 14px; color: #777777;">
+                © ${new Date().getFullYear()} Task Manager. All rights reserved.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
   `,
     );
 
