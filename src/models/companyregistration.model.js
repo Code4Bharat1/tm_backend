@@ -58,8 +58,6 @@ const companyRegistrationSchema = new mongoose.Schema({
   },
   officeLocation: {
     type: String,
-    required: true,
-    default: 'White House, Buddha Colony Kurla West, Maharashtra' // Default static location
   },
   planPreferences: {
     desiredPlan: {
@@ -80,7 +78,7 @@ const companyRegistrationSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Active', 'Suspended'],
+    enum: ['Pending', 'Active', 'Rejected'],
     default: 'Pending'
   }
 
