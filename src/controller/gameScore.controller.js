@@ -91,8 +91,6 @@ export const getScores = async (req, res) => {
       createdAt: score.createdAt
     }));
 
-    console.log("Returning scores:", formattedScores.length, "records");
-
     res.status(200).json({
       data: formattedScores,
       count: formattedScores.length
