@@ -21,6 +21,8 @@ const uploadFileToS3 = async (file) => {
     Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,
+    ContentDisposition: 'attachment',
+    ACL: 'public-read',
   };
 
   await s3.send(new PutObjectCommand(params));
@@ -36,6 +38,7 @@ const getSignedUrl = async (s3Url) => {
   const command = new PutObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: key,
+    ResponseContentDisposition: 'attachment',
   });
 
   const signedUrl = await getPresignedUrl(s3, command, { expiresIn: 3600 });

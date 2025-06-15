@@ -11,6 +11,7 @@ import { createSchemaAndTables } from "./src/models/sheet.schema.js";
 
 import { logout } from "./src/controller/logout.controller.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
+import {sendDailyAttendanceReports} from "./src/controller/sendReport.controller.js"
 import adddocument from "./src/routes/adddocument.route.js";
 import AdminRouter from "./src/routes/adminAuth.route.js";
 import AttendanceRouter from "./src/routes/attendance.route.js";
@@ -124,6 +125,7 @@ const startServer = async () => {
         try {
           console.log("✅ Cron job is running at 11:59 PM IST");
           await processAbsentees();
+          await sendDailyAttendanceReports();
         } catch (err) {
           console.error("❌ Cron job error:", err.message);
         }
