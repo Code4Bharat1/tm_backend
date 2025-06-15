@@ -55,18 +55,6 @@ const clientSchema = new mongoose.Schema(
   },
 );
 
-// 🔐 Pre-save middleware to hash password
-clientSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-
-  try {
-    const saltRounds = 10;
-    this.password = await bcrypt.hash(this.password, saltRounds);
-    next();
-  } catch (err) {
-    next(err);
-  }
-});
 
 // 🔍 Instance method to compare password
 clientSchema.methods.comparePassword = async function (candidatePassword) {
