@@ -1,70 +1,68 @@
-import User from '../models/user.model.js';
-import Admin from '../models/admin.model.js';
-import RoleFeatureAccess from '../models/roleFeatureAccess.model.js';
-import { defaultFeatures, maxFeature } from '../constants/defaultFeatures.js';
+import User from "../models/user.model.js";
+import Admin from "../models/admin.model.js";
+import RoleFeatureAccess from "../models/roleFeatureAccess.model.js";
+import { defaultFeatures, maxFeature } from "../constants/defaultFeatures.js";
 import { sendMail } from "../service/nodemailerConfig.js";
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import crypto from "crypto";
 
-const generateRandomPassword = (length = 10) => {
-  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-  const digits = '0123456789';
-  const specialChars = '!@#$%^&*()-_+=<>?';
-
-  const allChars = uppercase + lowercase + digits + specialChars;
-
-  let password = '';
-  // Ensure at least one from each set
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += digits[Math.floor(Math.random() * digits.length)];
-  password += specialChars[Math.floor(Math.random() * specialChars.length)];
-
-  for (let i = 4; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
-  }
-
-  // Shuffle to avoid predictable placement
-  return password
-    .split('')
-    .sort(() => 0.5 - Math.random())
-    .join('');
+export const generateReadablePassword = (firstName = "User") => {
+  const randomNum = crypto.randomInt(1000, 9999); // ensures 4-digit random number
+  return `${firstName}@${randomNum}`;
 };
 
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, phoneNumber, email, position, gender, dateOfJoining } = req.body;
-    const password = generateRandomPassword(12);// Default password
+    const {
+      firstName,
+      lastName,
+      phoneNumber,
+      email,
+      position,
+      gender,
+      dateOfJoining,
+    } = req.body;
+    const password = generateReadablePassword(firstName); // Default password
     const adminId = req.user.adminId; // Extracted from JWT by middleware
     const companyId = req.user.companyId; // Extracted from JWT by middleware
 
     // Validate adminId
     if (!adminId) {
-      return res.status(403).json({ message: 'Admin ID is required' });
+      return res.status(403).json({ message: "Admin ID is required" });
     }
 
     // Replace AdminModel with your actual model name (e.g., Mongoose, Sequelize, etc.)
     const admin = await Admin.findById(adminId);
 
     if (!admin) {
-      return res.status(404).json({ message: 'Admin not found' });
+      return res.status(404).json({ message: "Admin not found" });
     }
 
-    const companyName = admin.companyName || 'Default Company';
+    const companyName = admin.companyName || "Default Company";
 
     // Validate required fields
-    if (!firstName || !lastName || !phoneNumber || !password || !email || !companyName || !position || !gender || !dateOfJoining) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (
+      !firstName ||
+      !lastName ||
+      !phoneNumber ||
+      !password ||
+      !email ||
+      !companyName ||
+      !position ||
+      !gender ||
+      !dateOfJoining
+    ) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     // Validate Indian phone number
     if (!/^[789]\d{9}$/.test(phoneNumber)) {
-      return res.status(400).json({ message: 'Invalid Indian phone number' });
+      return res.status(400).json({ message: "Invalid Indian phone number" });
     }
 
     // Validate email
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      return res.status(400).json({ message: 'Invalid email address' });
+      return res.status(400).json({ message: "Invalid email address" });
     }
     // Check if email or phone already exists
     const existingUser = await User.findOne({
@@ -75,32 +73,37 @@ const createUser = async (req, res) => {
     if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(password)) {
       return res.status(400).json({
         message:
-          'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.',
+          "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character.",
       });
     }
     if (existingUser) {
-      return res
-        .status(409)
-        .json({ message: 'User with this email or phone number already exists' });
+      return res.status(409).json({
+        message: "User with this email or phone number already exists",
+      });
     }
     const session = await mongoose.startSession();
     session.startTransaction();
 
     // Create user (userId will be auto-generated in the model)
-    const newUser = await User.create([{
-      firstName,
-      lastName,
-      phoneNumber,
-      email,
-      companyName,
-      password,
-      position,
-      gender,
-      dateOfJoining,
-      companyId: admin.companyId,
-    }], { session });
+    const newUser = await User.create(
+      [
+        {
+          firstName,
+          lastName,
+          phoneNumber,
+          email,
+          companyName,
+          password,
+          position,
+          gender,
+          dateOfJoining,
+          companyId: admin.companyId,
+        },
+      ],
+      { session },
+    );
 
-    if (position !== 'Employee') {
+    if (position !== "Employee") {
       const features = defaultFeatures[position] || [];
       const maxFeatures = maxFeature[position] || [];
 
@@ -108,14 +111,19 @@ const createUser = async (req, res) => {
         throw new Error("Role must have at least one feature.");
       }
 
-      await RoleFeatureAccess.create([{
-        userId: newUser[0]._id,
-        role: position,
-        companyId,
-        features,
-        maxFeatures,
-        addedBy: adminId,
-      }], { session });
+      await RoleFeatureAccess.create(
+        [
+          {
+            userId: newUser[0]._id,
+            role: position,
+            companyId,
+            features,
+            maxFeatures,
+            addedBy: adminId,
+          },
+        ],
+        { session },
+      );
     }
 
     await session.commitTransaction();
@@ -123,11 +131,13 @@ const createUser = async (req, res) => {
 
     await sendMail(
       newUser[0].email,
-      'Your Account Credentials - Please Change Your Password Immediately',
+      "Your Account Credentials - Please Change Your Password Immediately",
       `
-Hello ${newUser[0].firstName || 'User'},
+Hello ${newUser[0].firstName || "User"},
 
-Welcome to ${newUser[0].companyName}! Your account has been successfully created.
+Welcome to ${
+        newUser[0].companyName
+      }! Your account has been successfully created.
 
 Here are your login details:
 
@@ -143,13 +153,11 @@ Thank you for joining us!
 
 Stay safe and secure,
 The Task Manager Team
-  `
+  `,
     );
 
-
-
     res.status(201).json({
-      message: 'User created successfully',
+      message: "User created successfully",
       user: {
         userId: newUser.userId,
         firstName: newUser.firstName,
@@ -157,7 +165,6 @@ The Task Manager Team
         phoneNumber: newUser.phoneNumber,
         email: newUser.email,
         companyName: newUser.companyName,
-        password: newUser.password,
         position: newUser.position,
         gender: newUser.gender,
         dateOfJoining: newUser.dateOfJoining,
@@ -169,7 +176,7 @@ The Task Manager Team
       const duplicateField = Object.keys(error.keyPattern)[0];
       return res.status(409).json({ message: `Duplicate ${duplicateField}` });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -184,29 +191,37 @@ const bulkCreateUsers = async (req, res) => {
 
     if (!adminId) {
       await session.abortTransaction();
-      return res.status(403).json({ message: 'Admin ID is required' });
+      return res.status(403).json({ message: "Admin ID is required" });
     }
 
     const admin = await Admin.findById(adminId).session(session);
     if (!admin) {
       await session.abortTransaction();
-      return res.status(404).json({ message: 'Admin not found' });
+      return res.status(404).json({ message: "Admin not found" });
     }
 
-    const companyName = admin.companyName || 'Default Company';
+    const companyName = admin.companyName || "Default Company";
 
     const createdUsers = [];
 
     for (const userData of users) {
-      const { firstName, lastName, phoneNumber, email, position, gender, dateOfJoining } = userData;
+      const {
+        firstName,
+        lastName,
+        phoneNumber,
+        email,
+        position,
+        gender,
+        dateOfJoining,
+      } = userData;
 
       const existing = await User.findOne({
         $or: [{ email }, { phoneNumber }],
       }).session(session);
-      console.log(existing)
+      console.log(existing);
       if (existing) continue; // Skip duplicates
 
-      const password = 'User@1234';
+      const password = "User@1234";
 
       const newUser = new User({
         firstName,
@@ -224,12 +239,12 @@ const bulkCreateUsers = async (req, res) => {
       await newUser.save({ session });
       createdUsers.push(newUser);
 
-      if (position !== 'Employee') {
+      if (position !== "Employee") {
         const features = defaultFeatures[position] || [];
         const maxFeatures = maxFeature[position] || [];
 
         if (!features.length) {
-          throw new Error('Role must have at least one feature.');
+          throw new Error("Role must have at least one feature.");
         }
 
         const roleAccess = new RoleFeatureAccess({
@@ -254,9 +269,9 @@ const bulkCreateUsers = async (req, res) => {
     for (const user of createdUsers) {
       await sendMail(
         user.email,
-        'Your Account Credentials - Please Change Your Password Immediately',
+        "Your Account Credentials - Please Change Your Password Immediately",
         `
-Hello ${user.firstName || 'User'},
+Hello ${user.firstName || "User"},
 
 Welcome to ${user.companyName}! Your account has been successfully created.
 
@@ -269,7 +284,7 @@ Please log in and change your password immediately.
 
 Thank you,
 Task Manager Team
-        `
+        `,
       );
     }
 
@@ -277,12 +292,11 @@ Task Manager Team
       message: `Created ${createdUsers.length} employees successfully`,
       users: createdUsers,
     });
-
   } catch (err) {
     await session.abortTransaction();
     session.endSession();
     console.error(err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
@@ -291,24 +305,23 @@ const getAllEmployee = async (req, res) => {
     const companyId = req.user.companyId;
 
     if (!companyId) {
-      return res.status(403).json({ message: 'Company ID is required' });
+      return res.status(403).json({ message: "Company ID is required" });
     }
 
     const users = await User.find(
       { companyId },
-      'firstName lastName email phoneNumber position gender dateOfJoining companyName'
+      "firstName lastName email phoneNumber position gender dateOfJoining companyName",
     ).sort({ firstName: 1 });
 
     res.status(200).json({
-      message: 'Users fetched successfully',
+      message: "Users fetched successfully",
       count: users.length,
-      users: users
+      users: users,
     });
-
   } catch (error) {
     res.status(500).json({
-      message: 'Server error',
-      error: error.message
+      message: "Server error",
+      error: error.message,
     });
   }
 };
@@ -319,29 +332,35 @@ const updateUserPosition = async (req, res) => {
     const { userId } = req.params; // userId from URL
     const { position } = req.body; // new position
 
-    const validPositions = ['HR', 'Employee', 'Manager', 'TeamLeader', 'Salesman'];
+    const validPositions = [
+      "HR",
+      "Employee",
+      "Manager",
+      "TeamLeader",
+      "Salesman",
+    ];
 
     if (!validPositions.includes(position)) {
-      return res.status(400).json({ message: 'Invalid position value' });
+      return res.status(400).json({ message: "Invalid position value" });
     }
 
     const updatedUser = await User.findOneAndUpdate(
       { _id: userId, companyId },
       { position },
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.status(200).json({
-      message: 'User position updated successfully',
+      message: "User position updated successfully",
       user: updatedUser,
     });
   } catch (error) {
     res.status(500).json({
-      message: 'Server error',
+      message: "Server error",
       error: error.message,
     });
   }
@@ -355,20 +374,25 @@ const deleteUser = async (req, res) => {
     const deletedUser = await User.findOneAndDelete({ _id: userId, companyId });
 
     if (!deletedUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.status(200).json({
-      message: 'User deleted successfully',
+      message: "User deleted successfully",
       user: deletedUser,
     });
   } catch (error) {
     res.status(500).json({
-      message: 'Server error',
+      message: "Server error",
       error: error.message,
     });
   }
 };
 
-
-export { createUser, bulkCreateUsers, getAllEmployee, updateUserPosition, deleteUser };
+export {
+  createUser,
+  bulkCreateUsers,
+  getAllEmployee,
+  updateUserPosition,
+  deleteUser,
+};

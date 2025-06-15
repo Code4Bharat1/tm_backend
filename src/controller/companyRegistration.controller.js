@@ -2,35 +2,15 @@ import { CompanyRegistration } from "../models/companyregistration.model.js";
 import Admin from "../models/admin.model.js";
 import jwt from "jsonwebtoken";
 import { sendMail } from "../service/nodemailerConfig.js";
+import crypto from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const generateRandomPassword = (length = 10) => {
-  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const lowercase = "abcdefghijklmnopqrstuvwxyz";
-  const digits = "0123456789";
-  const specialChars = "!@#$%^&*()-_+=<>?";
-
-  const allChars = uppercase + lowercase + digits + specialChars;
-
-  let password = "";
-  // Ensure at least one from each set
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += digits[Math.floor(Math.random() * digits.length)];
-  password += specialChars[Math.floor(Math.random() * specialChars.length)];
-
-  for (let i = 4; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
-  }
-
-  // Shuffle to avoid predictable placement
-  return password
-    .split("")
-    .sort(() => 0.5 - Math.random())
-    .join("");
+export const generateReadablePassword = (fullName = "User") => {
+  const firstName = fullName.trim().split(" ")[0] || "User";
+  const randomNum = crypto.randomInt(1000, 9999); // ensures 4-digit random number
+  return `${firstName}@${randomNum}`;
 };
-
 // Register a new company
 export const registerCompany = async (req, res) => {
   try {
@@ -200,16 +180,16 @@ export const getCompaniesByStatus = async (req, res) => {
 export const updateCompanyStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const Password = generateRandomPassword(12);
   try {
+    
     const company = await CompanyRegistration.findById(id);
-
     if (!company) {
       return res
-        .status(404)
-        .json({ success: false, message: "Company not found" });
+      .status(404)
+      .json({ success: false, message: "Company not found" });
     }
-
+    
+    const Password = generateReadablePassword(company?.adminInfo?.fullName);
     // Update company status
     company.status = status;
 

@@ -1,4 +1,3 @@
-// controllers/salaryController.js
 import Salary from "../models/salary.model.js";
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
