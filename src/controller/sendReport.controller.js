@@ -3,9 +3,10 @@ import axios from 'axios';
 import Attendance from '../models/attendance.model.js';
 import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
-import { CompanyRegistration } from '../models/companyRegistration.model.js';
+import {CompanyRegistration} from '../models/companyregistration.model.js';
+
 import ReportLog from '../models/reportLog.model.js';
-import { uploadFileToS3 } from '../utils/s3.utils.js'; // adjust path accordingly
+import { uploadFileToS3 } from '../utils/s3.utils.js'; 
 
 export const sendDailyAttendanceReports = async () => {
   try {
