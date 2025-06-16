@@ -7,7 +7,7 @@ import {
   getParticularUserAttendance,
   getPositionWiseAttendance,
 } from "../controller/attendance.controller.js";
-import { protect, protectAdmin } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin, protectUserOrAdmin } from "../middleware/authMiddleware.js";
 const router = express.Router();
 // Route to punch in
 router.post(
@@ -32,7 +32,7 @@ router.get(
 );
 router.get(
   "/allAttendance",
-  protectAdmin,
+  protectUserOrAdmin,
   getAllAttendance
 );
 router.get(

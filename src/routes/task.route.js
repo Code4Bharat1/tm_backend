@@ -1,5 +1,5 @@
 import express from "express";
-import { protect, protectAdmin } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin, protectUserOrAdmin } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/multer.middleware.js";
 import {
   createTaskAssignment,
@@ -47,6 +47,6 @@ router.get("/getUnassignedUsers", protect, getUnassignedEmployeesForProject);
 
 router.patch("/updateTagMembers/:taskId", protect, updateTaskTagMembers);
 
-router.put("/:taskId/removeMember", removeMemberFromTask);
+router.put("/:taskId/removeMember", protectUserOrAdmin, removeMemberFromTask);
 
 export default router;

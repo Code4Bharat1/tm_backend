@@ -10,7 +10,7 @@ import {
     getSingleLeave,
     getTeamLeaves
 } from "../controller/leave.controller.js";
-import { protect, protectAdmin } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin, protectUserOrAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -27,10 +27,10 @@ const upload = multer({ storage });
 router.post("/apply",protect, upload.single("attachment"), applyLeave);
 router.get('/approvers', protect, getApprovers);
 router.get("/userLeave",protect, getAllLeaves);
-router.get("/admin/company-leaves",protectAdmin, getCompanyLeaves);
+router.get("/admin/company-leaves",protectUserOrAdmin, getCompanyLeaves);
 router.get("/user/team-leaves", protect, getTeamLeaves);
-router.get("/admin/single-leave/:id",protectAdmin, getSingleLeave);
-router.get('/admin/leave/:leaveId', protectAdmin, getLeaveDetailsById);
-router.put('/admin/update-status/:leaveId', protectAdmin, updateLeaveStatus);
+router.get("/admin/single-leave/:id", protectUserOrAdmin, getSingleLeave);
+router.get('/admin/leave/:leaveId', protectUserOrAdmin, getLeaveDetailsById);
+router.put('/admin/update-status/:leaveId', protectUserOrAdmin, updateLeaveStatus);
 
 export default router;
