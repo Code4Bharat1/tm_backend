@@ -56,39 +56,38 @@ export const punchInController = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.position !== "Manager") {
-      if (!userLocation?.latitude || !userLocation?.longitude) {
+      if (!userLocation?.latitude ||
+          !userLocation?.longitude) {
         return res
           .status(400)
           .json({ message: "User location is required for punch-in" });
       }
       const locationSetting = await LocationSetting.findOne({ companyId });
-      if (!locationSetting) {
-        return res
-          .status(400)
-          .json({ message: "Company location settings not configured" });
-      }
-      const { latitude, longitude, allowedRadius } = locationSetting;
-      const distance = calculateDistance(
-        latitude,
-        longitude,
-        userLocation.latitude,
-        userLocation.longitude,
-      );
-      if (distance > allowedRadius) {
-        return res.status(400).json({
-          message: `You are ${Math.round(
-            distance,
-          )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
-          locationError: true,
-        });
+
+      if (locationSetting) {
+        const { latitude,longitude,allowedRadius } = locationSetting;
+        const distance = calculateDistance(
+          latitude,
+         longitude,
+          userLocation.latitude,
+          userLocation.longitude,
+        );
+        if (distance > allowedRadius) {
+          return res.status(400).json({ 
+            message: `You are ${Math.round(
+              distance,
+            )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
+            locationError: true,
+          });
+        }
       }
     }
 
-    const today = new Date(getStartOfDayUTC());
-    const existingAttendance = await Attendance.findOne({
-      userId,
-      companyId,
-      date: today,
+    const today = new Date(getStartOfDayUTC()); 
+    const existingAttendance = await Attendance.findOne({ 
+      userId, 
+      companyId, 
+      date: today 
     });
     if (existingAttendance && existingAttendance.punchIn) {
       return res
@@ -101,7 +100,7 @@ export const punchInController = async (req, res) => {
       return res.status(400).json({ message: "Invalid punch-in time" });
     }
 
-    const attendance = new Attendance({
+    const attendance = new Attendance({ 
       userId,
       companyId,
       date: today,
@@ -113,14 +112,14 @@ export const punchInController = async (req, res) => {
 
     await attendance.save();
 
-    res.status(200).json({
+    res.status(200).json({ 
       message: "Punch-in successful",
       punchInTime: attendance.punchIn,
       photoUrl: selfieImage,
     });
   } catch (error) {
-    console.error("Punch-in error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Punch-in error.", error);
+    res.status(500).json({ message: "Server error.", error: error.message });
   }
 };
 
@@ -150,39 +149,38 @@ export const punchOutController = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.position !== "Manager") {
-      if (!userLocation?.latitude || !userLocation?.longitude) {
+      if (!userLocation?.latitude ||
+          !userLocation?.longitude) {
         return res
           .status(400)
           .json({ message: "User location is required for punch-out" });
       }
       const locationSetting = await LocationSetting.findOne({ companyId });
-      if (!locationSetting) {
-        return res
-          .status(400)
-          .json({ message: "Company location settings not configured" });
-      }
-      const { latitude, longitude, allowedRadius } = locationSetting;
-      const distance = calculateDistance(
-        latitude,
-        longitude,
-        userLocation.latitude,
-        userLocation.longitude,
-      );
-      if (distance > allowedRadius) {
-        return res.status(400).json({
-          message: `You are ${Math.round(
-            distance,
-          )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
-          locationError: true,
-        });
+
+      if (locationSetting) {
+        const { latitude,longitude,allowedRadius } = locationSetting;
+        const distance = calculateDistance(
+          latitude,
+         longitude,
+          userLocation.latitude,
+          userLocation.longitude,
+        );
+        if (distance > allowedRadius) {
+          return res.status(400).json({ 
+            message: `You are ${Math.round(
+              distance,
+            )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
+            locationError: true,
+          });
+        }
       }
     }
 
-    const today = new Date(getStartOfDayUTC());
-    const attendance = await Attendance.findOne({
-      userId,
-      companyId,
-      date: today,
+    const today = new Date(getStartOfDayUTC()); 
+    const attendance = await Attendance.findOne({ 
+      userId, 
+      companyId, 
+      date: today 
     });
     if (!attendance || !attendance.punchIn) {
       return res
@@ -202,6 +200,7 @@ export const punchOutController = async (req, res) => {
 
     const hoursWorked = calculateHours(attendance.punchIn, punchOutDateTime);
     let status = "Absent";
+
     if (emergencyReason) {
       status = "Emergency";
     } else if (hoursWorked >= 8) {
@@ -221,7 +220,7 @@ export const punchOutController = async (req, res) => {
 
     await attendance.save();
 
-    res.status(200).json({
+    res.status(200).json({ 
       message: "Punch-out successful",
       punchOutTime: attendance.punchOut,
       photoUrl: selfieImage,
@@ -229,8 +228,8 @@ export const punchOutController = async (req, res) => {
       status,
     });
   } catch (error) {
-    console.error("Punch-out error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Punch-out error.", error);
+    res.status(500).json({ message: "Server error.", error: error.message });
   }
 };
 
