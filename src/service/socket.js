@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { createClient } from "redis";
 import { Chess } from "chess.js";
+import ChessScoreModel from "../models/ChessScore.model.js";
 
 export let io;
 export const userSocketMap = new Map();
@@ -302,7 +303,7 @@ export const initSocketServer = async (server) => {
 
     // Replace the chess-move handler in your socket.js with this fixed version
 
-    socket.on("chess-move", ({ roomId, from, to, piece, promotion }) => {
+    socket.on("chess-move", async ({ roomId, from, to, piece, promotion }) => {
       const userId = socket.data.userId;
       if (!roomId || !from || !to) {
         socket.emit("chess-error", { message: "Invalid move data" });
@@ -334,7 +335,6 @@ export const initSocketServer = async (server) => {
         return;
       }
 
-      // Store the current player who made the move BEFORE switching turns
       const currentMovingPlayer = playerColor;
       const currentMovingUserId = userId;
 
@@ -351,16 +351,14 @@ export const initSocketServer = async (server) => {
       game.stalemate = moveResult.stalemate;
       game.gameOver = moveResult.checkmate || moveResult.stalemate;
 
-      // Fix: The player who just moved is the winner if checkmate occurred
       if (moveResult.checkmate) {
-        game.winner = currentMovingPlayer; // The player who just moved wins
-        game.winnerUserId = currentMovingUserId; // The userId who just moved wins
+        game.winner = currentMovingPlayer;
+        game.winnerUserId = currentMovingUserId;
       } else if (moveResult.stalemate) {
         game.winner = "draw";
         game.winnerUserId = null;
       }
 
-      // Send game state to all players
       io.to(roomId).emit("chess-state", {
         roomId,
         fen: game.chess.fen(),
@@ -387,7 +385,35 @@ export const initSocketServer = async (server) => {
         success: true,
       });
 
-      // If game is over, delete the room and notify players to redirect
+      if (moveResult.checkmate) {
+        try {
+          const loserId = game.players.find(id => id !== game.winnerUserId);
+          const loserName = game.playerNames[loserId];
+
+          const result = new ChessScoreModel({
+            userId: game.winnerUserId,
+            roomId,
+            playerName: game.playerNames[game.winnerUserId],
+            isWinner: true,
+            gameName: 'Chess Multiplayer',
+            gameType: 'multiplayer',
+            isPlayed: true,
+            winnerColor: game.winner,
+            loserId,
+            loserName,
+            time: Math.floor(
+              (game.moves.at(-1)?.timestamp - game.moves[0]?.timestamp) / 1000
+            ) || 0,
+            score: game.moves.length * 5,
+          });
+
+          await result.save();
+          console.log("✅ Chess game result saved:", result._id);
+        } catch (err) {
+          console.error("❌ Failed to save chess result:", err);
+        }
+      }
+
       if (game.gameOver) {
         io.to(roomId).emit("chess-game-ended", {
           roomId,
@@ -400,15 +426,17 @@ export const initSocketServer = async (server) => {
       }
     });
 
-    socket.on("chess-reset", ({ roomId }) => {
+    socket.on("chess-reset", async ({ roomId }) => {
       const game = chessGames.get(roomId);
       if (!game) return;
 
+
+      // 🔄 Reset game state
       game.chess = new Chess();
       game.currentPlayer = "white";
       game.gameOver = false;
       game.winner = null;
-      game.winnerUserId = null; // Reset winner userId
+      game.winnerUserId = null;
       game.moves = [];
       game.check = false;
       game.checkmate = false;
@@ -431,6 +459,7 @@ export const initSocketServer = async (server) => {
         waitingForPlayer: game.players.length < 2,
       });
     });
+
 
     socket.on("disconnect", () => {
       const userId = socket.data.userId;
