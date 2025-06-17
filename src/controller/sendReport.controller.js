@@ -1,4 +1,4 @@
-import xlsx from 'xlsx';
+import ExcelJS from 'exceljs';
 import axios from 'axios';
 import Attendance from '../models/attendance.model.js';
 import User from '../models/user.model.js';
@@ -35,21 +35,30 @@ export const sendDailyAttendanceReports = async () => {
       // Status color mapping
       const getStatusColor = (status) => {
         const colors = {
-          'Present': '22C55E',     // Green
-          'Late': 'FB923C',        // Orange  
-          'Absent': 'EF4444',      // Red
-          'On Leave': 'A21CAF',    // Purple
-          'Half Day': '38BDF8',    // Blue
+          'Present': 'FF22C55E',     // Green
+          'Late': 'FFFB923C',        // Orange  
+          'Absent': 'FFEF4444',      // Red
+          'On Leave': 'FFA21CAF',    // Purple
+          'Half Day': 'FF38BDF8',    // Blue
         };
-        return colors[status] || 'D3D3D3'; // Default gray
+        return colors[status] || 'FFD3D3D3'; // Default gray
       };
 
-      // Format data for export
-      const finalData = users.map((user, index) => {
+      // Count statuses
+      const statusCounts = { Present: 0, Absent: 0, Late: 0, 'On Leave': 0, 'Half Day': 0, Other: 0 };
+      users.forEach((user) => {
         const record = attendanceMap.get(user._id.toString());
         const status = record?.status || 'Absent';
-        
-        return {
+        if (statusCounts[status] !== undefined) statusCounts[status]++;
+        else statusCounts.Other++;
+      });
+
+      // Format data for export and group by status
+      const groupedData = { Present: [], Absent: [], Late: [], 'On Leave': [], 'Half Day': [], Other: [] };
+      users.forEach((user, index) => {
+        const record = attendanceMap.get(user._id.toString());
+        const status = record?.status || 'Absent';
+        const data = {
           SNo: index + 1,
           Name: `${user.firstName} ${user.lastName}`,
           PunchIn: record?.punchIn ? new Date(record.punchIn).toLocaleTimeString() : '-',
@@ -58,113 +67,45 @@ export const sendDailyAttendanceReports = async () => {
           Overtime: record?.overtime || 0,
           Status: status,
           EmergencyReason: record?.status === 'Emergency' ? record.emergencyReason : '',
-          _statusColor: getStatusColor(status),
         };
+        if (groupedData[status]) groupedData[status].push(data);
+        else groupedData.Other.push(data);
       });
 
-      // Prepare worksheet data
-      const wsData = [];
-      
-      // Add title row
-      wsData.push([
-        `Attendance Report for ${today.toLocaleDateString('en-IN', {
-          day: 'numeric', month: 'long', year: 'numeric',
-        })}`
+      // Create workbook and worksheet
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Attendance');
+
+      // Add summary row for status counts
+      worksheet.addRow([`Attendance Report for ${today.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`]);
+      worksheet.mergeCells('A1:H1');
+      worksheet.getCell('A1').font = { bold: true, size: 14 };
+      worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+
+      // Add status summary row
+      const summaryRow = worksheet.addRow([
+        'Present', statusCounts.Present,
+        'Absent', statusCounts.Absent,
+        'Late', statusCounts.Late,
+        'On Leave', statusCounts['On Leave'],
+        'Half Day', statusCounts['Half Day']
       ]);
-      
-      // Add header row
-      wsData.push([
-        'Sr.No.', 'Name', 'Punch In', 'Punch Out', 'Worked Hours', 'Overtime', 'Status', 'Emergency Reason'
-      ]);
-      
-      // Add data rows
-      finalData.forEach(item => {
-        wsData.push([
-          item.SNo,
-          item.Name,
-          item.PunchIn,
-          item.PunchOut,
-          item.WorkedHours,
-          item.Overtime,
-          item.Status,
-          item.EmergencyReason
-        ]);
-      });
-
-      // Create worksheet
-      const ws = xlsx.utils.aoa_to_sheet(wsData);
-
-      // Apply styling to the worksheet
-      const range = xlsx.utils.decode_range(ws['!ref']);
-      
-      // Style the title row (merge and center)
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }
-      ];
-      
-      // Style title cell
-      if (ws['A1']) {
-        ws['A1'].s = {
-          font: { bold: true, size: 14 },
-          alignment: { horizontal: 'center', vertical: 'center' },
-          fill: { fgColor: { rgb: 'E5E7EB' } } // Light gray background
-        };
-      }
-
-      // Style header row
-      for (let col = 0; col <= 7; col++) {
-        const cellAddress = xlsx.utils.encode_cell({ r: 1, c: col });
-        if (ws[cellAddress]) {
-          ws[cellAddress].s = {
-            font: { bold: true, color: { rgb: 'FFFFFF' } },
-            fill: { fgColor: { rgb: '374151' } }, // Dark gray background
-            alignment: { horizontal: 'center', vertical: 'center' },
-            border: {
-              top: { style: 'thin', color: { rgb: '000000' } },
-              bottom: { style: 'thin', color: { rgb: '000000' } },
-              left: { style: 'thin', color: { rgb: '000000' } },
-              right: { style: 'thin', color: { rgb: '000000' } }
-            }
-          };
-        }
-      }
-
-      // Apply color coding to status column and general formatting to data rows
-      finalData.forEach((item, idx) => {
-        const rowIdx = idx + 2; // Data starts from row 2 (0-based indexing)
-        
-        // Apply styling to all cells in the data row
-        for (let col = 0; col <= 7; col++) {
-          const cellAddress = xlsx.utils.encode_cell({ r: rowIdx, c: col });
-          if (ws[cellAddress]) {
-            // Base styling for all data cells
-            ws[cellAddress].s = {
-              border: {
-                top: { style: 'thin', color: { rgb: 'D1D5DB' } },
-                bottom: { style: 'thin', color: { rgb: 'D1D5DB' } },
-                left: { style: 'thin', color: { rgb: 'D1D5DB' } },
-                right: { style: 'thin', color: { rgb: 'D1D5DB' } }
-              },
-              alignment: { horizontal: 'center', vertical: 'center' }
-            };
-
-            // Special styling for Status column (column 6)
-            if (col === 6) {
-              ws[cellAddress].s = {
-                ...ws[cellAddress].s,
-                fill: { fgColor: { rgb: item._statusColor } },
-                font: { 
-                  bold: true, 
-                  color: { rgb: item.Status === 'Present' ? '000000' : 'FFFFFF' } // Black text for green, white for others
-                }
-              };
-            }
-          }
+      summaryRow.eachCell((cell, colNumber) => {
+        if (colNumber % 2 === 1) {
+          // Status name cell
+          cell.font = { bold: true };
+          cell.alignment = { horizontal: 'center' };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: getStatusColor(cell.value) } };
+        } else {
+          // Count cell
+          cell.font = { bold: true };
+          cell.alignment = { horizontal: 'center' };
         }
       });
 
-      // Set column widths for better appearance
-      ws['!cols'] = [
+      // Set column widths
+      worksheet.columns = [
         { width: 8 },   // Sr.No.
         { width: 20 },  // Name
         { width: 12 },  // Punch In
@@ -175,16 +116,89 @@ export const sendDailyAttendanceReports = async () => {
         { width: 25 },  // Emergency Reason
       ];
 
-      // Create workbook and add worksheet
-      const wb = xlsx.utils.book_new();
-      xlsx.utils.book_append_sheet(wb, ws, 'Attendance');
-      
-      // Generate buffer
-      const buffer = xlsx.write(wb, { 
-        type: 'buffer', 
-        bookType: 'xlsx',
-        cellStyles: true // Enable cell styling
+      // Add spacing after summary (row 3) - just a light-shaded row, no merge
+      worksheet.insertRow(3, ['']);
+      worksheet.getRow(3).height = 6;
+      worksheet.getRow(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+
+      // Helper to add a light-shaded empty row for spacing (no merge)
+      const addSpacingRow = () => {
+        const row = worksheet.addRow(['']);
+        row.height = 6;
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }; // Very light gray
+      };
+
+      // Helper to add a section header with lighter shade
+      const addSectionHeader = (status) => {
+        const row = worksheet.addRow([`${status} (${statusCounts[status]})`]);
+        worksheet.mergeCells(`A${row.number}:H${row.number}`);
+        row.font = { bold: true, size: 12, color: { argb: 'FF374151' } };
+        row.alignment = { horizontal: 'left', vertical: 'middle' };
+        // Use a lighter shade for the section header
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
+      };
+
+      // Helper to add table header with lighter shade
+      const addTableHeader = () => {
+        const headerRow = worksheet.addRow([
+          'Sr.No.', 'Name', 'Punch In', 'Punch Out', 'Worked Hours', 'Overtime', 'Status', 'Emergency Reason'
+        ]);
+        headerRow.font = { bold: true, color: { argb: 'FF374151' } };
+        headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // Lighter gray
+        headerRow.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+          };
+        });
+      };
+
+      // Add grouped data sections with spacing and lighter shades
+      const statusOrder = ['Present', 'Late', 'Absent', 'On Leave', 'Half Day', 'Other'];
+      statusOrder.forEach((status, idx) => {
+        if (groupedData[status] && groupedData[status].length > 0) {
+          if (idx > 0) addSpacingRow(); // Add spacing before each group except the first
+          addSectionHeader(status);
+          addTableHeader();
+          groupedData[status].forEach((item) => {
+            const row = worksheet.addRow([
+              item.SNo,
+              item.Name,
+              item.PunchIn,
+              item.PunchOut,
+              item.WorkedHours,
+              item.Overtime,
+              item.Status,
+              item.EmergencyReason
+            ]);
+            row.alignment = { horizontal: 'center', vertical: 'middle' };
+            row.eachCell((cell, colNumber) => {
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFF3F4F6' } },
+                bottom: { style: 'thin', color: { argb: 'FFF3F4F6' } },
+                left: { style: 'thin', color: { argb: 'FFF3F4F6' } },
+                right: { style: 'thin', color: { argb: 'FFF3F4F6' } }
+              };
+              // Status column (7th col)
+              if (colNumber === 7) {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: getStatusColor(row.getCell(7).value) } };
+                cell.font = { bold: true, color: { argb: row.getCell(7).value === 'Present' ? 'FF000000' : 'FFFFFFFF' } };
+              }
+            });
+          });
+        }
       });
+
+      // Add spacing after summary (row 3) - just a light-shaded row, no merge
+      worksheet.insertRow(3, ['']);
+      worksheet.getRow(3).height = 6;
+      worksheet.getRow(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+
+      // Generate buffer
+      const buffer = await workbook.xlsx.writeBuffer();
 
       // Create filename
       const dateForFileName = today.toISOString().split('T')[0];
