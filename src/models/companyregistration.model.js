@@ -59,6 +59,20 @@ const companyRegistrationSchema = new mongoose.Schema({
   officeLocation: {
     type: String,
   },
+  attendanceSettings: {
+    workingDays: {
+      type: [String], // e.g., ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+      default: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    },
+    punchInEndTime: {
+      type: String, // e.g., '09:00'
+      default: '09:00'
+    },
+    punchOutEndTime: {
+      type: String, // e.g., '17:00'
+      default: '17:00'
+    }
+  },
   planPreferences: {
     desiredPlan: {
       type: String,

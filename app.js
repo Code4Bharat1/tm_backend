@@ -8,10 +8,11 @@ import cron from "node-cron";
 import connectDB from "./src/init/dbConnection.js";
 import pool from "./src/init/pgConnection.js";
 import { createSchemaAndTables } from "./src/models/sheet.schema.js";
+import { CompanyRegistration } from "./src/models/companyregistration.model.js";
 
 import { logout } from "./src/controller/logout.controller.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
-import {sendDailyAttendanceReports} from "./src/controller/sendReport.controller.js"
+import {sendDailyAttendanceReports, sendPunchInReport, sendPunchOutReport } from "./src/controller/sendReport.controller.js"
 import adddocument from "./src/routes/adddocument.route.js";
 import AdminRouter from "./src/routes/adminAuth.route.js";
 import AttendanceRouter from "./src/routes/attendance.route.js";
@@ -51,6 +52,43 @@ dotenv.config();
 const Port = process.env.PORT;
 const app = express();
 
+const scheduleCompanyAttendanceCrons = async () => {
+  const companies = await CompanyRegistration.find();
+  companies.forEach(company => {
+    const { attendanceSettings = {}, _id: companyId, companyInfo } = company;
+    const { punchInEndTime = '09:00', punchOutEndTime = '17:00', workingDays = [] } = attendanceSettings;
+    // Parse punchInEndTime and punchOutEndTime (format: 'HH:mm')
+    const [inHour, inMinute] = punchInEndTime.split(":").map(Number);
+    const [outHour, outMinute] = punchOutEndTime.split(":").map(Number);
+    // Schedule punch in report
+    cron.schedule(
+      `${inMinute} ${inHour} * * *`,
+      async () => {
+        try {
+          console.log(`✅ Running Punch In Report for ${companyInfo?.companyName} at ${punchInEndTime}`);
+          await sendPunchInReport(companyId);
+        } catch (err) {
+          console.error("❌ Punch In cron error:", err.message);
+        }
+      },
+      { timezone: "Asia/Kolkata", scheduled: true }
+    );
+    // Schedule punch out report
+    cron.schedule(
+      `${outMinute} ${outHour} * * *`,
+      async () => {
+        try {
+          console.log(`✅ Running Punch Out Report for ${companyInfo?.companyName} at ${punchOutEndTime}`);
+          await sendPunchOutReport(companyId);
+        } catch (err) {
+          console.error("❌ Punch Out cron error:", err.message);
+        }
+      },
+      { timezone: "Asia/Kolkata", scheduled: true }
+    );
+  });
+};
+
 const startServer = async () => {
   try {
     // Connect to MongoDB or any other DB if needed
@@ -58,6 +96,7 @@ const startServer = async () => {
 
     // Initialize PostgreSQL schema and tables
     await createSchemaAndTables();
+    await scheduleCompanyAttendanceCrons();
 
     app.use(
       cors({

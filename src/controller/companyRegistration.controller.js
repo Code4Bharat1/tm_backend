@@ -333,3 +333,48 @@ export const updateCompanyStatus = async (req, res) => {
       .json({ success: false, message: "Failed to update status" });
   }
 };
+
+// Update attendance settings (working days, punch in/out end times)
+export const updateAttendanceSettings = async (req, res) => {
+  try {
+    const {  workingDays, punchInEndTime, punchOutEndTime } = req.body;
+    const {companyId}=req.user;
+    if (!companyId) {
+      return res.status(400).json({ message: "companyId is required" });
+    }
+    const update = {};
+    if (workingDays) update["attendanceSettings.workingDays"] = workingDays;
+    if (punchInEndTime) update["attendanceSettings.punchInEndTime"] = punchInEndTime;
+    if (punchOutEndTime) update["attendanceSettings.punchOutEndTime"] = punchOutEndTime;
+    const company = await CompanyRegistration.findByIdAndUpdate(
+      companyId,
+      { $set: update },
+      { new: true }
+    );
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+    res.json({ success: true, attendanceSettings: company.attendanceSettings });
+  } catch (err) {
+    console.error("Error updating attendance settings:", err);
+    res.status(500).json({ success: false, message: "Failed to update attendance settings" });
+  }
+};
+
+// Get attendance settings for a company
+export const getAttendanceSettings = async (req, res) => {
+  try {
+    const { companyId } = req.user ;
+    if (!companyId) {
+      return res.status(400).json({ message: "companyId is required" });
+    }
+    const company = await CompanyRegistration.findById(companyId, 'attendanceSettings');
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+    res.json({ success: true, attendanceSettings: company.attendanceSettings });
+  } catch (err) {
+    console.error("Error fetching attendance settings:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch attendance settings" });
+  }
+};

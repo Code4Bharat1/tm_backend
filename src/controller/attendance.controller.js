@@ -543,15 +543,24 @@ function getStartOfTodayUTC() {
 export async function processAbsentees() {
   try {
     const todayStart = getStartOfTodayUTC();
+    const todayDay = todayStart.getUTCDay(); // 0 (Sun) - 6 (Sat)
     const users = await User.find({});
+    const Company = (await import("../models/companyregistration.model.js")).default;
 
     for (const user of users) {
+      // Fetch company attendance settings
+      const company = await Company.findById(user.companyId);
+      const workingDays = company?.attendanceSettings?.workingDays || [1,2,3,4,5]; // Default: Mon-Fri
+      // workingDays: [0,1,2,3,4,5,6] (0=Sun, 1=Mon, ...)
+      if (!workingDays.includes(todayDay)) {
+        // Not a working day for this company, skip marking absent
+        continue;
+      }
       const attendance = await Attendance.findOne({
         userId: user._id,
         companyId: user.companyId,
         date: todayStart,
       });
-
       if (!attendance) {
         await new Attendance({
           userId: user._id,
@@ -560,17 +569,13 @@ export async function processAbsentees() {
           status: "Absent",
           remark: "Absent",
         }).save();
-
         console.log(
-          `🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split("T")[0]
-          }`,
+          `🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split("T")[0]}`,
         );
       }
     }
-
     console.log(
-      `✅ All absentees processed for ${todayStart.toISOString().split("T")[0]
-      }`,
+      `✅ All absentees processed for ${todayStart.toISOString().split("T")[0]}`,
     );
   } catch (error) {
     console.error("❌ Error running absentee cron job:", error.message);
