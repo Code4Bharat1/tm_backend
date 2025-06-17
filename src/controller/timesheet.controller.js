@@ -3,6 +3,7 @@ import TaskAssignment from "../models/taskAssignment.model.js";
 import Admin from "../models/admin.model.js"
 import mongoose from "mongoose";
 import moment from "moment";
+import { uploadFileToS3 } from "../utils/s3.utils.js";
 
 const getApprovers = async (req, res) => {
   try {
@@ -358,6 +359,103 @@ const getTeamTimesheet = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
+
+export const createTimesheetWithVoice = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No voice recording provided' });
+    }
+
+    // Upload to S3 first
+    const upload = await uploadFileToS3(req.file);
+
+    // Create a new Timesheet
+    const timesheet = new Timesheet({ 
+      userId: req.user.userId,
+      companyId: req.user.companyId,
+      date: new Date(req.body.date),
+      projectName: req.body.projectName ?? '',
+      voiceRecording: {
+        url: upload.Location,
+        duration: 0,
+        format: req.file.mimetype,
+      },
+      items: [], // no manual tasks
+    });
+
+    await timesheet.save();
+
+    res.status(201).json({ message: 'Timesheet successfully created!', timesheet });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Update an existing Timesheet with a voice recording
+ */
+export const addVoiceRecordingToTimesheet = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No voice recording provided' });
+    }
+
+    // Find the Timesheet first
+    const timesheet = await Timesheet.findById(req.user.id);
+    if (!timesheet) {
+      return res.status(404).json({ message: 'Timesheet not found' });
+    }
+
+    // Upload the new voice recording to S3
+    const upload = await uploadFileToS3(req.file);
+
+    // Update and clear manual tasks
+    timesheet.voiceRecording = {
+      url: upload.Location,
+      duration: 0,
+      format: req.file.mimetype,
+    };
+    timesheet.items = [];
+
+    await timesheet.save();
+
+    res.json({ message: 'Voice recording successfully updated!', timesheet });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+/**
+ * Retrieve a Timesheet by its ID
+ */
+export const getTimesheet = async (req, res) => {
+  try {
+    // Build filter with both _id and companyId (if applicable)
+    const filter = { userId: req.user.userId };
+    if (req.user.companyId) {
+      filter.companyId = req.user.companyId;
+    }
+
+    const timesheet = await Timesheet.findOne(filter);
+
+    if (!timesheet) {
+      return res.status(404).json({ message: 'Timesheet not found' });
+    }
+
+    res.json(timesheet);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+
+
+
+
+
 export {
   storeTimesheet,
   getTimesheetsbyDate,

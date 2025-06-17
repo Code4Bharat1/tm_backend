@@ -6,8 +6,12 @@ import {
   getUserTimesheetsByCompany,
   getApprovers,
   getTeamTimesheet,
+  addVoiceRecordingToTimesheet,
+  getTimesheet,
+  createTimesheetWithVoice,
 } from "../controller/timesheet.controller.js";
-import { protect, protectAdmin } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin, protectUserOrAdmin } from "../middleware/authMiddleware.js";
+import multer from "multer";
 
 const router = express.Router();
 // Route to store timesheet
@@ -36,5 +40,35 @@ router.get('/user/approvers', protect, getApprovers);
 //     // Logic to get timesheet
 //     res.send('Get timesheet');
 // });
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+/**
+ * Create a new Timesheet with a voice recording
+ */
+router.post(
+  '/',
+  upload.single('file'),
+  protect,
+  createTimesheetWithVoice
+);
+
+
+/**
+ * Update an existing Timesheet with a voice recording
+ */
+router.patch(
+  '/changeVoice',
+  upload.single('file'),
+  protect,
+  addVoiceRecordingToTimesheet
+);
+
+
+/**
+ * Retrieve a Timesheet by its ID
+ */
+router.get('/getVoice',protectUserOrAdmin, getTimesheet);
 
 export default router;
