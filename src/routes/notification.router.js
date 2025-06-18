@@ -1,6 +1,6 @@
 import express from 'express';
-import { adminCalendarNotification, adminExpenseNotification, adminSendNotification, sendCalendarNotification, sendExpenseNotification, sendLeaveNotification, sendMeetingNotification, sendPostNotification } from '../controller/notification.controller.js';
-import { protect, protectAdmin } from '../middleware/authMiddleware.js';
+import { adminCalendarNotification, adminExpenseNotification, adminSendNotification, sendCalendarNotification, sendExpenseNotification, sendLeaveNotification, sendMeetingNotification, sendPostNotification, getNotificationsByUser } from '../controller/notification.controller.js';
+import { protect, protectAdmin,protectUserOrAdmin } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -13,5 +13,6 @@ router.get("/admin-leave-request", protectAdmin, adminSendNotification);
 router.get("/admin-expense-request", protectAdmin, adminExpenseNotification);
 router.get("/admin-calendar-reminder", protectAdmin, adminCalendarNotification);
 router.get("/admin-meeting-notification", protectAdmin, sendMeetingNotification);
+router.get('/reminder', protectUserOrAdmin, getNotificationsByUser);
 
 export default router;

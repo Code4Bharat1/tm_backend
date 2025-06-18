@@ -10,7 +10,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['Task', 'Post', 'Project', 'Alert', 'Reminder', 'Custom'],
+      enum: ['Task', 'Post', 'Project', 'Alert', 'Reminder', 'Custom','EventReminder'],
       required: true,
     },
     title: {
@@ -37,6 +37,11 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Project',
       default: null,
+    },
+    reminderId:{
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"Reminder",
+      default:null
     },
 
     // Optional redirect link (frontend)

@@ -3,6 +3,7 @@ import Post from "../models/createpost.model.js";
 import Expense from "../models/expense.model.js";
 import Leave from "../models/leave.model.js";
 import meetingModel from "../models/meeting.model.js";
+import reminderModel from "../models/reminder.model.js"
 
 export const sendLeaveNotification = async (req, res) => {
     try {
@@ -586,3 +587,56 @@ export const adminCalendarNotification = async (req, res) => {
         })
     }
 }
+
+export const getNotificationsByUser = async (req, res) => {
+    try {
+        const { userId } = req.user; // or `id` if using `req.user.id`
+
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        // Fetch all reminders for the user
+        const reminders = await reminderModel.find({ userId }).select('name date');
+
+        // Define time range: from today 00:00:00 to end of tomorrow 23:59:59
+        const now = new Date();
+
+        const startOfToday = new Date(now);
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const endOfTomorrow = new Date(now);
+        endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+        endOfTomorrow.setHours(23, 59, 59, 999);
+
+        // Filter reminders in this range
+        const filteredReminders = reminders.filter(reminder => {
+            const reminderDate = new Date(reminder.date);
+            return reminderDate >= startOfToday && reminderDate <= endOfTomorrow;
+        });
+
+        if (filteredReminders.length === 0) {
+            return res.status(200).json({
+                message: "No upcoming reminders",
+                notifications: []
+            });
+        }
+
+        const notifications = filteredReminders.map(reminder => ({
+            message: "Upcoming Reminder Notification",
+            date: reminder.date,
+            title: reminder.name,
+            type: "Reminder"
+        }));
+
+        return res.status(200).json({ notifications });
+
+    } catch (error) {
+        console.error("Error sending reminder notifications:", error);
+        return res.status(500).json({
+            message: "Internal Server Error",
+            error: error.message
+        });
+      }
+};
+

@@ -38,6 +38,7 @@ export const getReminders = async (req, res) => {
         const { userId, companyId, role } = req.user;
 
         let query = { companyId };
+        console.log(query)
 
         if (role !== 'admin') {
             query.userId = userId;

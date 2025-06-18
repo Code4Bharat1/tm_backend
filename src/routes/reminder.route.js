@@ -8,7 +8,7 @@ const upload = multer();
 
 router.post('/', authenticateUser, upload.array('documents'), createReminder);
 
-router.get('/', authenticateUser, getReminders);
+router.get('/getReminder', authenticateUser, getReminders);
 
 router.patch('/:id', authenticateUser, updateReminder);
 
