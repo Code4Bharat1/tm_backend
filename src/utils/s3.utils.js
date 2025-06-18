@@ -17,7 +17,7 @@ const uploadFileToS3 = async (file) => {
   const key = `uploads/${uuidv4()}-${file.originalname}`;
 
   const params = {
-    Bucket: process.env.AWS_BUCKET_NAME,
+    Bucket: process.env.AWS_BUCKET_NAME,  
     Key: key,
     Body: file.buffer,
     ContentType: file.mimetype,

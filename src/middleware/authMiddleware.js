@@ -109,3 +109,22 @@ export {
 };
 // This middleware checks for a JWT token in the request cookies, verifies it, and attaches the decoded user information to the request object.
 //  If the token is missing or invalid, it sends a 401 Unauthorized response.
+
+export const authenticateUser = async (req, res, next) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ success: false, message: "No token provided" });
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        req.user = {
+            userId: decoded.userId,
+            companyId: decoded.companyId,
+            position: decoded.position || "Employee", 
+        };
+
+        next();
+    } catch (err) {
+        return res.status(401).json({ success: false, message: "Invalid token" });
+    }
+  };
