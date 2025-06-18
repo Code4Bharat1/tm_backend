@@ -3,6 +3,7 @@ import Admin from "../models/admin.model.js";
 import jwt from "jsonwebtoken";
 import { sendMail } from "../service/nodemailerConfig.js";
 import crypto from "crypto";
+import { getFeaturesByPlan } from '../utils/planUtils.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -376,5 +377,29 @@ export const getAttendanceSettings = async (req, res) => {
   } catch (err) {
     console.error("Error fetching attendance settings:", err);
     res.status(500).json({ success: false, message: "Failed to fetch attendance settings" });
+  }
+};
+
+// Get features for a company by ID
+export const getCompanyFeatures = async (req, res) => {
+  try {
+    const { companyId } = req.user;
+
+    const company = await CompanyRegistration.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    const plan = company.planPreferences?.desiredPlan || 'basic'; // fallback to 'free' if not set
+    const features = getFeaturesByPlan(plan);
+
+    if (!features) {
+      return res.status(400).json({ message: `No features found for plan: ${plan}` });
+    }
+
+    res.json({ plan, features });
+  } catch (error) {
+    console.error('Error fetching company features:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
