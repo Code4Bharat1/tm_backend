@@ -4,8 +4,8 @@ import { uploadFileToS3 } from '../utils/s3.utils.js';
 export const createReminder = async (req, res) => {
     try {
         const { name, date } = req.body;
-        const { userId, companyId } = req.user;
-
+        const {  companyId } = req.user;
+        const userId = req.user.userId || req.user.adminId;
         if (!name || !date) {
             return res.status(400).json({ success: false, error: "Name and date are required" });
         }
@@ -35,17 +35,15 @@ export const createReminder = async (req, res) => {
 
 export const getReminders = async (req, res) => {
     try {
-        const { userId, companyId, role } = req.user;
-
+        const {  companyId, role } = req.user;
+        const  userId = req.user.userId || req.user.adminId;
         let query = { companyId };
-        console.log(query)
 
         if (role !== 'admin') {
             query.userId = userId;
         }
 
         const reminders = await Reminder.find(query).sort({ createdAt: -1 });
-
         res.json({ success: true, data: reminders });
     } catch (error) {
         res.status(500).json({ success: false, error: "Failed to fetch reminders" });
@@ -81,7 +79,7 @@ export const updateReminder = async (req, res) => {
             }
             updateData.date = reminderDate;
         }
-        console.log()
+
         updateData.updatedAt = new Date();
 
         const reminder = await Reminder.findOneAndUpdate(
@@ -116,7 +114,7 @@ export const updateReminder = async (req, res) => {
 export const deleteReminder = async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(req.params)
+        
         const userId = req.user.id;
 
         const reminder = await Reminder.findOneAndDelete({ _id: id });
