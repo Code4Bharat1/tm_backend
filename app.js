@@ -47,6 +47,8 @@ import SalaryRoute from './src/routes/salary.route.js';
 import EventRouter from './src/routes/event.route.js';
 import gameScoreRouter from './src/routes/gameScore.route.js';
 import sudokuRoute from "./src/routes/sudoku.route.js"
+import reminder from './src/routes/reminder.route.js'
+
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -156,6 +158,7 @@ const startServer = async () => {
     app.use('/api/sheets', Sheets);
     app.use('/api/gamescore', gameScoreRouter);
     app.use('/api/sudoku',sudokuRoute)
+    app.use('/api/reminder', reminder);
 
     //automate the absenting who din't punchin at 11:59pm 
     cron.schedule(
