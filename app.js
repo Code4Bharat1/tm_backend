@@ -68,7 +68,7 @@ const scheduleCompanyAttendanceCrons = async () => {
       async () => {
         try {
           console.log(`✅ Running Punch In Report for ${companyInfo?.companyName} at ${punchInEndTime}`);
-          await sendPunchInReport(companyId);
+         // await sendPunchInReport(companyId);
         } catch (err) {
           console.error("❌ Punch In cron error:", err.message);
         }
@@ -81,7 +81,7 @@ const scheduleCompanyAttendanceCrons = async () => {
       async () => {
         try {
           console.log(`✅ Running Punch Out Report for ${companyInfo?.companyName} at ${punchOutEndTime}`);
-          await sendPunchOutReport(companyId);
+          //await sendPunchOutReport(companyId);
         } catch (err) {
           console.error("❌ Punch Out cron error:", err.message);
         }
