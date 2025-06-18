@@ -76,8 +76,8 @@ const companyRegistrationSchema = new mongoose.Schema({
   planPreferences: {
     desiredPlan: {
       type: String,
-      enum: ['Free', 'Basic', 'Premium'],
-      default: 'Free'
+      enum: ['Basic','Standard', 'Premium'],
+      default: 'Basic'
     },
     expectedStartDate: Date,
     numberOfExpectedUsers: {
