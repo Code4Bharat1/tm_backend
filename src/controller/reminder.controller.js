@@ -35,13 +35,10 @@ export const createReminder = async (req, res) => {
 
 export const getReminders = async (req, res) => {
     try {
-        const {  companyId, role } = req.user;
         const  userId = req.user.userId || req.user.adminId;
-        let query = { companyId };
+        let query = { userId };
+        console.log(userId)
 
-        if (role !== 'admin') {
-            query.userId = userId;
-        }
 
         const reminders = await Reminder.find(query).sort({ createdAt: -1 });
         res.json({ success: true, data: reminders });
