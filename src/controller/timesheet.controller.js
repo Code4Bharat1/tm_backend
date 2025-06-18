@@ -392,51 +392,83 @@ export const createTimesheetWithVoice = async (req, res) => {
   }
 };
 
-/**
- * Update an existing Timesheet with a voice recording
- */
+
 export const addVoiceRecordingToTimesheet = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No voice recording provided' });
     }
 
-    // Find the Timesheet first
-    const timesheet = await Timesheet.findById(req.user.id);
+    const { date } = req.params;
+    const userId = req.user.userId;
+    const companyId = req.user.companyId;
+
+    // Validate date
+    const formattedDate = moment(date, "YYYY-MM-DD", true).isValid()
+      ? moment(date).format("YYYY-MM-DD")
+      : null;
+
+    if (!formattedDate) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD." });
+    }
+
+    // Find the correct timesheet
+    const timesheet = await Timesheet.findOne({ userId, companyId, date: formattedDate });
     if (!timesheet) {
       return res.status(404).json({ message: 'Timesheet not found' });
     }
 
-    // Upload the new voice recording to S3
+    // Delete previous voice recording if exists
+    if (timesheet.voiceRecording?.url) {
+      try {
+        await deleteFilesFromS3(timesheet.voiceRecording.url);
+      } catch (deleteError) {
+        console.warn('Failed to delete previous voice recording:', deleteError.message);
+      }
+    }
+
+    // Upload new voice recording
     const upload = await uploadFileToS3(req.file);
 
-    // Update and clear manual tasks
+    // Update timesheet
     timesheet.voiceRecording = {
       url: upload.Location,
-      duration: 0,
+      duration: 0, // optionally calculate actual duration
       format: req.file.mimetype,
     };
-    timesheet.items = [];
+    timesheet.items = []; // clear manual tasks
 
     await timesheet.save();
 
     res.json({ message: 'Voice recording successfully updated!', timesheet });
   } catch (error) {
-    console.error(error);
+    console.error('Error adding voice recording to timesheet:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
 
-/**
- * Retrieve a Timesheet by its ID
- */
 export const getTimesheet = async (req, res) => {
   try {
-    // Build filter with both _id and companyId (if applicable)
-    const filter = { userId: req.user.userId };
-    if (req.user.companyId) {
-      filter.companyId = req.user.companyId;
+    const { date } = req.params;
+    const userId = req.user?.userId;
+    const companyId = req.user?.companyId;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User not authenticated' });
     }
+
+    const formattedDate = moment(date, "YYYY-MM-DD", true).isValid()
+      ? moment(date).format("YYYY-MM-DD")
+      : null;
+
+    if (!formattedDate) {
+      return res.status(400).json({
+        message: "Invalid date format. Expected YYYY-MM-DD.",
+      });
+    }
+
+    // Query using userId, companyId, and date
+    const filter = { userId, companyId, date: formattedDate };
 
     const timesheet = await Timesheet.findOne(filter);
 
@@ -444,17 +476,15 @@ export const getTimesheet = async (req, res) => {
       return res.status(404).json({ message: 'Timesheet not found' });
     }
 
-    res.json(timesheet);
+    res.status(200).json({
+      message: 'Timesheet found',
+      timesheet,
+    });
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching timesheet by date:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 };
-
-
-
-
-
 
 export {
   storeTimesheet,

@@ -59,7 +59,7 @@ router.post(
  * Update an existing Timesheet with a voice recording
  */
 router.patch(
-  '/changeVoice',
+  '/:date/changeVoice',
   upload.single('file'),
   protect,
   addVoiceRecordingToTimesheet
@@ -69,6 +69,6 @@ router.patch(
 /**
  * Retrieve a Timesheet by its ID
  */
-router.get('/getVoice',protectUserOrAdmin, getTimesheet);
+router.get('/getVoice/:date',protectUserOrAdmin, getTimesheet);
 
 export default router;
