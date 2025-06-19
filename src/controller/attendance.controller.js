@@ -1,10 +1,9 @@
 // controllers/attendanceController.js
-import sharp from "sharp";
+import mongoose from "mongoose";
 import Attendance from "../models/attendance.model.js";
 import LocationSetting from "../models/locationSetting.model.js";
 import User from "../models/user.model.js";
-import { getStartOfDayUTC, calculateHours } from "../utils/attendance.utils.js";
-import mongoose from "mongoose";
+import { calculateHours, getStartOfDayUTC } from "../utils/attendance.utils.js";
 
 // Convert base64 image string to buffer
 const base64ToBuffer = (base64) => {
@@ -57,7 +56,7 @@ export const punchInController = async (req, res) => {
 
     if (user.position !== "Manager") {
       if (!userLocation?.latitude ||
-          !userLocation?.longitude) {
+        !userLocation?.longitude) {
         return res
           .status(400)
           .json({ message: "User location is required for punch-in" });
@@ -65,15 +64,15 @@ export const punchInController = async (req, res) => {
       const locationSetting = await LocationSetting.findOne({ companyId });
 
       if (locationSetting) {
-        const { latitude,longitude,allowedRadius } = locationSetting;
+        const { latitude, longitude, allowedRadius } = locationSetting;
         const distance = calculateDistance(
           latitude,
-         longitude,
+          longitude,
           userLocation.latitude,
           userLocation.longitude,
         );
         if (distance > allowedRadius) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: `You are ${Math.round(
               distance,
             )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
@@ -83,11 +82,11 @@ export const punchInController = async (req, res) => {
       }
     }
 
-    const today = new Date(getStartOfDayUTC()); 
-    const existingAttendance = await Attendance.findOne({ 
-      userId, 
-      companyId, 
-      date: today 
+    const today = new Date(getStartOfDayUTC());
+    const existingAttendance = await Attendance.findOne({
+      userId,
+      companyId,
+      date: today
     });
     if (existingAttendance && existingAttendance.punchIn) {
       return res
@@ -100,7 +99,7 @@ export const punchInController = async (req, res) => {
       return res.status(400).json({ message: "Invalid punch-in time" });
     }
 
-    const attendance = new Attendance({ 
+    const attendance = new Attendance({
       userId,
       companyId,
       date: today,
@@ -112,7 +111,7 @@ export const punchInController = async (req, res) => {
 
     await attendance.save();
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Punch-in successful",
       punchInTime: attendance.punchIn,
       photoUrl: selfieImage,
@@ -150,7 +149,7 @@ export const punchOutController = async (req, res) => {
 
     if (user.position !== "Manager") {
       if (!userLocation?.latitude ||
-          !userLocation?.longitude) {
+        !userLocation?.longitude) {
         return res
           .status(400)
           .json({ message: "User location is required for punch-out" });
@@ -158,15 +157,15 @@ export const punchOutController = async (req, res) => {
       const locationSetting = await LocationSetting.findOne({ companyId });
 
       if (locationSetting) {
-        const { latitude,longitude,allowedRadius } = locationSetting;
+        const { latitude, longitude, allowedRadius } = locationSetting;
         const distance = calculateDistance(
           latitude,
-         longitude,
+          longitude,
           userLocation.latitude,
           userLocation.longitude,
         );
         if (distance > allowedRadius) {
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: `You are ${Math.round(
               distance,
             )}m away from the allowed area. Max allowed: ${allowedRadius}m.`,
@@ -176,11 +175,11 @@ export const punchOutController = async (req, res) => {
       }
     }
 
-    const today = new Date(getStartOfDayUTC()); 
-    const attendance = await Attendance.findOne({ 
-      userId, 
-      companyId, 
-      date: today 
+    const today = new Date(getStartOfDayUTC());
+    const attendance = await Attendance.findOne({
+      userId,
+      companyId,
+      date: today
     });
     if (!attendance || !attendance.punchIn) {
       return res
@@ -220,7 +219,7 @@ export const punchOutController = async (req, res) => {
 
     await attendance.save();
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Punch-out successful",
       punchOutTime: attendance.punchOut,
       photoUrl: selfieImage,
@@ -550,7 +549,7 @@ export async function processAbsentees() {
     for (const user of users) {
       // Fetch company attendance settings
       const company = await Company.findById(user.companyId);
-      const workingDays = company?.attendanceSettings?.workingDays || [1,2,3,4,5]; // Default: Mon-Fri
+      const workingDays = company?.attendanceSettings?.workingDays || [1, 2, 3, 4, 5]; // Default: Mon-Fri
       // workingDays: [0,1,2,3,4,5,6] (0=Sun, 1=Mon, ...)
       if (!workingDays.includes(todayDay)) {
         // Not a working day for this company, skip marking absent
@@ -581,3 +580,40 @@ export async function processAbsentees() {
     console.error("❌ Error running absentee cron job:", error.message);
   }
 }
+
+// Admin: Edit punch-in/out time for a user's attendance
+export const editAttendanceTimeController = async (req, res) => {
+  try {
+    const { attendanceId } = req.params;
+    const {
+      punchIn,
+      punchOut,
+      punchInLocation,
+      punchOutLocation,
+      remark,
+      status,
+    } = req.body;
+
+    const attendance = await Attendance.findById(attendanceId);
+    if (!attendance) {
+      return res.status(404).json({ message: "Attendance record not found" });
+    }
+
+    if (punchIn) attendance.punchIn = new Date(punchIn);
+    if (punchOut) attendance.punchOut = new Date(punchOut);
+    if (punchInLocation) attendance.punchInLocation = punchInLocation;
+    if (punchOutLocation) attendance.punchOutLocation = punchOutLocation;
+    if (remark) attendance.remark = remark;
+    if (status) attendance.status = status;
+
+    // Optionally recalculate hoursWorked if both times are present
+    if (attendance.punchIn && attendance.punchOut) {
+      attendance.hoursWorked = calculateHours(attendance.punchIn, attendance.punchOut);
+    }
+
+    await attendance.save();
+    res.status(200).json({ message: "Attendance updated successfully", attendance });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

@@ -1,13 +1,14 @@
 import express from "express";
 import {
-  punchOutController,
-  punchInController,
-  getTodayAttendance,
+  editAttendanceTimeController,
   getAllAttendance,
   getParticularUserAttendance,
   getPositionWiseAttendance,
+  getTodayAttendance,
+  punchInController,
+  punchOutController,
 } from "../controller/attendance.controller.js";
-import { protect, protectAdmin, protectUserOrAdmin } from "../middleware/authMiddleware.js";
+import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 const router = express.Router();
 // Route to punch in
 router.post(
@@ -45,6 +46,11 @@ router.get(
   "/teamAttendance",
   protect,
   getPositionWiseAttendance
+);
+router.patch(
+  "/edit-time/:attendanceId",
+  protectAdmin,
+  editAttendanceTimeController
 );
 
 export default router;
