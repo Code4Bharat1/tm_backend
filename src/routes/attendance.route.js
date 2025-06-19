@@ -32,9 +32,10 @@ router.get(
 );
 router.get(
   "/allAttendance",
-  protectUserOrAdmin,
+  protectAdmin,
   getAllAttendance
 );
+
 router.get(
   "/teamAttendance",
   protect,

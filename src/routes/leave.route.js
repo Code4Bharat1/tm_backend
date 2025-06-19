@@ -27,7 +27,7 @@ const upload = multer({ storage });
 router.post("/apply",protect, upload.single("attachment"), applyLeave);
 router.get('/approvers', protect, getApprovers);
 router.get("/userLeave",protect, getAllLeaves);
-router.get("/admin/company-leaves",protectUserOrAdmin, getCompanyLeaves);
+router.get("/admin/company-leaves",protectAdmin, getCompanyLeaves);
 router.get("/user/team-leaves", protect, getTeamLeaves);
 router.get("/admin/single-leave/:id", protectUserOrAdmin, getSingleLeave);
 router.get('/admin/leave/:leaveId', protectUserOrAdmin, getLeaveDetailsById);
