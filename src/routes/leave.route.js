@@ -28,9 +28,12 @@ router.post("/apply",protect, upload.single("attachment"), applyLeave);
 router.get('/approvers', protect, getApprovers);
 router.get("/userLeave",protect, getAllLeaves);
 router.get("/admin/company-leaves",protectAdmin, getCompanyLeaves);
+router.get("/user/company-leaves", protect, getCompanyLeaves);
 router.get("/user/team-leaves", protect, getTeamLeaves);
-router.get("/admin/single-leave/:id", protectUserOrAdmin, getSingleLeave);
+router.get("/admin/single-leave/:id", protectAdmin, getSingleLeave)
+router.get("/user/single-leave/:id", protect, getSingleLeave);
 router.get('/admin/leave/:leaveId', protectUserOrAdmin, getLeaveDetailsById);
 router.put('/admin/update-status/:leaveId', protectUserOrAdmin, updateLeaveStatus);
+router.put('/user/update-status/:leaveId', protect, updateLeaveStatus);
 
 export default router;

@@ -35,6 +35,11 @@ router.get(
   protectAdmin,
   getAllAttendance
 );
+router.get(
+  "/allAttendanceUser",
+  protect,
+  getAllAttendance
+);
 
 router.get(
   "/teamAttendance",
