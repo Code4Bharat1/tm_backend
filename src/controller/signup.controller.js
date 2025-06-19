@@ -1,10 +1,11 @@
-import User from "../models/user.model.js";
+import crypto from "crypto";
+import mongoose from "mongoose";
+import { defaultFeatures, maxFeature } from "../constants/defaultFeatures.js";
 import Admin from "../models/admin.model.js";
 import RoleFeatureAccess from "../models/roleFeatureAccess.model.js";
-import { defaultFeatures, maxFeature } from "../constants/defaultFeatures.js";
+import User from "../models/user.model.js";
 import { sendMail } from "../service/nodemailerConfig.js";
-import mongoose from "mongoose";
-import crypto from "crypto";
+import c from "config";
 
 export const generateReadablePassword = (firstName = "User") => {
   const randomNum = crypto.randomInt(1000, 9999); // ensures 4-digit random number
@@ -135,8 +136,7 @@ const createUser = async (req, res) => {
       `
 Hello ${newUser[0].firstName || "User"},
 
-Welcome to ${
-        newUser[0].companyName
+Welcome to ${newUser[0].companyName
       }! Your account has been successfully created.
 
 Here are your login details:
@@ -328,9 +328,9 @@ const getAllEmployee = async (req, res) => {
 
 const updateUserPosition = async (req, res) => {
   try {
-    const { companyId } = req.user; // userId from URL
-    const { userId } = req.params; // userId from URL
-    const { position } = req.body; // new position
+    const { companyId } = req.user;
+    const { userId } = req.params;
+    const { position } = req.body;
 
     const validPositions = [
       "HR",
@@ -354,8 +354,38 @@ const updateUserPosition = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Update or create RoleFeatureAccess if not Employee
+    if (position !== "Employee") {
+      const features = defaultFeatures[position] || [];
+      const maxFeatures = maxFeature[position] || [];
+      if (!features.length) {
+        return res.status(400).json({ message: "Role must have at least one feature." });
+      }
+      const roleAccess = await RoleFeatureAccess.findOne({ userId: updatedUser._id, companyId });
+      if (roleAccess) {
+        // Update existing
+        roleAccess.role = position;
+        roleAccess.features = features;
+        roleAccess.maxFeatures = maxFeatures;
+        await roleAccess.save();
+      } else {
+        // Create new
+        await RoleFeatureAccess.create({
+          userId: updatedUser._id,
+          role: position,
+          companyId,
+          features,
+          maxFeatures,
+          addedBy: req.user.adminId || null,
+        });
+      }
+    } else {
+      // If position is Employee, optionally remove RoleFeatureAccess
+      await RoleFeatureAccess.deleteOne({ userId: updatedUser._id, companyId });
+    }
+
     res.status(200).json({
-      message: "User position updated successfully",
+      message: "User position and features updated successfully",
       user: updatedUser,
     });
   } catch (error) {
@@ -390,9 +420,7 @@ const deleteUser = async (req, res) => {
 };
 
 export {
-  createUser,
-  bulkCreateUsers,
-  getAllEmployee,
-  updateUserPosition,
-  deleteUser,
+  bulkCreateUsers, createUser, deleteUser, getAllEmployee,
+  updateUserPosition
 };
+

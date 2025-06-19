@@ -390,7 +390,7 @@ export const getCompanyFeatures = async (req, res) => {
       return res.status(404).json({ message: 'Company not found' });
     }
 
-    const plan = company.planPreferences?.desiredPlan || 'basic'; // fallback to 'free' if not set
+    const plan = company.planPreferences?.desiredPlan || 'basic';
     const features = getFeaturesByPlan(plan);
 
     if (!features) {

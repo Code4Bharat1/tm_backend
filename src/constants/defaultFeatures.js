@@ -2,7 +2,7 @@
 export const defaultFeatures = {
   Manager: ['viewtimesheet', 'tasks', 'viewattendance', 'viewleave', 'performanceScore', 'addteammembers'],
   TeamLeader: ['viewtimesheet', 'teamTasks', 'viewattendance'],
-  HR: ['employeeRecords', 'leaveRequests', 'payroll', 'viewexpense', 'addDocument'],
+  HR: ['employeeRecords', 'leaveRequests', 'payroll', 'viewexpense', 'addDocument','event'],
   Salesman:['site-visit']
 }
 
@@ -19,7 +19,7 @@ export const planFeature = {
       'attendance',
       'dashboard',
       'expense',
-      'leave',
+      'leave',  
       'project',
       'timesheet',
     ],
