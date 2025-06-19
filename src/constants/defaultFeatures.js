@@ -2,15 +2,15 @@
 export const defaultFeatures = {
   Manager: ['viewtimesheet', 'tasks', 'viewattendance', 'viewleave', 'performanceScore', 'addteammembers'],
   TeamLeader: ['viewtimesheet', 'teamTasks', 'viewattendance'],
-  HR: ['employeeRecords', 'leaveRequests', 'payroll', 'viewexpense', 'addDocument','event'],
-  Salesman:['site-visit']
+  HR: ['employeeRecords', 'leaveRequests', 'payroll', 'viewexpense', 'addDocument', 'event'],
+  Salesman: ['site-visit']
 }
 
 export const maxFeature = {
   Manager: ['payroll'],
   TeamLeader: ['viewleave'],
   HR: ['postUpload'],
-  Salesman:[],
+  Salesman: [],
 }
 
 export const planFeature = {
@@ -19,9 +19,10 @@ export const planFeature = {
       'attendance',
       'dashboard',
       'expense',
-      'leave',  
+      'leave',
       'project',
       'timesheet',
+      'memo',
     ],
   },
   standard: {
@@ -41,6 +42,7 @@ export const planFeature = {
       'salary',
       'single_chat',
       'timesheet',
+      'memo',
     ],
   },
   premium: {
@@ -64,6 +66,7 @@ export const planFeature = {
       'salary',
       'timesheet',
       'zoom',
+      'memo',
     ],
   },
 };
