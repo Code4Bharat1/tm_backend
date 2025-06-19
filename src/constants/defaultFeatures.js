@@ -43,6 +43,7 @@ export const planFeature = {
       'single_chat',
       'timesheet',
       'memo',
+      'event',
     ],
   },
   premium: {
