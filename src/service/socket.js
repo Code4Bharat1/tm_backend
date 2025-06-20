@@ -3,6 +3,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import { createClient } from "redis";
 import { Chess } from "chess.js";
 import ChessScoreModel from "../models/ChessScore.model.js";
+import TicTacToeScore from "../models/TicTacToeScore.model.js";
 
 export let io;
 export const userSocketMap = new Map();
@@ -107,7 +108,7 @@ export const initSocketServer = async (server) => {
     });
 
 
-    socket.on("tictactoe-move", ({ roomId, index }) => {
+    socket.on("tictactoe-move", async ({ roomId, index }) => {
       const userId = socket.data.userId;
       if (!roomId || index === undefined) {
         socket.emit("tictactoe-error", { message: "Invalid move data" });
@@ -148,10 +149,42 @@ export const initSocketServer = async (server) => {
       game.board[index] = game.currentPlayer;
 
       const winner = checkWinner(game.board);
-      const isDraw = !winner && game.board.every((cell) => cell !== null);
-      game.gameOver = !!winner || isDraw;
+      const isDraw = !winner && game.board.every(cell => cell);
 
-      if (!game.gameOver) {
+      // Only save if the game is over (winner or draw)
+      if (winner || isDraw) {
+        game.gameOver = true;
+
+        const winnerSymbol = winner || null;
+        const winnerIndex = winnerSymbol === "X" ? 0 : winnerSymbol === "O" ? 1 : -1;
+        const winnerUserId = winnerIndex !== -1 ? game.players[winnerIndex] : null;
+
+        try {
+          const result = new TicTacToeScore({
+            roomId,
+            players: game.players,
+            playerNames: game.playerNames,
+            winner: winnerSymbol,
+            winnerUserId,
+            isDraw,
+            movesCount: game.board.filter(Boolean).length,
+          });
+
+          await result.save(); // ✅ This will work!
+          console.log("✅ Tic Tac Toe result saved:", result._id);
+        } catch (err) {
+          console.error("❌ Failed to save Tic Tac Toe result:", err);
+        }
+
+        io.to(roomId).emit("tictactoe-game-ended", {
+          roomId,
+          winner: winner !== "draw" ? winner : null,
+          draw: winner === "draw",
+          message: "Game has ended.",
+        });
+
+        games.delete(roomId);
+      } else {
         game.currentPlayer = game.currentPlayer === "X" ? "O" : "X";
       }
 
@@ -415,14 +448,35 @@ export const initSocketServer = async (server) => {
       }
 
       if (game.gameOver) {
-        io.to(roomId).emit("chess-game-ended", {
+        const winnerUserId =
+          winner === "draw" ? null : game.players.find(
+            (id, idx) => (winner === "X" && idx === 0) || (winner === "O" && idx === 1)
+          );
+
+        try {
+          await TicTacToeScore.create({
+            roomId,
+            players: game.players,
+            playerNames: game.playerNames,
+            winner: game.winner, // 'X', 'O', or null
+            winnerUserId: game.winnerUserId || null,
+            isDraw: game.isDraw || false,
+            movesCount: game.board.filter(Boolean).length,
+            // gameName and gameType will use defaults
+          });
+          console.log("✅ TicTacToe game result saved:", roomId);
+        } catch (err) {
+          console.error("❌ Failed to save TicTacToe result:", err);
+        }
+
+        io.to(roomId).emit("tictactoe-game-ended", {
           roomId,
-          message: "Game has ended. Returning to main menu.",
-          winner: game.winner,
-          winnerUserId: game.winnerUserId,
+          winner: winner !== "draw" ? winner : null,
+          draw: winner === "draw",
+          message: "Game has ended.",
         });
-        chessGames.delete(roomId);
-        console.log(`🗑️ Deleted chess room ${roomId} due to game end`);
+
+        games.delete(roomId);
       }
     });
 
