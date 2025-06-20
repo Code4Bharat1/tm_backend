@@ -105,6 +105,8 @@ export const punchInController = async (req, res) => {
       date: today,
       punchIn: punchInDateTime,
       punchInLocation: punchInLocation || "Office",
+      remark: "Present",
+      status: "Present",
       punchInPhoto: selfieImage, // Store Cloudinary URL directly
       punchInPhotoPublicId: selfiePublicId, // Store public ID for potential deletion
     });
