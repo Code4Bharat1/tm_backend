@@ -90,6 +90,11 @@ const salarySchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    modeOfPayment: {
+      type: String,
+      enum: ["Online", "Cash"],
+      default: "Online",
+    },
     // Status
     status: {
       type: String,

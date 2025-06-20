@@ -1,6 +1,6 @@
+import mongoose from "mongoose";
 import Salary from "../models/salary.model.js";
 import User from "../models/user.model.js";
-import mongoose from "mongoose";
 import { decrypt } from "../utils/encryption.js";
 
 export const createSalary = async (req, res) => {
@@ -82,6 +82,7 @@ export const createSalary = async (req, res) => {
       totalDeductions,
       netSalary,
       payslipMonth,
+      modeOfPayment: "Online",
     });
 
     await newSalary.save();
@@ -200,8 +201,8 @@ export const updateSalary = async (req, res) => {
       tds,
       absentDeduction,
       reimbursements,
+      modeOfPayment,
     } = req.body;
-
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid salary ID format" });
     }
@@ -248,6 +249,7 @@ export const updateSalary = async (req, res) => {
         totalEarnings,
         totalDeductions,
         netSalary,
+        modeOfPayment: modeOfPayment || existingSalary.modeOfPayment,
       },
       { new: true },
     );
@@ -325,7 +327,7 @@ export const updateSalaryStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { companyId } = req.user;
-    const { status } = req.body;
+    const { modeOfPayment, status } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid salary ID format" });
@@ -334,6 +336,11 @@ export const updateSalaryStatus = async (req, res) => {
     if (!status || !["draft", "processed", "paid"].includes(status)) {
       return res.status(400).json({ message: "Invalid status value" });
     }
+
+    // Ensure modeOfPayment is a string
+    const modeOfPaymentValue = typeof modeOfPayment === "object" && modeOfPayment !== null
+      ? modeOfPayment.modeOfPayment
+      : modeOfPayment;
 
     // Find existing salary
     const existingSalary = await Salary.findOne({ _id: id, companyId });
@@ -346,6 +353,7 @@ export const updateSalaryStatus = async (req, res) => {
       id,
       {
         status,
+        modeOfPayment: modeOfPaymentValue,
         updatedBy: req.user.userId, // Assuming user ID is available in req.user
       },
       { new: true },
