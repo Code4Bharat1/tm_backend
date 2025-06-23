@@ -7,6 +7,8 @@ import {
   getTodayAttendance,
   punchInController,
   punchOutController,
+  getMonthlyAttendanceSummary,
+  getSingleUserMonthlyAttendanceSummary,
 } from "../controller/attendance.controller.js";
 import { protect, protectAdmin } from "../middleware/authMiddleware.js";
 const router = express.Router();
@@ -51,6 +53,16 @@ router.patch(
   "/edit-time/:attendanceId",
   protectAdmin,
   editAttendanceTimeController
+);
+router.get(
+  "/monthly/:userId", // New route for admin/manager to get any user's monthly attendance
+  protectAdmin,
+  getMonthlyAttendanceSummary
+);
+router.get(
+  "/monthly", // Existing route for self
+  protect,
+  getSingleUserMonthlyAttendanceSummary
 );
 
 export default router;
