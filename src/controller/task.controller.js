@@ -318,6 +318,108 @@ export const getTaskAssignments = async (req, res) => {
     });
   }
 };
+export const getTaskAssignmentsAdmin = async (req, res) => {
+  try {
+    // Get companyId and userId from the JWT token
+    const { companyId, adminId } = req.user;
+
+    // Optional query parameters for filtering
+    const {
+      status,
+      assignedTo,
+      fromDate,
+      toDate,
+      timeFilter,
+      projectCategory,
+    } = req.query;
+
+    // Always filter by company ID and user ID for data isolation
+    let query = {
+      companyId,
+      $or: [
+        { assignedTo: adminId }, // Tasks assigned to the user
+        { assignedBy: adminId }, // Tasks created by the user
+        { tagMembers: adminId }, // Tasks where user is a tag member
+      ],
+    };
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (assignedTo) {
+      query.assignedTo = assignedTo;
+    }
+
+    // Add project category filter
+    if (projectCategory) {
+      query.projectCategory = projectCategory;
+    }
+
+    // Get all tasks first without date filtering for overlap logic
+    let taskAssignments = await TaskAssignment.find(query)
+      .populate("assignedTo", "firstName lastName email")
+      .populate("assignedBy", "fullName email")
+      .populate("clientId", "name email") // Add client population
+      .populate("tagMembers", "firstName lastName email")
+      .sort({ assignDate: -1 })
+      .lean();
+
+    // Apply date filtering logic
+    if (fromDate || toDate || timeFilter) {
+      if (timeFilter && timeFilter !== "all") {
+        const dateRange = getDateRangeForFilter(timeFilter);
+
+        if (dateRange) {
+          const { startDate, endDate } = dateRange;
+
+          // Filter tasks that overlap with the specified period
+          taskAssignments = taskAssignments.filter((task) =>
+            doesProjectOverlapWithPeriod(
+              task.assignDate,
+              task.deadline,
+              startDate,
+              endDate,
+            ),
+          );
+        }
+      } else if (fromDate || toDate) {
+        // Use explicit fromDate and toDate if provided
+        const filterStart = fromDate
+          ? new Date(fromDate)
+          : new Date("1970-01-01");
+        const filterEnd = toDate ? new Date(toDate) : new Date("2099-12-31");
+
+        taskAssignments = taskAssignments.filter((task) =>
+          doesProjectOverlapWithPeriod(
+            task.assignDate,
+            task.deadline,
+            filterStart,
+            filterEnd,
+          ),
+        );
+      }
+    }
+
+    res.status(200).json({
+      count: taskAssignments.length,
+      data: taskAssignments,
+      filter: {
+        timeFilter: timeFilter || "all",
+        fromDate,
+        toDate,
+        status,
+        assignedTo,
+        projectCategory, // Include in response
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching task assignments:", error);
+    res.status(500).json({
+      message: "Server error while fetching task assignments",
+    });
+  }
+};
 
 export const getUnassignedEmployeesForProject = async (req, res) => {
   try {

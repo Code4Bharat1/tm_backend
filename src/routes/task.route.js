@@ -13,7 +13,8 @@ import {
   getUnassignedEmployeesForProject,
   updateTaskTagMembers,
   removeMemberFromTask,
-  getAllClientsForTask, // New import
+  getAllClientsForTask,
+  getTaskAssignmentsAdmin, // New import
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -21,6 +22,7 @@ const router = express.Router();
 // Task creation (Admin only)
 router.post("/createTask", protectAdmin, createTaskAssignment);
 
+router.get("/admin/getTasks", protectAdmin, getTaskAssignmentsAdmin);
 // Get all tasks with filtering options
 router.get("/getTasks", protect, getTaskAssignments);
 
