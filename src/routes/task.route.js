@@ -23,7 +23,11 @@ const router = express.Router();
 // Task creation (Admin only)
 router.post("/createTask", protectAdmin, createTaskAssignment);
 
-router.get("/admin/getTasks", protectAdmin, getTaskAssignmentsAdmin);
+// for all tasks
+router.get("/admin/getTasks/", protectAdmin, getTaskAssignmentsAdmin);
+
+// for single task
+router.get("/admin/getTasks/:id", protectAdmin, getTaskAssignmentsAdmin);
 // Get all tasks with filtering options
 router.get("/getTasks", protect, getTaskAssignments);
 

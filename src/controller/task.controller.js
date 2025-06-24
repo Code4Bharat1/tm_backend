@@ -322,7 +322,7 @@ export const getTaskAssignmentsAdmin = async (req, res) => {
   try {
     // Get companyId and userId from the JWT token
     const { companyId, adminId } = req.user;
-
+    const { id } = req.params;
     // Optional query parameters for filtering
     const {
       status,
@@ -333,6 +333,30 @@ export const getTaskAssignmentsAdmin = async (req, res) => {
       projectCategory,
     } = req.query;
 
+    if (id) {
+      const task = await TaskAssignment.findOne({
+        _id: id,
+        companyId,
+        $or: [
+          { assignedTo: adminId },
+          { assignedBy: adminId },
+          { tagMembers: adminId },
+        ],
+      })
+        .populate("assignedTo", "firstName lastName email")
+        .populate("assignedBy", "fullName email")
+        .populate("clientId", "name email")
+        .populate("tagMembers", "firstName lastName email")
+        .lean();
+
+      if (!task) {
+        return res
+          .status(404)
+          .json({ message: "Task not found or access denied." });
+      }
+
+      return res.status(200).json({ data: [task], count: 1 });
+    }
     // Always filter by company ID and user ID for data isolation
     let query = {
       companyId,
@@ -886,11 +910,9 @@ export const getTaskStatistics = async (req, res) => {
 export const getParticularTask = async (req, res) => {
   try {
     const task = await TaskAssignment.findById(req.params.id)
-    .populate("assignedBy", "fullName userId")
-    .populate("assignedTo", "firstName lastName userId");
+      .populate("assignedBy", "fullName userId")
+      .populate("assignedTo", "firstName lastName userId");
 
-    if(!task) return res.status(200).json({message: "Task not found"});
-  } catch (error) {
-    
-  }
+    if (!task) return res.status(200).json({ message: "Task not found" });
+  } catch (error) {}
 };
