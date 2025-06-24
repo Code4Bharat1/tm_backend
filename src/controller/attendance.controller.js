@@ -30,6 +30,30 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+
+export const getEmployees = async(req,res)=>{
+  try {
+    const {companyId, adminId} = req.user;
+    if(!companyId || !adminId) {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    // Fetch all employees in the company
+    const employees = await User.find({ companyId, position: { $ne: "Admin" } })
+      .select("firstName lastName email position photoUrl")
+      .lean();
+
+    const totalCount = employees.length;
+    if (!employees || employees.length === 0) {
+      return res.status(404).json({ message: "No employees found" });
+    }
+    res.status(200).json({totalCount,employees});
+  } catch (error) {
+    console.error("Error fetching employees:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+    
+  }
+}
 export const punchInController = async (req, res) => {
   try {
     const {
