@@ -882,3 +882,15 @@ export const getTaskStatistics = async (req, res) => {
     });
   }
 };
+
+export const getParticularTask = async (req, res) => {
+  try {
+    const task = await TaskAssignment.findById(req.params.id)
+    .populate("assignedBy", "fullName userId")
+    .populate("assignedTo", "firstName lastName userId");
+
+    if(!task) return res.status(200).json({message: "Task not found"});
+  } catch (error) {
+    
+  }
+};

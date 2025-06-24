@@ -14,7 +14,8 @@ import {
   updateTaskTagMembers,
   removeMemberFromTask,
   getAllClientsForTask,
-  getTaskAssignmentsAdmin, // New import
+  getTaskAssignmentsAdmin,
+  getParticularTask, // New import
 } from "../controller/task.controller.js";
 
 const router = express.Router();
@@ -51,4 +52,5 @@ router.patch("/updateTagMembers/:taskId", protect, updateTaskTagMembers);
 
 router.put("/:taskId/removeMember", protectUserOrAdmin, removeMemberFromTask);
 
+router.get("/getParticularTask/:id", protectAdmin, getParticularTask)
 export default router;
