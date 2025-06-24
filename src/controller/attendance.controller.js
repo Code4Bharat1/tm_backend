@@ -31,10 +31,10 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 
-export const getEmployees = async(req,res)=>{
+export const getEmployees = async (req, res) => {
   try {
-    const {companyId, adminId} = req.user;
-    if(!companyId || !adminId) {
+    const { companyId, adminId } = req.user;
+    if (!companyId || !adminId) {
       return res.status(400).json({ message: "Invalid request" });
     }
 
@@ -47,11 +47,11 @@ export const getEmployees = async(req,res)=>{
     if (!employees || employees.length === 0) {
       return res.status(404).json({ message: "No employees found" });
     }
-    res.status(200).json({totalCount,employees});
+    res.status(200).json({ totalCount, employees });
   } catch (error) {
     console.error("Error fetching employees:", error);
     res.status(500).json({ message: "Server error", error: error.message });
-    
+
   }
 }
 export const punchInController = async (req, res) => {
@@ -607,7 +607,7 @@ export async function processAbsentees() {
   }
 }
 
-// Admin: Edit punch-in/out time for a user's attendance
+// Admin: Edit punch-in/out time and location for a user's attendance, with status recalculation
 export const editAttendanceTimeController = async (req, res) => {
   try {
     const { attendanceId } = req.params;
@@ -616,8 +616,7 @@ export const editAttendanceTimeController = async (req, res) => {
       punchOut,
       punchInLocation,
       punchOutLocation,
-      remark,
-      status,
+      remark
     } = req.body;
 
     const attendance = await Attendance.findById(attendanceId);
@@ -630,11 +629,19 @@ export const editAttendanceTimeController = async (req, res) => {
     if (punchInLocation) attendance.punchInLocation = punchInLocation;
     if (punchOutLocation) attendance.punchOutLocation = punchOutLocation;
     if (remark) attendance.remark = remark;
-    if (status) attendance.status = status;
 
-    // Optionally recalculate hoursWorked if both times are present
+    // Recalculate totalWorkedHours and status if both times are present
     if (attendance.punchIn && attendance.punchOut) {
-      attendance.hoursWorked = calculateHours(attendance.punchIn, attendance.punchOut);
+      const hoursWorked = calculateHours(attendance.punchIn, attendance.punchOut);
+      attendance.totalWorkedHours = hoursWorked;
+      // Status logic: Present (>=8h), Half-Day (>=4h), else Absent
+      if (hoursWorked >= 8) {
+        attendance.status = "Present";
+      } else if (hoursWorked >= 4) {
+        attendance.status = "Half-Day";
+      } else {
+        attendance.status = "Absent";
+      }
     }
 
     await attendance.save();
@@ -648,7 +655,7 @@ export const editAttendanceTimeController = async (req, res) => {
 export const getMonthlyAttendanceSummary = async (req, res) => {
   try {
     // Take userId from params if present, else from req.user
-    const userId = req.params.userId
+    const userId = req.params.userId || req.user.userId;
     const { companyId } = req.user;
     const { month, year } = req.query;
 
@@ -665,7 +672,7 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59, 999);
 
-    // Fetch user details
+    // Fetch user details (add this for admin/manager summary)
     const user = await User.findById(userId, {
       firstName: 1,
       lastName: 1,
