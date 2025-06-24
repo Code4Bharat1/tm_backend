@@ -12,7 +12,11 @@ import { CompanyRegistration } from "./src/models/companyregistration.model.js";
 
 import { logout } from "./src/controller/logout.controller.js";
 import { processAbsentees } from "./src/controller/attendance.controller.js";
-import {sendDailyAttendanceReports, sendPunchInReport, sendPunchOutReport } from "./src/controller/sendReport.controller.js"
+import {
+  sendDailyAttendanceReports,
+  sendPunchInReport,
+  sendPunchOutReport,
+} from "./src/controller/sendReport.controller.js";
 import adddocument from "./src/routes/adddocument.route.js";
 import AdminRouter from "./src/routes/adminAuth.route.js";
 import AttendanceRouter from "./src/routes/attendance.route.js";
@@ -26,29 +30,32 @@ import ForgotPasswordRouter from "./src/routes/forgotpassword.route.js";
 import LeaveRouter from "./src/routes/leave.route.js";
 import LoginRouter from "./src/routes/login.route.js";
 import meetingRoute from "./src/routes/meeting.route.js";
-import notificationRouter from './src/routes/notification.router.js';
+import notificationRouter from "./src/routes/notification.router.js";
 import Performance from "./src/routes/performance.route.js";
 import ProfileRouter from "./src/routes/profile.route.js";
-import Ticket from './src/routes/raiseTicket.route.js';
+import Ticket from "./src/routes/raiseTicket.route.js";
 import SignupRouter from "./src/routes/signup.route.js";
 import SuperAdminRouter from "./src/routes/superAdminAuth.route.js";
 import Task from "./src/routes/task.route.js";
 import TimesheetRouter from "./src/routes/timesheet.route.js";
 import UploadRouter from "./src/routes/upload.route.js";
-import LocationRouter from "./src/routes/location.routes.js"
-import client from './src/routes/client.route.js';
+import LocationRouter from "./src/routes/location.routes.js";
+import client from "./src/routes/client.route.js";
 import loc from "./src/routes/loc.route.js";
 import permissionsRoute from "./src/routes/permissions.route.js";
-import salesmanRoute from "./src/routes/salesman.route.js"
-import team from './src/routes/team.route.js';
+import salesmanRoute from "./src/routes/salesman.route.js";
+import team from "./src/routes/team.route.js";
 import { initSocketServer } from "./src/service/socket.js";
-import Sheets from './src/routes/sheet.route.js';
-import SalaryRoute from './src/routes/salary.route.js';
-import EventRouter from './src/routes/event.route.js';
-import gameScoreRouter from './src/routes/gameScore.route.js';
-import sudokuRoute from "./src/routes/sudoku.route.js"
-import reminder from './src/routes/reminder.route.js'
-import Search from './src/routes/search.route.js';
+import Sheets from "./src/routes/sheet.route.js";
+import SalaryRoute from "./src/routes/salary.route.js";
+import EventRouter from "./src/routes/event.route.js";
+import gameScoreRouter from "./src/routes/gameScore.route.js";
+import sudokuRoute from "./src/routes/sudoku.route.js";
+import reminder from "./src/routes/reminder.route.js";
+import Search from "./src/routes/search.route.js";
+import DownloadRouter from "./src/routes/download.route.js";
+import EmployeeRouter from "./src/routes/employee.route.js";
+import AssignTaskRouter from "./src/routes/assigntask.route.js";
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -56,9 +63,13 @@ const app = express();
 
 const scheduleCompanyAttendanceCrons = async () => {
   const companies = await CompanyRegistration.find();
-  companies.forEach(company => {
+  companies.forEach((company) => {
     const { attendanceSettings = {}, _id: companyId, companyInfo } = company;
-    const { punchInEndTime = '09:00', punchOutEndTime = '17:00', workingDays = [] } = attendanceSettings;
+    const {
+      punchInEndTime = "09:00",
+      punchOutEndTime = "17:00",
+      workingDays = [],
+    } = attendanceSettings;
     // Parse punchInEndTime and punchOutEndTime (format: 'HH:mm')
     const [inHour, inMinute] = punchInEndTime.split(":").map(Number);
     const [outHour, outMinute] = punchOutEndTime.split(":").map(Number);
@@ -67,26 +78,30 @@ const scheduleCompanyAttendanceCrons = async () => {
       `${inMinute} ${inHour} * * *`,
       async () => {
         try {
-          console.log(`✅ Running Punch In Report for ${companyInfo?.companyName} at ${punchInEndTime}`);
-         // await sendPunchInReport(companyId);
+          console.log(
+            `✅ Running Punch In Report for ${companyInfo?.companyName} at ${punchInEndTime}`,
+          );
+          // await sendPunchInReport(companyId);
         } catch (err) {
           console.error("❌ Punch In cron error:", err.message);
         }
       },
-      { timezone: "Asia/Kolkata", scheduled: true }
+      { timezone: "Asia/Kolkata", scheduled: true },
     );
     // Schedule punch out report
     cron.schedule(
       `${outMinute} ${outHour} * * *`,
       async () => {
         try {
-          console.log(`✅ Running Punch Out Report for ${companyInfo?.companyName} at ${punchOutEndTime}`);
+          console.log(
+            `✅ Running Punch Out Report for ${companyInfo?.companyName} at ${punchOutEndTime}`,
+          );
           //await sendPunchOutReport(companyId);
         } catch (err) {
           console.error("❌ Punch Out cron error:", err.message);
         }
       },
-      { timezone: "Asia/Kolkata", scheduled: true }
+      { timezone: "Asia/Kolkata", scheduled: true },
     );
   });
 };
@@ -112,15 +127,15 @@ const startServer = async () => {
           "https://www.task-tracker.code4bharat.com",
           "https://www.task-tracker-admin.code4bharat.com",
           "https://www.task-tracker-superadmin.code4bharat.com",
-          'https://tt-chatapp.code4bharat.com',
-          'https://www.tt-chatapp.code4bharat.com',
+          "https://tt-chatapp.code4bharat.com",
+          "https://www.tt-chatapp.code4bharat.com",
           "https://task-tracker-client.code4bharat.com",
         ],
         credentials: true,
       }),
     );
     app.use(cookieParser());
-    app.use(express.json({ limit: '20mb' }));
+    app.use(express.json({ limit: "20mb" }));
 
     app.get("/", (req, res) => res.send("API is working"));
 
@@ -146,7 +161,7 @@ const startServer = async () => {
     app.use("/api/permissions", permissionsRoute);
     app.use("/api/performance", Performance);
     app.use("/api/salary", SalaryRoute);
-    app.use('/api/ticket', Ticket);
+    app.use("/api/ticket", Ticket);
     app.use("/api/admin/loc", loc);
     app.use("/api/meeting", meetingRoute);
     app.use("/api/admin/member", team);
@@ -155,12 +170,15 @@ const startServer = async () => {
     app.use("/api", salesmanRoute);
     app.use("/api/location", LocationRouter);
     app.use("/api/event", EventRouter);
-    app.use('/api/sheets', Sheets);
-    app.use('/api/gamescore', gameScoreRouter);
-    app.use('/api/sudoku',sudokuRoute)
-    app.use('/api/reminder', reminder);
-    app.use('/api/search', Search);
-    //automate the absenting who din't punchin at 11:59pm 
+    app.use("/api/sheets", Sheets);
+    app.use("/api/gamescore", gameScoreRouter);
+    app.use("/api/sudoku", sudokuRoute);
+    app.use("/api/reminder", reminder);
+    app.use("/api/search", Search);
+    app.use("/api/download", DownloadRouter);
+    app.use("/api/employee", EmployeeRouter);
+    app.use("/api/assigntask", AssignTaskRouter);
+    //automate the absenting who din't punchin at 11:59pm
     cron.schedule(
       "59 23 * * *", // 11:59 PM
       async () => {
@@ -175,7 +193,7 @@ const startServer = async () => {
       {
         timezone: "Asia/Kolkata", // IST timezone
         scheduled: true,
-      }
+      },
     );
 
     const server = http.createServer(app);
@@ -184,7 +202,6 @@ const startServer = async () => {
     server.listen(Port, () => {
       console.log(`🚀Socket Server running at http://localhost:${Port}`);
     });
-
   } catch (err) {
     console.error("❌ Server failed to start:", err);
     process.exit(1);
