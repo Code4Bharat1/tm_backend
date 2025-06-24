@@ -38,8 +38,8 @@ export const sendDailyAttendanceReports = async () => {
         attendanceMap.set(String(record.userId), record);
       });
       // Debug: log all attendance map keys and user ids
-      console.log('Attendance Map Keys:', Array.from(attendanceMap.keys()));
-      console.log('User IDs:', users.map(u => String(u._id)));
+      // console.log('Attendance Map Keys:', Array.from(attendanceMap.keys()));
+      // console.log('User IDs:', users.map(u => String(u._id)));
 
       // Status color mapping
       const getStatusColor = (status) => {
