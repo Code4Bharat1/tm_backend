@@ -390,6 +390,7 @@ export const getAllAttendance = async (req, res) => {
           punchIn: 1,
           punchInLocation: 1,
           punchOut: 1,
+          punchOutLocation: 1,
           totalWorkedHours: 1,
           overtime: 1,
           status: 1,
@@ -616,7 +617,8 @@ export const editAttendanceTimeController = async (req, res) => {
       punchOut,
       punchInLocation,
       punchOutLocation,
-      remark
+      remark,
+      status,
     } = req.body;
 
     const attendance = await Attendance.findById(attendanceId);
@@ -628,21 +630,27 @@ export const editAttendanceTimeController = async (req, res) => {
     if (punchOut) attendance.punchOut = new Date(punchOut);
     if (punchInLocation) attendance.punchInLocation = punchInLocation;
     if (punchOutLocation) attendance.punchOutLocation = punchOutLocation;
-    if (remark) attendance.remark = remark;
 
-    // Recalculate totalWorkedHours and status if both times are present
+    // Recalculate hoursWorked, status, and remark if both times are present
     if (attendance.punchIn && attendance.punchOut) {
-      const hoursWorked = calculateHours(attendance.punchIn, attendance.punchOut);
-      attendance.totalWorkedHours = hoursWorked;
-      // Status logic: Present (>=8h), Half-Day (>=4h), else Absent
-      if (hoursWorked >= 8) {
-        attendance.status = "Present";
-      } else if (hoursWorked >= 4) {
-        attendance.status = "Half-Day";
-      } else {
-        attendance.status = "Absent";
+      attendance.hoursWorked = calculateHours(attendance.punchIn, attendance.punchOut);
+      // Only recalculate status/remark if not explicitly provided
+      if (!status && !remark) {
+        if (attendance.hoursWorked >= 8) {
+          attendance.status = "Present";
+          attendance.remark = "Present";
+        } else if (attendance.hoursWorked >= 4) {
+          attendance.status = "Half-Day";
+          attendance.remark = "Half-Day";
+        } else {
+          attendance.status = "Absent";
+          attendance.remark = "Absent";
+        }
       }
     }
+    // If admin provides status/remark, override
+    if (status) attendance.status = status;
+    if (remark) attendance.remark = remark;
 
     await attendance.save();
     res.status(200).json({ message: "Attendance updated successfully", attendance });
