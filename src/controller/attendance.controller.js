@@ -624,7 +624,7 @@ export const editAttendanceTimeController = async (req, res) => {
 export const getMonthlyAttendanceSummary = async (req, res) => {
   try {
     // Take userId from params if present, else from req.user
-    const userId = req.params.userId || req.user.userId;
+    const userId = req.params.userId
     const { companyId } = req.user;
     const { month, year } = req.query;
 
@@ -640,118 +640,20 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
     const y = parseInt(year, 10);
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59, 999);
-    const daysInMonth = endDate.getDate();
 
-    // Fetch attendance records with projection
-    const records = await Attendance.find(
-      {
-        userId,
-        companyId,
-        date: { $gte: startDate, $lte: endDate },
-      },
-      {
-        date: 1,
-        status: 1,
-        remark: 1,
-        punchIn: 1,
-        punchOut: 1,
-        punchInLocation: 1,
-        punchOutLocation: 1,
-        punchInPhoto: 1,
-        punchOutPhoto: 1,
-        totalWorkedHours: 1,
-        overtime: 1,
-        _id: 0,
-      }
-    ).lean();
-
-    // Map records by date string YYYY-MM-DD
-    const recordMap = new Map();
-    records.forEach((rec) => {
-      const dateStr = new Date(rec.date).toISOString().split("T")[0];
-      recordMap.set(dateStr, rec);
-    });
-
-    const summary = {
-      Present: 0,
-      Absent: 0,
-      "Half-Day": 0,
-      Emergency: 0,
-      Other: 0,
-    };
-
-    const daily = [];
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateObj = new Date(y, m - 1, day);
-      const dateStr = dateObj.toISOString().split("T")[0];
-      const rec = recordMap.get(dateStr);
-
-      let status = "Absent";
-      let remark = null;
-
-      if (rec) {
-        status = rec.status || "Absent";
-        remark = rec.remark || null;
-        if (summary.hasOwnProperty(status)) {
-          summary[status]++;
-        } else {
-          summary.Other++;
-        }
-      } else {
-        summary.Absent++;
-      }
-
-      daily.push({
-        date: dateStr,
-        status,
-        remark,
-        punchInTime: rec?.punchIn || null,
-        punchOutTime: rec?.punchOut || null,
-        punchInLocation: rec?.punchInLocation || null,
-        punchOutLocation: rec?.punchOutLocation || null,
-        punchInPhoto: rec?.punchInPhoto || null,
-        punchOutPhoto: rec?.punchOutPhoto || null,
-        totalWorkedHours: rec?.totalWorkedHours || 0,
-        overtime: rec?.overtime || 0,
-      });
+    // Fetch user details
+    const user = await User.findById(userId, {
+      firstName: 1,
+      lastName: 1,
+      email: 1,
+      position: 1,
+      gender: 1,
+      photoUrl: 1,
+      _id: 0,
+    }).lean();
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
-
-    res.status(200).json({
-      userId,
-      month: m,
-      year: y,
-      summary,
-      daily,
-    });
-  } catch (error) {
-    console.error("Error fetching monthly attendance summary:", error);
-    res.status(500).json({
-      message: "Server error fetching monthly attendance summary",
-      error: error.message,
-    });
-  }
-};
-
-export const getSingleUserMonthlyAttendanceSummary = async (req, res) => {
-  try {
-    // Take userId from params if present, else from req.user
-    const userId = req.params.userId || req.user.userId;
-    const { companyId } = req.user;
-    const { month, year } = req.query;
-
-    if (!month || !year) {
-      return res.status(400).json({ message: "Month and year are required" });
-    }
-    // Validate userId as ObjectId
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid or missing userId" });
-    }
-
-    const m = parseInt(month, 10);
-    const y = parseInt(year, 10);
-    const startDate = new Date(y, m - 1, 1);
-    const endDate = new Date(y, m, 0, 23, 59, 59, 999);
 
     // Fetch attendance records with projection
     const records = await Attendance.find(
@@ -811,6 +713,122 @@ export const getSingleUserMonthlyAttendanceSummary = async (req, res) => {
 
     res.status(200).json({
       userId,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      email: user.email || null,
+      position: user.position || null,
+      gender: user.gender || null,
+      photoUrl: user.photoUrl || null,
+      month: m,
+      year: y,
+      summary,
+      daily,
+    });
+  } catch (error) {
+    console.error("Error fetching monthly attendance summary:", error);
+    res.status(500).json({
+      message: "Server error fetching monthly attendance summary",
+      error: error.message,
+    });
+  }
+};
+
+export const getSingleUserMonthlyAttendanceSummary = async (req, res) => {
+  try {
+    // Take userId from params if present, else from req.user
+    const userId = req.params.userId || req.user.userId;
+    const { companyId } = req.user;
+    const { month, year } = req.query;
+
+    if (!month || !year) {
+      return res.status(400).json({ message: "Month and year are required" });
+    }
+    // Validate userId as ObjectId
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid or missing userId" });
+    }
+
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    const startDate = new Date(y, m - 1, 1);
+    const endDate = new Date(y, m, 0, 23, 59, 59, 999);
+
+    // Fetch user details
+    const user = await User.findById(userId, {
+      firstName: 1,
+      lastName: 1,
+      email: 1,
+      position: 1,
+      gender: 1,
+      photoUrl: 1,
+      _id: 0,
+    }).lean();
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch attendance records with projection
+    const records = await Attendance.find(
+      {
+        userId,
+        companyId,
+        date: { $gte: startDate, $lte: endDate },
+      },
+      {
+        date: 1,
+        status: 1,
+        remark: 1,
+        punchIn: 1,
+        punchOut: 1,
+        punchInLocation: 1,
+        punchOutLocation: 1,
+        punchInPhoto: 1,
+        punchOutPhoto: 1,
+        totalWorkedHours: 1,
+        overtime: 1,
+        _id: 0,
+      }
+    ).lean();
+
+    // Calculate summary only from existing records
+    const summary = {
+      Present: 0,
+      Absent: 0,
+      "Half-Day": 0,
+      Emergency: 0,
+      Other: 0,
+    };
+
+    records.forEach((rec) => {
+      const status = rec.status || "Absent";
+      if (summary.hasOwnProperty(status)) {
+        summary[status]++;
+      } else {
+        summary.Other++;
+      }
+    });
+
+    // Prepare daily array only from records
+    const daily = records.map((rec) => ({
+      date: new Date(rec.date).toISOString().split("T")[0],
+      status: rec.status || "Absent",
+      remark: rec.remark || null,
+      punchInTime: rec.punchIn || null,
+      punchOutTime: rec.punchOut || null,
+      punchInLocation: rec.punchInLocation || null,
+      punchOutLocation: rec.punchOutLocation || null,
+      punchInPhoto: rec.punchInPhoto || null,
+      punchOutPhoto: rec.punchOutPhoto || null,
+      totalWorkedHours: rec.totalWorkedHours || 0,
+      overtime: rec.overtime || 0,
+    }));
+
+    res.status(200).json({
+      userId,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      email: user.email || null,
+      position: user.position || null,
+      gender: user.gender || null,
+      photoUrl: user.photoUrl || null,
       month: m,
       year: y,
       summary,
