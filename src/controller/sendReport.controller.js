@@ -9,9 +9,11 @@ import { uploadFileToS3 } from '../utils/s3.utils.js';
 
 export const sendDailyAttendanceReports = async () => {
   try {
-    // Set today to start of day
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Set today to start and end of day in UTC
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayEnd = new Date(todayStart);
+    todayEnd.setUTCHours(23, 59, 59, 999);
 
     // Retrieve all companies
     const companies = await CompanyRegistration.find();
@@ -22,15 +24,22 @@ export const sendDailyAttendanceReports = async () => {
       const admin = await Admin.findOne({ companyId });
       if (!admin?.phone) continue;
 
-      // Retrieve users and attendance for today
+      // Retrieve users and attendance for today (fix: use UTC range)
       const users = await User.find({ companyId });
-      const attendanceRecords = await Attendance.find({ companyId, date: today });
+      const attendanceRecords = await Attendance.find({
+        companyId,
+        date: { $gte: todayStart, $lte: todayEnd }
+      });
 
       // Create a map for faster lookup
       const attendanceMap = new Map();
       attendanceRecords.forEach((record) => {
-        attendanceMap.set(record.userId.toString(), record);
+        // Always use string for userId key
+        attendanceMap.set(String(record.userId), record);
       });
+      // Debug: log all attendance map keys and user ids
+      console.log('Attendance Map Keys:', Array.from(attendanceMap.keys()));
+      console.log('User IDs:', users.map(u => String(u._id)));
 
       // Status color mapping
       const getStatusColor = (status) => {
@@ -47,7 +56,8 @@ export const sendDailyAttendanceReports = async () => {
       // Count statuses
       const statusCounts = { Present: 0, Absent: 0, Late: 0, 'On Leave': 0, 'Half Day': 0, Other: 0 };
       users.forEach((user) => {
-        const record = attendanceMap.get(user._id.toString());
+        // Always use string for userId lookup
+        const record = attendanceMap.get(String(user._id));
         const status = record?.status || 'Absent';
         if (statusCounts[status] !== undefined) statusCounts[status]++;
         else statusCounts.Other++;
@@ -56,7 +66,7 @@ export const sendDailyAttendanceReports = async () => {
       // Format data for export and group by status
       const groupedData = { Present: [], Absent: [], Late: [], 'On Leave': [], 'Half Day': [], Other: [] };
       users.forEach((user, index) => {
-        const record = attendanceMap.get(user._id.toString());
+        const record = attendanceMap.get(String(user._id));
         const status = record?.status || 'Absent';
         const data = {
           SNo: index + 1,
@@ -77,7 +87,7 @@ export const sendDailyAttendanceReports = async () => {
       const worksheet = workbook.addWorksheet('Attendance');
 
       // Add summary row for status counts
-      worksheet.addRow([`Attendance Report for ${today.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`]);
+      worksheet.addRow([`Attendance Report for ${todayStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`]);
       worksheet.mergeCells('A1:H1');
       worksheet.getCell('A1').font = { bold: true, size: 14 };
       worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
@@ -201,7 +211,7 @@ export const sendDailyAttendanceReports = async () => {
       const buffer = await workbook.xlsx.writeBuffer();
 
       // Create filename
-      const dateForFileName = today.toISOString().split('T')[0];
+      const dateForFileName = todayStart.toISOString().split('T')[0];
       const fileName = `Attendance-${dateForFileName}.xlsx`;
 
       const fakeFile = {
@@ -248,6 +258,19 @@ export const sendDailyAttendanceReports = async () => {
           },
         }
       );
+      // console.log('customParams:', [
+      //   { name: '1', value: admin.fullName || companyName },  
+      //   {
+      //     name: '2',
+      //     value: todayStart.toLocaleDateString('en-IN', {
+      //       day: 'numeric',
+      //       month: 'long',
+      //       year: 'numeric',
+      //     })
+      //   },
+      //   { name: '3', value: reportUrl },
+      //  ]);
+
 
       // Log the report
       await ReportLog.create({ 
