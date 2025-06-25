@@ -44,7 +44,7 @@ export const uploadToWasabi = async (
   const signedUrl = s3.getSignedUrl("getObject", {
     Bucket: BUCKET,
     Key: fileName,
-    Expires: 60 * 10, // 10 minutes
+    Expires: 60 * 60 * 24, // 24 hours
   });
 
   return {
