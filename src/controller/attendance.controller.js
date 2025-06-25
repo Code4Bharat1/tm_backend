@@ -1,6 +1,7 @@
 // controllers/attendanceController.js
 import mongoose from "mongoose";
 import Attendance from "../models/attendance.model.js";
+import { CompanyRegistration } from "../models/companyregistration.model.js";
 import LocationSetting from "../models/locationSetting.model.js";
 import User from "../models/user.model.js";
 import { calculateHours, getStartOfDayUTC } from "../utils/attendance.utils.js";
@@ -559,35 +560,67 @@ export const getPositionWiseAttendance = async (req, res) => {
   }
 };
 
-function getStartOfTodayUTC() {
+export function getStartOfTodayUTC() {
   const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+const dayNameToIndex = {
+  Sunday: 0, Sun: 0,
+  Monday: 1, Mon: 1,
+  Tuesday: 2, Tue: 2,
+  Wednesday: 3, Wed: 3,
+  Thursday: 4, Thu: 4,
+  Friday: 5, Fri: 5,
+  Saturday: 6, Sat: 6,
+};
+
+// Convert string days (Mon, Tue...) to numeric values (1, 2...)
+function normalizeWorkingDays(days) {
+  return days
+    .map(day => dayNameToIndex[day?.trim()])
+    .filter(day => day !== undefined);
 }
 
 export async function processAbsentees() {
   try {
-    const todayStart = getStartOfTodayUTC();
-    const todayDay = todayStart.getUTCDay(); // 0 (Sun) - 6 (Sat)
+    const todayStart = getStartOfTodayUTC(); // Midnight UTC today
+    const todayDay = todayStart.getUTCDay(); // Day index: 0 (Sun) to 6 (Sat)
     const users = await User.find({});
-    const Company = (await import("../models/companyregistration.model.js")).default;
+    console.log(`📋 Found ${users.length} users to process...`);
 
     for (const user of users) {
-      // Fetch company attendance settings
-      const company = await Company.findById(user.companyId);
-      const workingDays = company?.attendanceSettings?.workingDays || [1, 2, 3, 4, 5]; // Default: Mon-Fri
-      // workingDays: [0,1,2,3,4,5,6] (0=Sun, 1=Mon, ...)
-      if (!workingDays.includes(todayDay)) {
-        // Not a working day for this company, skip marking absent
+      console.log(`👤 Processing user ${user._id} | Day: ${todayDay}`);
+
+      if (!user.companyId) {
+        console.warn(`⚠️ User ${user._id} has no companyId`);
         continue;
       }
-      const attendance = await Attendance.findOne({
+
+      const company = await CompanyRegistration.findById(user.companyId);
+      if (!company) {
+        console.warn(`⚠️ No company found for ID: ${user.companyId}`);
+        continue;
+      }
+
+      const workingDaysRaw = company?.attendanceSettings?.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+      const workingDays = normalizeWorkingDays(workingDaysRaw);
+      const readableWorkingDays = workingDaysRaw.join(',').toLowerCase();
+
+      console.log(`📆 Working Days: ${readableWorkingDays}`);
+
+      if (!workingDays.includes(todayDay)) {
+        console.log(`🛑 ${user._id} skipped - not a working day`);
+        continue;
+      }
+
+      const alreadyMarked = await Attendance.findOne({
         userId: user._id,
         companyId: user.companyId,
         date: todayStart,
       });
-      if (!attendance) {
+
+      if (!alreadyMarked) {
         await new Attendance({
           userId: user._id,
           companyId: user.companyId,
@@ -595,14 +628,11 @@ export async function processAbsentees() {
           status: "Absent",
           remark: "Absent",
         }).save();
-        console.log(
-          `🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split("T")[0]}`,
-        );
+        console.log(`🚫 Marked Absent: ${user._id} for ${todayStart.toISOString().split("T")[0]}`);
       }
     }
-    console.log(
-      `✅ All absentees processed for ${todayStart.toISOString().split("T")[0]}`,
-    );
+
+    console.log(`✅ All absentees processed for ${todayStart.toISOString().split("T")[0]}`);
   } catch (error) {
     console.error("❌ Error running absentee cron job:", error.message);
   }

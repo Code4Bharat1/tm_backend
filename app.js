@@ -181,7 +181,7 @@ const startServer = async () => {
         try {
           console.log("✅ Cron job is running at 11:59 PM IST");
           await processAbsentees();
-          await sendDailyAttendanceReports();
+         // await sendDailyAttendanceReports();
         } catch (err) {
           console.error("❌ Cron job error:", err.message);
         }
