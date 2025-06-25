@@ -66,14 +66,14 @@ export const punchInController = async (req, res) => {
     const { userId, companyId } = req.user;
 
     // Updated validation to check for Cloudinary URL instead of base64
-    if (
-      !selfieImage ||
-      !selfieImage.startsWith("https://res.cloudinary.com/")
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Valid selfie image URL required from Cloudinary." });
-    }
+    // if (
+    //   !selfieImage ||
+    //   !selfieImage.startsWith("https://res.cloudinary.com/")
+    // ) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Valid selfie image URL required from Cloudinary." });
+    // }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -161,14 +161,14 @@ export const punchOutController = async (req, res) => {
     const { userId, companyId } = req.user;
 
     // Updated validation to check for Cloudinary URL instead of base64
-    if (
-      !selfieImage ||
-      !selfieImage.startsWith("https://res.cloudinary.com/")
-    ) {
-      return res
-        .status(400)
-        .json({ message: "Valid selfie image URL required from Cloudinary." });
-    }
+    // if (
+    //   !selfieImage ||
+    //   !selfieImage.startsWith("https://res.cloudinary.com/")
+    // ) {
+    //   return res
+    //     .status(400)
+    //     .json({ message: "Valid selfie image URL required from Cloudinary." });
+    // }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
