@@ -54,6 +54,7 @@ import sudokuRoute from "./src/routes/sudoku.route.js";
 import reminder from "./src/routes/reminder.route.js";
 import Search from "./src/routes/search.route.js";
 import DownloadRouter from "./src/routes/download.route.js";
+import webAuthnRoute from "./src/routes/webauthn.route.js";
 
 dotenv.config();
 const Port = process.env.PORT;
@@ -174,6 +175,7 @@ const startServer = async () => {
     app.use("/api/reminder", reminder);
     app.use("/api/search", Search);
     app.use("/api/download", DownloadRouter);
+    app.use("/api/webauthn", webAuthnRoute);
     //automate the absenting who din't punchin at 11:59pm
     cron.schedule(
       "59 23 * * *", // 11:59 PM
