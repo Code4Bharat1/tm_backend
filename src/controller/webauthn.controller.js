@@ -7,7 +7,7 @@ import {
 import base64url from 'base64url';
 import Authenticator from '../models/Authenticator.model.js';
 import User from '../models/user.model.js';
-import { rpID, rpName, origin } from '../../config/webauthn.config.js';
+import { rpID, rpName, originFrontend, origin } from '../../config/webauthn.config.js';
 
 function stringToUint8Array(str) {
     return new TextEncoder().encode(str);
@@ -62,7 +62,7 @@ export const verifyRegistrationController = async (req, res) => {
         const verification = await verifyRegistrationResponse({
             response: attestationResponse,
             expectedChallenge,
-            expectedOrigin: origin,
+            expectedOrigin: originFrontend,
             expectedRPID: rpID,
         });
 
