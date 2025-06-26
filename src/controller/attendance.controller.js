@@ -689,7 +689,6 @@ export const editAttendanceTimeController = async (req, res) => {
   }
 };
 
-// Get monthly attendance summary for a user
 export const getMonthlyAttendanceSummary = async (req, res) => {
   try {
     // Take userId from params if present, else from req.user
@@ -700,6 +699,7 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
     if (!month || !year) {
       return res.status(400).json({ message: "Month and year are required" });
     }
+
     // Validate userId as ObjectId
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: "Invalid or missing userId" });
@@ -710,7 +710,7 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
     const startDate = new Date(y, m - 1, 1);
     const endDate = new Date(y, m, 0, 23, 59, 59, 999);
 
-    // Fetch user details (add this for admin/manager summary)
+    // Fetch user details (for summary)
     const user = await User.findById(userId, {
       firstName: 1,
       lastName: 1,
@@ -718,13 +718,13 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
       position: 1,
       gender: 1,
       photoUrl: 1,
-      _id: 0,
     }).lean();
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Fetch attendance records with projection
+    // Fetch attendance records, include _id (do NOT exclude)
     const records = await Attendance.find(
       {
         userId,
@@ -743,11 +743,11 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
         punchOutPhoto: 1,
         totalWorkedHours: 1,
         overtime: 1,
-        _id: 0,
+        // no _id: 0 here to keep _id included
       }
     ).lean();
 
-    // Calculate summary only from existing records
+    // Initialize summary counts
     const summary = {
       Present: 0,
       Absent: 0,
@@ -765,8 +765,9 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
       }
     });
 
-    // Prepare daily array only from records
+    // Prepare daily attendance array including _id
     const daily = records.map((rec) => ({
+      _id: rec._id,
       date: new Date(rec.date).toISOString().split("T")[0],
       status: rec.status || "Absent",
       remark: rec.remark || null,
@@ -800,6 +801,7 @@ export const getMonthlyAttendanceSummary = async (req, res) => {
     });
   }
 };
+
 
 export const getSingleUserMonthlyAttendanceSummary = async (req, res) => {
   try {
