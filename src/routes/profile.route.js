@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import {
   getUserProfile,
   updateProfile,
@@ -14,6 +15,7 @@ import {
 } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 // User routes
 router.get(
@@ -24,6 +26,7 @@ router.get(
 router.put( 
   '/updateProfile',
   protect,
+  upload.single('photo'),
   updateProfile,
 );
 router.delete(
@@ -41,6 +44,7 @@ router.get(
 router.put(
   '/updateProfileAdmin',
   protectAdmin,
+  upload.single('photo'),
   updateProfileAdmin,
 );
 router.delete(

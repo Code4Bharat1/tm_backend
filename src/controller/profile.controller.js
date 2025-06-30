@@ -2,6 +2,7 @@
 import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
 import { v2 as cloudinary } from 'cloudinary';
+import { uploadFileToWasabi } from '../utils/wasabi.utils.js';
 
 // Helper function to extract public ID from Cloudinary URL
 const getPublicIdFromUrl = (url) => {
@@ -44,6 +45,25 @@ const deleteFromCloudinary = async (imageUrl) => {
   } catch (error) {
     console.error('Error deleting from Cloudinary:', error);
   }
+};
+
+// Helper to handle Wasabi upload for profile photo
+const uploadProfilePhotoToWasabi = async (file) => {
+  if (!file || !file.buffer || !file.originalname) {
+    console.error('Upload skipped: missing file, buffer, or originalname.', {
+      hasFile: !!file,
+      hasBuffer: !!file?.buffer,
+      hasOriginalName: !!file?.originalname
+    });
+    throw new Error('Missing buffer or originalName for Wasabi upload.');
+  }
+  const { fileUrl } = await uploadFileToWasabi({
+    buffer: file.buffer,
+    originalName: file.originalname,
+    mimetype: file.mimetype,
+    folder: 'profile-photos',
+  });
+  return fileUrl;
 };
 
 const getUserProfile = async (req, res) => {
@@ -113,6 +133,11 @@ const updateProfile = async (req, res) => {
     // Only update photoUrl if it's provided
     if (photoUrl !== undefined) {
       updateData.photoUrl = photoUrl;
+    }
+
+    // Handle file upload if exists
+    if (req.file) {
+      updateData.photoUrl = await uploadProfilePhotoToWasabi(req.file);
     }
 
     const updatedUser =
@@ -237,6 +262,11 @@ const updateProfileAdmin = async (req, res) => {
     // Only update photoUrl if it's provided
     if (photoUrl !== undefined) {
       updateData.photoUrl = photoUrl;
+    }
+
+    // Handle file upload if exists
+    if (req.file) {
+      updateData.photoUrl = await uploadProfilePhotoToWasabi(req.file);
     }
 
     const updatedAdmin =

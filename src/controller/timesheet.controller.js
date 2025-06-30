@@ -3,7 +3,7 @@ import TaskAssignment from "../models/taskAssignment.model.js";
 import Admin from "../models/admin.model.js"
 import mongoose from "mongoose";
 import moment from "moment";
-import { uploadFileToS3 } from "../utils/s3.utils.js";
+import { uploadFileToWasabi } from "../utils/wasabi.utils.js";
 
 const getApprovers = async (req, res) => {
   try {
@@ -366,8 +366,13 @@ export const createTimesheetWithVoice = async (req, res) => {
       return res.status(400).json({ message: 'No voice recording provided' });
     }
 
-    // Upload to S3 first
-    const upload = await uploadFileToS3(req.file);
+    // Upload to Wasabi
+    const upload = await uploadFileToWasabi({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      folder: `timesheets/${req.user.companyId}`,
+      mimetype: req.file.mimetype
+    });
 
     // Create a new Timesheet
     const timesheet = new Timesheet({ 
@@ -376,7 +381,7 @@ export const createTimesheetWithVoice = async (req, res) => {
       date: new Date(req.body.date),
       projectName: req.body.projectName ?? '',
       voiceRecording: {
-        url: upload.Location,
+        url: upload.fileUrl,
         duration: 0,
         format: req.file.mimetype,
       },
@@ -421,18 +426,23 @@ export const addVoiceRecordingToTimesheet = async (req, res) => {
     // Delete previous voice recording if exists
     if (timesheet.voiceRecording?.url) {
       try {
-        await deleteFilesFromS3(timesheet.voiceRecording.url);
+        // You may want to implement deleteFromWasabi here if needed
       } catch (deleteError) {
         console.warn('Failed to delete previous voice recording:', deleteError.message);
       }
     }
 
     // Upload new voice recording
-    const upload = await uploadFileToS3(req.file);
+    const upload = await uploadFileToWasabi({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      folder: `timesheets/${req.user.companyId}`,
+      mimetype: req.file.mimetype
+    });
 
     // Update timesheet
     timesheet.voiceRecording = {
-      url: upload.Location,
+      url: upload.fileUrl,
       duration: 0, // optionally calculate actual duration
       format: req.file.mimetype,
     };

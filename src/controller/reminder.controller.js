@@ -1,5 +1,5 @@
 import Reminder from '../models/reminder.model.js';
-import { uploadFileToS3 } from '../utils/s3.utils.js';
+import { uploadFileToWasabi } from '../utils/wasabi.utils.js';
 
 export const createReminder = async (req, res) => {
     try {
@@ -11,10 +11,15 @@ export const createReminder = async (req, res) => {
         }
 
         const uploadedFiles = await Promise.all(
-            req.files.map((file) => uploadFileToS3(file))
+            req.files.map((file) => uploadFileToWasabi({
+                buffer: file.buffer,
+                originalName: file.originalname,
+                folder: `reminders/${req.user.companyId}`,
+                mimetype: file.mimetype
+            }))
         );
 
-        const documentUrls = uploadedFiles.map((f) => f.Location);
+        const documentUrls = uploadedFiles.map((f) => f.fileUrl);
 
         const reminder = new Reminder({
             name,

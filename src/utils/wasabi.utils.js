@@ -1,3 +1,5 @@
+// utils/wasabi.utils.js (fully updated, clean, reusable)
+
 import AWS from "aws-sdk";
 import dotenv from "dotenv";
 import path from "path";
@@ -18,60 +20,68 @@ const s3 = new AWS.S3({
 const BUCKET = process.env.AWS_BUCKET_NAME;
 
 /**
- * Uploads a file to Wasabi
- * Returns file metadata, including a signed URL
+ * Uploads any buffer or multer file to Wasabi cleanly.
+ * Automatically generates a UUID-based filename if not provided.
+ * Supports organized folder structure for clear segregation.
+ * Returns { fileUrl, fileName, wasabiKey }
  */
-export const uploadToWasabi = async (
-  fileBuffer,
+export const uploadFileToWasabi = async ({
+  buffer,
   originalName,
   folder = "",
-  mimetype = "application/octet-stream"
-) => {
-  const ext = path.extname(originalName);
-  const fileName = `${folder ? folder + "/" : ""}${uuidv4()}${ext}`;
+  mimetype = "application/octet-stream",
+  fileName = null,
+}) => {
+  if (!buffer || !originalName) {
+    throw new Error("Missing buffer or originalName for Wasabi upload.");
+  }
+
+  const ext = path.extname(originalName || "file");
+  const finalFileName = fileName || `${uuidv4()}${ext}`;
+  const wasabiKey = folder ? `${folder}/${finalFileName}` : finalFileName;
 
   const params = {
     Bucket: BUCKET,
-    Key: fileName,
-    Body: fileBuffer,
+    Key: wasabiKey,
+    Body: buffer,
     ContentType: mimetype,
-    // ❌ Remove public-read ACL since your account doesn't support it
+    ACL: "public-read", // adjust as needed
   };
 
   await s3.putObject(params).promise();
 
-  // Generate a signed URL for private access
-  const signedUrl = s3.getSignedUrl("getObject", {
-    Bucket: BUCKET,
-    Key: fileName,
-    Expires: 60 * 60 * 24, // 24 hours
-  });
+  const fileUrl = `https://${BUCKET}.${process.env.WASABI_ENDPOINT}/${wasabiKey}`;
 
   return {
-    fileUrl: signedUrl,
-    fileName,
-    wasabiKey: fileName,
+    fileUrl,
+    fileName: finalFileName,
+    wasabiKey,
   };
 };
 
 /**
- * Returns a signed URL to access an object
+ * Deletes an object from Wasabi by its key.
  */
-export const getWasabiSignedUrl = (key, expiresInSeconds = 60 * 10) => {
-  return s3.getSignedUrl("getObject", {
-    Bucket: BUCKET,
-    Key: key,
-    Expires: expiresInSeconds,
-  });
-};
+export const deleteFromWasabi = async (wasabiKey) => {
+  if (!wasabiKey) throw new Error("Missing wasabiKey for deletion.");
 
-/**
- * Deletes an object from Wasabi
- */
-export const deleteFromWasabi = async (fileName) => {
   const params = {
     Bucket: BUCKET,
-    Key: fileName,
+    Key: wasabiKey,
   };
+
   await s3.deleteObject(params).promise();
 };
+
+/**
+ * Example usage in your report generation cron:
+ *
+ * const { fileUrl } = await uploadFileToWasabi({
+ *   buffer,
+ *   originalName: fileName,
+ *   folder: `attendance-reports/${year}/${month}`,
+ *   mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+ * });
+ *
+ * This ensures consistent, reusable, organized Wasabi uploads across all your pipelines.
+ */

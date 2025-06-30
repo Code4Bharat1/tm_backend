@@ -5,7 +5,10 @@ import User from '../models/user.model.js';
 import Admin from '../models/admin.model.js';
 import { CompanyRegistration } from '../models/companyregistration.model.js';
 import ReportLog from '../models/reportLog.model.js';
-import { uploadFileToS3 } from '../utils/s3.utils.js';
+import { uploadFileToWasabi } from '../utils/wasabi.utils.js';
+
+const todayStart = new Date();
+
 
 export const sendDailyAttendanceReports = async () => {
   try {
@@ -214,14 +217,15 @@ export const sendDailyAttendanceReports = async () => {
       const dateForFileName = todayStart.toISOString().split('T')[0];
       const fileName = `Attendance-${dateForFileName}.xlsx`;
 
-      const fakeFile = {
-        originalname: fileName,
+      const { fileUrl: reportUrl } = await uploadFileToWasabi({
         buffer,
+        originalName: fileName,
+        folder: `attendance-reports/${todayStart.getFullYear()}/${(todayStart.getMonth() + 1)
+          .toString()
+          .padStart(2, '0')}`,
         mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      };
+      });
 
-      // Upload to S3
-      const { Location: reportUrl } = await uploadFileToS3(fakeFile);
       if (!reportUrl) throw new Error('Upload to S3 failed');
 
       // Format phone number
@@ -240,7 +244,7 @@ export const sendDailyAttendanceReports = async () => {
                 { name: '1', value: admin.fullName || companyName },
                 {
                   name: '2',
-                  value: today.toLocaleDateString('en-IN', {
+                  value: todayStart.toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
@@ -273,11 +277,11 @@ export const sendDailyAttendanceReports = async () => {
 
 
       // Log the report
-      await ReportLog.create({ 
-        companyId, 
-        sentTo: admin.phone, 
-        fileName, 
-        status: 'Sent' 
+      await ReportLog.create({
+        companyId,
+        sentTo: admin.phone,
+        fileName,
+        status: 'Sent'
       });
 
       console.log(`✅ Attendance report sent for ${companyName}`);
@@ -419,12 +423,16 @@ export const sendPunchInReport = async (companyId) => {
     const buffer = await workbook.xlsx.writeBuffer();
     const dateForFileName = today.toISOString().split('T')[0];
     const fileName = `PunchInReport-${dateForFileName}.xlsx`;
-    const fakeFile = {
-      originalname: fileName,
+
+    const { fileUrl: reportUrl } = await uploadFileToWasabi({
       buffer,
+      originalName: fileName,
+      folder: `attendance-reports/${todayStart.getFullYear()}/${(todayStart.getMonth() + 1)
+        .toString()
+        .padStart(2, '0')}`,
       mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    };
-    const { Location: reportUrl } = await uploadFileToS3(fakeFile);
+    });
+
     if (!reportUrl) throw new Error('Upload to S3 failed');
     const phone = admin.phone.startsWith('91') ? admin.phone : `91${admin.phone}`;
     await axios.post(
@@ -575,12 +583,15 @@ export const sendPunchOutReport = async (companyId) => {
     const buffer = await workbook.xlsx.writeBuffer();
     const dateForFileName = today.toISOString().split('T')[0];
     const fileName = `PunchOutReport-${dateForFileName}.xlsx`;
-    const fakeFile = {
-      originalname: fileName,
+    const { fileUrl: reportUrl } = await uploadFileToWasabi({
       buffer,
+      originalName: fileName,
+      folder: `attendance-reports/${todayStart.getFullYear()}/${(todayStart.getMonth() + 1)
+        .toString()
+        .padStart(2, '0')}`,
       mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    };
-    const { Location: reportUrl } = await uploadFileToS3(fakeFile);
+    });
+
     if (!reportUrl) throw new Error('Upload to S3 failed');
     const phone = admin.phone.startsWith('91') ? admin.phone : `91${admin.phone}`;
     await axios.post(

@@ -1,25 +1,27 @@
 import express from "express";
 import { upload } from "../middleware/multer.middleware.js";
-import { uploadToWasabi, deleteFromWasabi } from "../utils/wasabi.utils.js";
+import { uploadFileToWasabi, deleteFromWasabi } from "../utils/wasabi.utils.js";
 
 const router = express.Router();
 
+// General upload route
 router.post("/", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
   }
   try {
-    const result = await uploadToWasabi(
-      req.file.buffer,
-      req.file.originalname,
-      undefined,
-      req.file.mimetype,
-    );
+    const result = await uploadFileToWasabi({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      folder: undefined, // or 'uploads' if you want default segregation
+      mimetype: req.file.mimetype,
+    });
+
     res.status(200).json({
       message: "File uploaded successfully to Wasabi",
-      fileName: req.file.originalname,
+      fileName: result.fileName,
       fileUrl: result.fileUrl,
-      wasabiKey: result.fileName,
+      wasabiKey: result.wasabiKey,
       format: req.file.originalname.split(".").pop().toLowerCase(),
       fileResourceType: req.file.mimetype.split("/")[0],
     });
@@ -33,7 +35,7 @@ router.post("/", upload.single("file"), async (req, res) => {
   }
 });
 
-// Profile image specific upload with better folder organization
+// Profile image upload with better folder organization
 router.post("/profile", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
@@ -44,17 +46,18 @@ router.post("/profile", upload.single("file"), async (req, res) => {
       .json({ message: "Only image files are allowed for profile pictures" });
   }
   try {
-    const result = await uploadToWasabi(
-      req.file.buffer,
-      req.file.originalname,
-      "profile-images",
-      req.file.mimetype,
-    );
+    const result = await uploadFileToWasabi({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      folder: "profile-images",
+      mimetype: req.file.mimetype,
+    });
+
     res.status(200).json({
       message: "Profile image uploaded successfully to Wasabi",
-      fileName: req.file.originalname,
+      fileName: result.fileName,
       fileUrl: result.fileUrl,
-      wasabiKey: result.fileName,
+      wasabiKey: result.wasabiKey,
       format: req.file.originalname.split(".").pop().toLowerCase(),
       fileResourceType: "image",
     });
