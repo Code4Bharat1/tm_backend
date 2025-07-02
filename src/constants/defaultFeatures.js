@@ -68,6 +68,7 @@ export const planFeature = {
       'timesheet',
       'zoom',
       'memo',
+      'site-visit',
     ],
   },
 };
