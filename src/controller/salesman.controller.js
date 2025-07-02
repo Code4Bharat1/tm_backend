@@ -1,5 +1,6 @@
 import SalesmanVisit from "../models/salesman.model.js";
 import User from "../models/user.model.js";
+import { uploadFileToWasabi } from "../utils/wasabi.utils.js";
 
 export const isSalesman = async (userId) => {
   const user = await User.findById(userId);
@@ -11,7 +12,20 @@ export const punchIn = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
     const { latitude, longitude, notes } = req.body;
-    const photoPath = req.file ? req.file.path : null; // Cloudinary URL
+    let photoUrl = null;
+    if (req.file && req.file.buffer && req.file.originalname) {
+      try {
+        const uploadResult = await uploadFileToWasabi({
+          buffer: req.file.buffer,
+          originalName: req.file.originalname,
+          folder: `salesman-punchin/${userId}`,
+          mimetype: req.file.mimetype,
+        });
+        photoUrl = uploadResult.fileUrl;
+      } catch (uploadErr) {
+        return res.status(500).json({ error: "Failed to upload image to Wasabi", details: uploadErr.message });
+      }
+    }
 
     if (!(await isSalesman(userId))) {
       return res
@@ -39,7 +53,7 @@ export const punchIn = async (req, res) => {
 
     visitDoc.visits.push({
       punchIn: new Date(),
-      punchInPhoto: photoPath,
+      punchInPhoto: photoUrl,
       punchInLocation: { latitude, longitude },
       notes,
     });
@@ -59,7 +73,20 @@ export const punchOut = async (req, res) => {
   try {
     const { userId, companyId } = req.user;
     const { latitude, longitude } = req.body;
-    const photoPath = req.file ? req.file.path : null; // Cloudinary URL
+    let photoUrl = null;
+    if (req.file && req.file.buffer && req.file.originalname) {
+      try {
+        const uploadResult = await uploadFileToWasabi({
+          buffer: req.file.buffer,
+          originalName: req.file.originalname,
+          folder: `salesman-punchout/${userId}`,
+          mimetype: req.file.mimetype,
+        });
+        photoUrl = uploadResult.fileUrl;
+      } catch (uploadErr) {
+        return res.status(500).json({ error: "Failed to upload image to Wasabi", details: uploadErr.message });
+      }
+    }
 
     if (!(await isSalesman(userId))) {
       return res
@@ -92,7 +119,7 @@ export const punchOut = async (req, res) => {
     }
 
     lastVisit.punchOut = new Date();
-    lastVisit.punchOutPhoto = photoPath;
+    lastVisit.punchOutPhoto = photoUrl;
     lastVisit.punchOutLocation = { latitude, longitude };
 
     await visitDoc.save();
